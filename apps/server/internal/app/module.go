@@ -2,7 +2,7 @@
 // It must not import any other package from this project.
 package app
 
-import "github.com/go-chi/chi/v5"
+import "github.com/danielgtaylor/huma/v2"
 
 // Module is one feature of the server. See docs/architecture.md section 5.
 type Module interface {
@@ -13,8 +13,9 @@ type Module interface {
 	Provide(s *Services)
 	// Init is phase 2: build use cases and register rules.
 	Init(d *Deps) error
-	// Routes mounts endpoints; the router is already scoped to /api/v1/{name}.
-	Routes(r chi.Router)
+	// Routes registers endpoints with Huma so they appear in OpenAPI; api is
+	// already scoped to /api/v1/{name}.
+	Routes(api huma.API)
 	// Subscribe listens to events from other modules.
 	Subscribe(bus EventBus)
 }

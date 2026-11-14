@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/httpx"
@@ -30,8 +30,10 @@ func (f *fakeModule) Requires() []string     { return f.requires }
 func (f *fakeModule) Provide(*app.Services)  {}
 func (f *fakeModule) Init(*app.Deps) error   { return f.initErr }
 func (f *fakeModule) Subscribe(app.EventBus) {}
-func (f *fakeModule) Routes(r chi.Router) {
-	r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "pong") })
+func (f *fakeModule) Routes(api huma.API) {
+	huma.Get(api, "/ping", func(context.Context, *struct{}) (*struct{ Body string }, error) {
+		return &struct{ Body string }{Body: "pong"}, nil
+	})
 }
 
 func testLogger() *slog.Logger { return slog.New(slog.NewJSONHandler(&bytes.Buffer{}, nil)) }
@@ -78,7 +80,7 @@ func TestMetaListsModulesInStartupOrder(t *testing.T) {
 	if got := strings.Join(metaModules(t, h), ","); got != "auth,task" {
 		t.Fatalf("modules = %s", got)
 	}
-	if rec := getPath(h, "/api/v1/task/ping"); rec.Code != 200 || rec.Body.String() != "pong" {
+	if rec := getPath(h, "/api/v1/task/ping"); rec.Code != 200 || !strings.Contains(rec.Body.String(), "pong") {
 		t.Fatalf("module route = %d %q", rec.Code, rec.Body)
 	}
 }

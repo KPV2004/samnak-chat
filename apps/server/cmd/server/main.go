@@ -145,8 +145,9 @@ func newHandler(logger *slog.Logger, names []string, available []app.Module, in 
 
 	var startErr error
 	r.Route("/api/v1", func(v1 chi.Router) {
-		httpx.RegisterMeta(httpx.NewAPI(v1, version), serviceName, version, started)
-		startErr = reg.Start(enabled, deps, v1)
+		api := httpx.NewAPI(v1, version)
+		httpx.RegisterMeta(api, serviceName, version, started)
+		startErr = reg.Start(enabled, deps, api)
 	})
 	if startErr != nil {
 		return nil, fmt.Errorf("start modules: %w", startErr)

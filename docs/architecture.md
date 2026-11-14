@@ -132,7 +132,7 @@ type Module interface {
     Requires() []string        // modules this one cannot run without
     Provide(s *Services)       // phase 1: expose services to other modules
     Init(d *Deps) error        // phase 2: build use cases, register rules
-    Routes(r chi.Router)       // mount endpoints under /api/v1/{name}
+    Routes(api huma.API)       // register endpoints under /api/v1/{name}, so they appear in OpenAPI
     Subscribe(bus EventBus)    // listen to events from other modules
 }
 ```

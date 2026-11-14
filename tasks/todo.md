@@ -158,9 +158,9 @@ Planner notes from checkpoint A:
 - [x] `make up && make migrate && make server` → `GET /api/v1/meta` returns 200 with `modules: []`, `/readyz` 200 (checked with curl)
 - [ ] The web page shows the modules from `/meta` in a browser (component tests pass with mocked fetch; not yet checked in a real browser)
 - [x] An unknown or unsatisfied module stops the server with exit 1 and a message naming it (tests and manual run)
-- [ ] Decide how module endpoints reach OpenAPI (see below), then break M1 into tasks in this file
+- [x] Decide how module endpoints reach OpenAPI (see below), then break M1 into tasks in this file
 
 Planner notes from checkpoint M0:
 - `cmd/server` has a temporary `skipUnbuiltCoreModules`: core names without a registered module are dropped with a warning. Delete it when auth, workspace, chat and notify exist (M1–M3).
 - `.env.example` now leaves `MODULES_ENABLED` empty, because optional modules don't exist yet.
-- Open contract decision before M1: `Module.Routes(r chi.Router)` gives modules no Huma handle, so their endpoints would not appear in OpenAPI. Proposed fix: change it to `Routes(api huma.API)`, with the registry passing a Huma group prefixed by `/{name}`.
+- Open contract decision before M1: `Module.Routes(r chi.Router)` gives modules no Huma handle, so their endpoints would not appear in OpenAPI. Decided and done: `Routes(api huma.API)`, with the registry passing a Huma group prefixed by `/{name}` (`Registry.Start` now takes a `huma.API`). Note: `server openapi` registers only `/meta`; when the first module lands, decide how the spec command builds module routes without a database.
