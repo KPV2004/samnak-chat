@@ -390,11 +390,11 @@ Details and rejected alternatives are in [`adr/`](./adr/).
 
 | No. | Decision | Reason in brief |
 | --- | --- | --- |
-| 0001 | Modular monolith instead of microservices | Easy for a small team to run, and modules can be split out later |
-| 0002 | Clean Architecture inside each module | Business rules can be tested without a database |
-| 0003 | Event bus with an outbox | Modules stay decoupled and events survive a crash |
-| 0004 | Chi on `net/http` | Works with every standard Go library |
-| 0005 | sqlc instead of an ORM | Explicit SQL with compile-time type checks |
-| 0006 | River instead of a separate queue | Reuses PostgreSQL and enqueues inside transactions |
-| 0007 | Per-channel `seq` and `client_msg_id` | No duplicates and the same order on every device |
-| 0008 | Web separate from mobile, sharing `packages/core` | Each platform gets a fitting UI without duplicating logic |
+| [0001](./adr/0001-modular-monolith.md) | Modular monolith instead of microservices | Easy for a small team to run, and modules can be split out later |
+| [0002](./adr/0002-clean-architecture-per-module.md) | Clean Architecture inside each module | Business rules can be tested without a database |
+| [0003](./adr/0003-event-bus-with-outbox.md) | Event bus with an outbox | Modules stay decoupled and events survive a crash |
+| [0004](./adr/0004-chi-on-net-http.md) | Chi on `net/http` | Works with every standard Go library |
+| [0005](./adr/0005-sqlc-instead-of-orm.md) | sqlc instead of an ORM | Explicit SQL with compile-time type checks |
+| [0006](./adr/0006-river-job-queue.md) | River instead of a separate queue | Reuses PostgreSQL and enqueues inside transactions |
+| [0007](./adr/0007-per-channel-seq-and-client-msg-id.md) | Per-channel `seq` and `client_msg_id` | No duplicates and the same order on every device |
+| [0008](./adr/0008-web-and-mobile-separate-shared-core.md) | Web separate from mobile, sharing `packages/core` | Each platform gets a fitting UI without duplicating logic |
