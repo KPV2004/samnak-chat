@@ -39,3 +39,21 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm test
+
+  # The committed OpenAPI spec and the TypeScript types generated from it must
+  # match the server code. Run `make openapi` locally and commit the result.
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: make openapi
+      - run: git diff --exit-code apps/server/api packages/core/src/api
