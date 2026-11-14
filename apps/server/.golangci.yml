@@ -1,0 +1,23 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - depguard
+  settings:
+    depguard:
+      rules:
+        app-is-leaf:
+          files: ["**/internal/app/**"]
+          deny:
+            - pkg: github.com/KPV2004/samnak-chat/apps/server/internal/platform
+              desc: internal/app imports nothing from this project
+            - pkg: github.com/KPV2004/samnak-chat/apps/server/internal/modules
+              desc: internal/app imports nothing from this project
+        platform-knows-no-feature:
+          files: ["**/internal/platform/**"]
+          deny:
+            - pkg: github.com/KPV2004/samnak-chat/apps/server/internal/modules
+              desc: internal/platform knows no feature
+# Cross-module imports of domain, usecase and adapter are enforced
+# for every module by internal/archtest (run by go test).
