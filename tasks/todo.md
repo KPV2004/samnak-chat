@@ -88,7 +88,7 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 
 ---
 
-## [ ] M0-07 cmd/server: wiring, /meta, graceful shutdown, OpenAPI
+## [x] M0-07 cmd/server: wiring, /meta, graceful shutdown, OpenAPI
 **SRS:** PLT-01, 02, 06, NFR-11, NFR-13 · **Arch:** 5.2, 7 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** M0-01..05 merged (wave 2)
 
 **Acceptance criteria**
@@ -144,7 +144,7 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 ## Checkpoint A: after wave 1 (planner)
 - [x] All wave-1 branches merged into `main`; `go mod tidy` clean
 - [x] `go build ./... && go vet ./... && go test -race ./...` pass; `npm run build && npm test` pass; `golangci-lint run` 0 issues
-- [ ] CI green on `main`
+- [x] CI green on `main` (run on 4917c4e)
 
 Planner notes from checkpoint A:
 - Added `app.ErrUnauthorized` and `app.ErrRateLimited`, mapped by httpx to 401 and 429.
@@ -155,6 +155,12 @@ Planner notes from checkpoint A:
 - Postgres host port is overridable with `POSTGRES_PORT`.
 
 ## Checkpoint M0: SRS 16.3 acceptance (planner)
-- [ ] `make up && make migrate && make server && make web` → the web page shows the enabled modules from `/meta`
-- [ ] Setting a module whose dependency is missing stops the server with a message naming the module
-- [ ] Break M1 into tasks in this file
+- [x] `make up && make migrate && make server` → `GET /api/v1/meta` returns 200 with `modules: []`, `/readyz` 200 (checked with curl)
+- [ ] The web page shows the modules from `/meta` in a browser (component tests pass with mocked fetch; not yet checked in a real browser)
+- [x] An unknown or unsatisfied module stops the server with exit 1 and a message naming it (tests and manual run)
+- [ ] Decide how module endpoints reach OpenAPI (see below), then break M1 into tasks in this file
+
+Planner notes from checkpoint M0:
+- `cmd/server` has a temporary `skipUnbuiltCoreModules`: core names without a registered module are dropped with a warning. Delete it when auth, workspace, chat and notify exist (M1–M3).
+- `.env.example` now leaves `MODULES_ENABLED` empty, because optional modules don't exist yet.
+- Open contract decision before M1: `Module.Routes(r chi.Router)` gives modules no Huma handle, so their endpoints would not appear in OpenAPI. Proposed fix: change it to `Routes(api huma.API)`, with the registry passing a Huma group prefixed by `/{name}`.
