@@ -1,6 +1,5 @@
-// Hand-written until apps/server/api/openapi.yaml exists; replace with generated types (npm run gen:api).
-export interface Meta {
-  name: string;
-  version: string;
-  modules: string[];
-}
+// The Meta type comes from the server's OpenAPI document (npm run gen:api).
+// This file only re-exports it under a stable name.
+import type { components } from "./schema";
+
+export type Meta = components["schemas"]["MetaBody"];
