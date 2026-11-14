@@ -5,7 +5,7 @@ Server paths are relative to `apps/server/`. Verify server tasks with `go build 
 
 ---
 
-## [ ] M0-01 platform/config: read configuration from the environment
+## [x] M0-01 platform/config: read configuration from the environment
 **SRS:** PLT-01 · **Arch:** 3.2, 7 · **Tier:** low (Sonnet) · **Size:** S · **Depends on:** none
 
 Load all settings from environment variables into a typed `Config` struct. Parse `MODULES_ENABLED` (comma-separated, trimmed, lower-cased, de-duplicated) and always add the core modules from `app.CoreModules`.
@@ -20,7 +20,7 @@ Load all settings from environment variables into a typed `Config` struct. Parse
 
 ---
 
-## [ ] M0-02 platform/eventbus: in-memory event bus
+## [x] M0-02 platform/eventbus: in-memory event bus
 **SRS:** PLT-04 · **Arch:** 6.1 · **Tier:** low (Sonnet) · **Size:** S · **Depends on:** none
 
 Implement `app.EventBus` in memory. The outbox implementation comes in M4 (PLT-10).
@@ -35,7 +35,7 @@ Implement `app.EventBus` in memory. The outbox implementation comes in M4 (PLT-1
 
 ---
 
-## [ ] M0-03 app.Registry: dependency check, ordering and startup
+## [x] M0-03 app.Registry: dependency check, ordering and startup
 **SRS:** PLT-01, 02, 03, 05 · **Arch:** 5.1, 5.2, 7 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** none
 
 Complete `internal/app/registry.go`. This is the one task allowed to edit `internal/app`, and only `registry.go` and `registry_test.go`.
@@ -50,7 +50,7 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 
 ---
 
-## [ ] M0-04 platform/httpx: router, middleware and error mapping
+## [x] M0-04 platform/httpx: router, middleware and error mapping
 **SRS:** NFR-11, NFR-14, 14.1 · **Arch:** 3.2 · **Tier:** low (Sonnet) · **Size:** M · **Depends on:** none
 
 **Acceptance criteria**
@@ -64,7 +64,7 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 
 ---
 
-## [ ] M0-05 platform/database: pgx pool and TxManager
+## [x] M0-05 platform/database: pgx pool and TxManager
 **SRS:** PLT-07 · **Arch:** 3.2, 8.3 · **Tier:** low (Sonnet) · **Size:** M · **Depends on:** none
 
 **Acceptance criteria**
@@ -75,7 +75,7 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 
 **Files:** `internal/platform/database/`
 
-## [ ] M0-06 cmd/migrate: per-module migrations and the outbox table
+## [x] M0-06 cmd/migrate: per-module migrations and the outbox table
 **SRS:** PLT-07, PLT-10 (table only) · **Arch:** 8.2 · **Tier:** low (Sonnet) · **Size:** M · **Depends on:** M0-01, M0-05 (same session as M0-05)
 
 **Acceptance criteria**
@@ -101,7 +101,7 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 
 ---
 
-## [ ] M0-08 Dev stack, Dockerfile, CI and module-boundary check
+## [x] M0-08 Dev stack, Dockerfile, CI and module-boundary check
 **SRS:** PLT-08, NFR-15 · **Arch:** 4 · **Tier:** low (Sonnet) · **Size:** M · **Depends on:** none
 
 **Acceptance criteria**
@@ -115,7 +115,7 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 
 ---
 
-## [ ] M0-09 Web and packages/core skeleton
+## [x] M0-09 Web and packages/core skeleton
 **SRS:** NFR-13, NFR-16, NFR-17 · **Arch:** 13 · **Tier:** low (Sonnet) · **Size:** M · **Depends on:** none (uses the `/meta` contract in `tasks/plan.md`)
 
 **Acceptance criteria**
@@ -129,7 +129,7 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 
 ---
 
-## [ ] M0-10 Decision records 0001–0008
+## [x] M0-10 Decision records 0001–0008
 **SRS:** NFR-18 · **Arch:** 16 · **Tier:** low (Haiku) · **Size:** S · **Depends on:** none
 
 **Acceptance criteria**
@@ -142,9 +142,17 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 ---
 
 ## Checkpoint A: after wave 1 (planner)
-- [ ] All wave-1 branches merged into `main`; `go mod tidy` clean
-- [ ] `go build ./... && go vet ./... && go test -race ./...` pass; `npm run build && npm test` pass
+- [x] All wave-1 branches merged into `main`; `go mod tidy` clean
+- [x] `go build ./... && go vet ./... && go test -race ./...` pass; `npm run build && npm test` pass; `golangci-lint run` 0 issues
 - [ ] CI green on `main`
+
+Planner notes from checkpoint A:
+- Added `app.ErrUnauthorized` and `app.ErrRateLimited`, mapped by httpx to 401 and 429.
+- `Registry.Enable` does not add core modules; `cmd/server` passes `config.Modules`, which already includes them (M0-07).
+- `httpx.NewRouter` mounts `/healthz`; `/readyz` is mounted with `httpx.MountReadiness(r, checks...)` (M0-07).
+- `cmd/migrate` keeps its own `loadSettings`, because `config.Load` also requires `JWT_SECRET`.
+- MinIO uses `bitnamilegacy/minio:latest`, since the official images no longer pull. Pin a tag or choose a maintained image before v0.1.
+- Postgres host port is overridable with `POSTGRES_PORT`.
 
 ## Checkpoint M0: SRS 16.3 acceptance (planner)
 - [ ] `make up && make migrate && make server && make web` → the web page shows the enabled modules from `/meta`

@@ -78,12 +78,16 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, app.ErrInvalid):
 		status, code = http.StatusBadRequest, "invalid"
+	case errors.Is(err, app.ErrUnauthorized):
+		status, code = http.StatusUnauthorized, "unauthorized"
 	case errors.Is(err, app.ErrForbidden):
 		status, code = http.StatusForbidden, "forbidden"
 	case errors.Is(err, app.ErrNotFound):
 		status, code = http.StatusNotFound, "not_found"
 	case errors.Is(err, app.ErrConflict):
 		status, code = http.StatusConflict, "conflict"
+	case errors.Is(err, app.ErrRateLimited):
+		status, code = http.StatusTooManyRequests, "rate_limited"
 	}
 	if status == http.StatusInternalServerError {
 		slog.Default().ErrorContext(r.Context(), "request failed", "request_id", RequestID(r.Context()), "error", err)

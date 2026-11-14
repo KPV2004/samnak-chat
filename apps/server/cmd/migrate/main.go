@@ -25,8 +25,8 @@ type settings struct {
 	Modules     []string
 }
 
-// loadSettings reads the two variables migrate needs.
-// The planner swaps this for config.Load() once M0-01 is merged.
+// loadSettings reads only the two variables migrate needs. config.Load is not
+// used because it also requires server secrets such as JWT_SECRET.
 func loadSettings() (settings, error) {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
@@ -71,7 +71,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if err := db.PingContext(ctx); err != nil {
 		return fmt.Errorf("ping: %w", err)
 	}

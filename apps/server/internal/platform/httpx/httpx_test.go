@@ -31,7 +31,9 @@ func TestWriteError(t *testing.T) {
 		code   string
 	}{
 		{"invalid", app.ErrInvalid, 400, "invalid"},
+		{"unauthorized", app.ErrUnauthorized, 401, "unauthorized"},
 		{"forbidden", app.ErrForbidden, 403, "forbidden"},
+		{"rate limited", app.ErrRateLimited, 429, "rate_limited"},
 		{"not found", app.ErrNotFound, 404, "not_found"},
 		{"conflict", app.ErrConflict, 409, "conflict"},
 		{"wrapped", fmt.Errorf("channel: %w", app.ErrNotFound), 404, "not_found"},
