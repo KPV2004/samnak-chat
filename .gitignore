@@ -1,0 +1,19 @@
+# Go
+/apps/server/bin/
+*.test
+coverage.out
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+# Env and local
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+# Tauri / Expo
+apps/desktop/src-tauri/target/
+apps/mobile/.expo/
