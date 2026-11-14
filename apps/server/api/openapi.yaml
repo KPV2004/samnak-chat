@@ -1,0 +1,77 @@
+components:
+  schemas:
+    ApiError:
+      additionalProperties: false
+      properties:
+        error:
+          $ref: "#/components/schemas/ApiErrorBody"
+      required:
+        - error
+      type: object
+    ApiErrorBody:
+      additionalProperties: false
+      properties:
+        code:
+          description: Machine-readable error code
+          examples:
+            - not_found
+          type: string
+        message:
+          description: Human-readable description
+          examples:
+            - channel not found
+          type: string
+      required:
+        - code
+        - message
+      type: object
+    MetaBody:
+      additionalProperties: false
+      properties:
+        modules:
+          description: Enabled modules in startup order
+          examples:
+            - - auth
+              - chat
+          items:
+            type: string
+          type: array
+        name:
+          examples:
+            - samnak-chat
+          type: string
+        version:
+          examples:
+            - 0.0.0-dev
+          type: string
+      required:
+        - name
+        - version
+        - modules
+      type: object
+info:
+  title: Samnak Chat API
+  version: 0.0.0-dev
+openapi: 3.1.0
+paths:
+  /meta:
+    get:
+      operationId: get-meta
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetaBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      summary: Server name, version and enabled modules
+      tags:
+        - platform
+servers:
+  - url: /api/v1

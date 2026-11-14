@@ -3,6 +3,7 @@ module github.com/KPV2004/samnak-chat/apps/server
 go 1.26.4
 
 require (
+	github.com/danielgtaylor/huma/v2 v2.40.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/pressly/goose/v3 v3.30.1
