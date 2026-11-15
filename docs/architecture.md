@@ -131,8 +131,8 @@ type Module interface {
     Name() string
     Requires() []string        // modules this one cannot run without
     Provide(s *Services)       // phase 1: expose services to other modules
-    Init(d *Deps) error        // phase 2: build use cases, register rules
-    Routes(r chi.Router)       // mount endpoints under /api/v1/{name}
+    Init(d *Deps) error        // phase 2: build use cases, register rules (no I/O)
+    Routes(api huma.API)       // register Huma operations under /api/v1/{name}
     Subscribe(bus EventBus)    // listen to events from other modules
 }
 ```

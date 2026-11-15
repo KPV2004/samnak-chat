@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 )
 
 // Registry checks dependencies, orders modules and starts them.
@@ -75,9 +75,10 @@ func (r *Registry) Enable(names []string) ([]Module, error) {
 
 // Start runs the startup sequence on mods, which must come from Enable.
 // Provide runs on every module before any Init, so Init can look up services
-// of modules ordered after it. Routes are mounted under "/{name}" on r, so a
-// module that is not in mods has no routes and answers 404.
-func (r *Registry) Start(mods []Module, d *Deps, router chi.Router) error {
+// of modules ordered after it. Routes are registered on a group of api
+// prefixed with "/{name}", so a module that is not in mods has no routes and
+// answers 404.
+func (r *Registry) Start(mods []Module, d *Deps, api huma.API) error {
 	if d == nil || d.Services == nil {
 		return errors.New("start modules: Deps and Deps.Services are required")
 	}
@@ -90,7 +91,7 @@ func (r *Registry) Start(mods []Module, d *Deps, router chi.Router) error {
 		}
 	}
 	for _, m := range mods {
-		router.Route("/"+m.Name(), m.Routes)
+		m.Routes(huma.NewGroup(api, "/"+m.Name()))
 	}
 	for _, m := range mods {
 		m.Subscribe(d.Bus)

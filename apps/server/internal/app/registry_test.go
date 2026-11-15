@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -38,12 +41,26 @@ func (f *fakeModule) Init(d *Deps) error {
 	return nil
 }
 
-func (f *fakeModule) Routes(r chi.Router) {
+type pingOutput struct{ Body []byte }
+
+func (f *fakeModule) Routes(api huma.API) {
 	f.record("routes")
-	r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("pong from " + f.name))
+	huma.Register(api, huma.Operation{
+		OperationID: f.name + "-ping",
+		Method:      http.MethodGet,
+		Path:        "/ping",
+	}, func(context.Context, *struct{}) (*pingOutput, error) {
+		return &pingOutput{Body: []byte("pong from " + f.name)}, nil
 	})
 }
+
+// newTestAPI returns a Huma API and the router that serves it.
+func newTestAPI() (huma.API, chi.Router) {
+	r := chi.NewRouter()
+	return humachi.New(r, huma.DefaultConfig("test", "0")), r
+}
+
+func testAPI() huma.API { api, _ := newTestAPI(); return api }
 
 func (f *fakeModule) Subscribe(EventBus) { f.record("subscribe") }
 
@@ -164,7 +181,7 @@ func TestStartRunsPhasesInOrder(t *testing.T) {
 		t.Fatalf("Enable: %v", err)
 	}
 	d := &Deps{Services: NewServices()}
-	if err := reg.Start(mods, d, chi.NewRouter()); err != nil {
+	if err := reg.Start(mods, d, testAPI()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 
@@ -207,7 +224,7 @@ func TestStartProvideBeforeInit(t *testing.T) {
 	if names(mods)[0] != "a" {
 		t.Fatalf("test setup: a must be ordered first, got %v", names(mods))
 	}
-	if err := reg.Start(mods, &Deps{Services: NewServices()}, chi.NewRouter()); err != nil {
+	if err := reg.Start(mods, &Deps{Services: NewServices()}, testAPI()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	if got != "hello" {
@@ -228,7 +245,7 @@ func TestStartInitErrorWrappedWithModuleName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Enable: %v", err)
 	}
-	err = reg.Start(mods, &Deps{Services: NewServices()}, chi.NewRouter())
+	err = reg.Start(mods, &Deps{Services: NewServices()}, testAPI())
 	if err == nil {
 		t.Fatal("want error, got nil")
 	}
@@ -252,8 +269,8 @@ func TestStartMountsRoutesUnderModuleName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Enable: %v", err)
 	}
-	r := chi.NewRouter()
-	if err := reg.Start(mods, &Deps{Services: NewServices()}, r); err != nil {
+	api, r := newTestAPI()
+	if err := reg.Start(mods, &Deps{Services: NewServices()}, api); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 
@@ -281,10 +298,37 @@ func TestStartMountsRoutesUnderModuleName(t *testing.T) {
 func TestStartRequiresDeps(t *testing.T) {
 	reg := NewRegistry(fake("a"))
 	mods, _ := reg.Enable([]string{"a"})
-	if err := reg.Start(mods, nil, chi.NewRouter()); err == nil {
+	if err := reg.Start(mods, nil, testAPI()); err == nil {
 		t.Fatal("want error for nil Deps")
 	}
-	if err := reg.Start(mods, &Deps{}, chi.NewRouter()); err == nil {
+	if err := reg.Start(mods, &Deps{}, testAPI()); err == nil {
 		t.Fatal("want error for nil Deps.Services")
 	}
+}
+
+func TestStartPublishesModuleOperationsInOpenAPI(t *testing.T) {
+	reg := NewRegistry(fake("chat"), fake("off"))
+	mods, err := reg.Enable([]string{"chat"})
+	if err != nil {
+		t.Fatalf("Enable: %v", err)
+	}
+	api := testAPI()
+	if err := reg.Start(mods, &Deps{Services: NewServices()}, api); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	paths := api.OpenAPI().Paths
+	if _, ok := paths["/chat/ping"]; !ok {
+		t.Errorf("OpenAPI paths = %v, want /chat/ping", keys(paths))
+	}
+	if _, ok := paths["/off/ping"]; ok {
+		t.Error("OpenAPI lists /off/ping for a disabled module")
+	}
+}
+
+func keys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }

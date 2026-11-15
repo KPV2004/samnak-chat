@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/httpx"
@@ -30,8 +30,12 @@ func (f *fakeModule) Requires() []string     { return f.requires }
 func (f *fakeModule) Provide(*app.Services)  {}
 func (f *fakeModule) Init(*app.Deps) error   { return f.initErr }
 func (f *fakeModule) Subscribe(app.EventBus) {}
-func (f *fakeModule) Routes(r chi.Router) {
-	r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "pong") })
+
+type pingOutput struct{ Body []byte }
+
+func (f *fakeModule) Routes(api huma.API) {
+	huma.Register(api, huma.Operation{OperationID: f.name + "-ping", Method: http.MethodGet, Path: "/ping"},
+		func(context.Context, *struct{}) (*pingOutput, error) { return &pingOutput{Body: []byte("pong")}, nil })
 }
 
 func testLogger() *slog.Logger { return slog.New(slog.NewJSONHandler(&bytes.Buffer{}, nil)) }
@@ -156,10 +160,10 @@ func TestReadyzReportsFailingCheck(t *testing.T) {
 
 func TestOpenAPIYAMLPrintsSpec(t *testing.T) {
 	var buf bytes.Buffer
-	if err := writeOpenAPI(&buf); err != nil {
+	if err := writeOpenAPI(&buf, []app.Module{&fakeModule{name: "chat"}}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"openapi: 3.", "/meta:", "get-meta"} {
+	for _, want := range []string{"openapi: 3.", "/meta:", "get-meta", "/chat/ping:", "chat-ping"} {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("spec lacks %q", want)
 		}

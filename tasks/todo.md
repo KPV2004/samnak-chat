@@ -1,4 +1,4 @@
-# Task board: M0 project skeleton
+# Task board
 
 Rules for workers are in `AGENTS.md`. The planner ticks boxes after merging.
 Server paths are relative to `apps/server/`. Verify server tasks with `go build ./... && go vet ./... && go test ./...`.
@@ -158,9 +158,104 @@ Planner notes from checkpoint A:
 - [x] `make up && make migrate && make server` → `GET /api/v1/meta` returns 200 with `modules: []`, `/readyz` 200 (checked with curl)
 - [ ] The web page shows the modules from `/meta` in a browser (component tests pass with mocked fetch; not yet checked in a real browser)
 - [x] An unknown or unsatisfied module stops the server with exit 1 and a message naming it (tests and manual run)
-- [ ] Decide how module endpoints reach OpenAPI (see below), then break M1 into tasks in this file
+- [x] Decide how module endpoints reach OpenAPI: `Module.Routes(api huma.API)`; M1 broken down below
 
 Planner notes from checkpoint M0:
 - `cmd/server` has a temporary `skipUnbuiltCoreModules`: core names without a registered module are dropped with a warning. Delete it when auth, workspace, chat and notify exist (M1–M3).
 - `.env.example` now leaves `MODULES_ENABLED` empty, because optional modules don't exist yet.
 - Open contract decision before M1: `Module.Routes(r chi.Router)` gives modules no Huma handle, so their endpoints would not appear in OpenAPI. Proposed fix: change it to `Routes(api huma.API)`, with the registry passing a Huma group prefixed by `/{name}`.
+
+---
+
+# M1: accounts and workspaces
+
+Read the M1 section of `tasks/plan.md` first: it fixes the API shapes, token rules and the contracts below.
+Module layout follows `docs/architecture.md` 5.3. Use sqlc (`go tool sqlc generate`) for queries and goose SQL files for migrations, exported from the module as `var Migrations embed.FS` (files under `migrations/`).
+Do **not** edit `cmd/server`, `cmd/migrate`, `internal/app` or another module; the planner registers modules at checkpoint B. Test the module through its own `module.go` with a Huma test API and a real Postgres (testcontainers), as `cmd/server/main_test.go` does.
+
+## [ ] M1-01 auth: register, login, access tokens, profile
+**SRS:** AUTH-01, 02, 06, 07 · **Arch:** 5.3, 8, 12 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** none
+
+**Acceptance criteria**
+- [ ] Tables `auth_users`, `auth_devices`, `auth_refresh_tokens` per SRS 13 (UUIDv7 IDs, `timestamptz`), email unique case-insensitively
+- [ ] Domain: email normalised (trim, lower-case), password 8–128 chars, argon2id hashing with parameters documented in code, locale `th|en`, timezone validated with `time.LoadLocation`
+- [ ] `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `PATCH /auth/me` as in the plan; duplicate email → 409; wrong email or password → the same 401
+- [ ] Login limit 5 per minute per email and per IP → 429, through a `usecase` port `LoginLimiter` with an in-memory adapter (the Redis one comes from M1-05)
+- [ ] auth provides `app.Authenticator` (JWT verify + device not revoked) and `auth.Directory` in `Provide`
+- [ ] Tests: domain unit tests; API tests for success, invalid input, wrong password, duplicate email, rate limit, expired and tampered JWT
+
+**Files:** `internal/modules/auth/` (except `api.go`, which the planner owns)
+
+## [ ] M1-02 auth: refresh rotation, logout, devices
+**SRS:** AUTH-03, 04, 05 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** M1-01 (same session)
+
+**Acceptance criteria**
+- [ ] `POST /auth/refresh` rotates: the old refresh token is revoked and a new pair issued, in one transaction
+- [ ] Reusing a revoked refresh token → 401 and every token of that device is revoked (test it)
+- [ ] `POST /auth/logout` revokes the current device, or all the user's devices with `all_devices: true`; access tokens of revoked devices fail `Authenticate` at once
+- [ ] `GET /auth/devices` (with `current`) and `DELETE /auth/devices/{id}`; another user's device → 404
+- [ ] `auth_devices.last_seen_at` updates on login and refresh
+
+**Files:** `internal/modules/auth/`
+
+## [ ] M1-03 workspace: workspaces, members, roles, `Can`
+**SRS:** WSP-01, 03, 04, 05, 06, 07, 08 · **Arch:** 8.1, 12 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** none
+
+**Acceptance criteria**
+- [ ] Tables `workspace_workspaces` (slug unique, `^[a-z0-9-]{3,40}$`) and `workspace_members (workspace_id, user_id, role, status, joined_at)`; every query filters on `workspace_id`
+- [ ] `POST /workspace` makes the creator owner; `GET /workspace` lists the caller's active memberships with role
+- [ ] `GET /workspace/members` (cursor pagination, names and emails through `auth.Directory`, falling back to empty strings if Lookup fails), `PATCH` and `DELETE /workspace/members/{userId}`
+- [ ] Domain rules: at least one active owner always remains (409 otherwise); only owners grant or remove the owner role; admins manage everyone else; members and guests cannot manage (403)
+- [ ] `workspace/api.go` exposes `Authorizer` with `Can(p app.Principal, action Action) bool` and the action constants M1 needs; document how later modules add actions
+- [ ] workspace provides `app.MembershipResolver` (active members only, no cache) and `Authorizer`
+- [ ] `events.go`: `MemberRemoved` (`workspace.member_removed`) and `MemberDeactivated` (`workspace.member_deactivated`), published on those changes
+- [ ] Tests: domain unit tests for every role rule; API tests including a user of workspace A getting 403 on workspace B (NFR-06)
+
+**Files:** `internal/modules/workspace/`
+
+## [ ] M1-04 workspace: invites
+**SRS:** WSP-02 · **Tier:** low (Sonnet) · **Size:** M · **Depends on:** M1-03 (same session)
+
+**Acceptance criteria**
+- [ ] Table `workspace_invites` per SRS 13; tokens are 32 random bytes, only the hash is stored, the raw token is returned once on create
+- [ ] `POST`, `GET`, `DELETE /workspace/invites` (admin and owner only) and `POST /workspace/invites/accept`
+- [ ] Expired (7 days), revoked or used invites → 404 on accept; an email invite accepted by a different email → 403; accepting when already a member → 409
+- [ ] The invite cannot grant `owner`
+
+**Files:** `internal/modules/workspace/`
+
+## [ ] M1-05 platform: Redis and rate limiting
+**SRS:** AUTH-06, NFR-04, NFR-07 · **Arch:** 3.2 · **Tier:** low (Sonnet) · **Size:** S · **Depends on:** none
+
+**Acceptance criteria**
+- [ ] `platform/redis`: `Open(ctx, url) (*redis.Client, error)` with ping (go-redis v9)
+- [ ] `platform/ratelimit`: `Limiter` interface `Allow(ctx, key string, limit int, window time.Duration) (bool, error)` with a Redis implementation (fixed window with `INCR` + `EXPIRE` in one pipeline, or sliding window, documented) and an in-memory one
+- [ ] Both implementations pass the same test suite; Redis tests use testcontainers (`redis:7-alpine`)
+
+**Files:** `internal/platform/redis/`, `internal/platform/ratelimit/`
+
+## [ ] M1-06 web: sign-in, session and workspaces
+**SRS:** AUTH-01..05, 07, WSP-01, 02, 04, 05 · **Arch:** 13 · **Tier:** low (Sonnet) · **Size:** L (split into commits) · **Depends on:** none (builds against the API table in `tasks/plan.md`)
+
+**Acceptance criteria**
+- [ ] `packages/core`: a `Session` with a pluggable `TokenStore` (web uses `localStorage`, no DOM types in core); the client sends `Authorization` and `X-Workspace-ID`, refreshes once on 401 with a single in-flight refresh shared by concurrent requests, and signs out when refresh fails; typed calls for every M1 endpoint (hand-written types in `src/api/m1.ts` until checkpoint B)
+- [ ] Web pages: register, login, profile (name, language, time zone), devices (revoke), create workspace, workspace switcher, members (change role, deactivate, remove), invites (create link, copy, revoke), accept invite (`/invite/:token`)
+- [ ] Thai and English strings for every new label; accessible forms (labels, errors announced)
+- [ ] Tests: vitest for refresh single-flight and sign-out; component tests for login and members with mocked fetch
+- [ ] `npm run build && npm test && npm run lint` pass from the root
+
+**Files:** `apps/web/`, `packages/core/`, `package-lock.json`
+
+## [ ] M1-07 Wiring, isolation and acceptance (wave 2)
+**SRS:** NFR-06, 16.3 M1 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** checkpoint B
+
+Details are written at checkpoint B.
+
+## Checkpoint B: after M1 wave 1 (planner)
+- [ ] Branches merged; auth and workspace registered in `cmd/server` and `cmd/migrate`; Redis limiter wired
+- [ ] OpenAPI regenerated; all checks pass; CI green
+
+## Checkpoint M1: SRS 16.3 acceptance (planner)
+- [ ] Two users sign up, one creates a workspace and invites the other, who joins
+- [ ] A user outside the workspace gets 403
+- [ ] A rotated refresh token cannot be reused

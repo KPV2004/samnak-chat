@@ -44,7 +44,7 @@ func main() {
 // realMain returns the exit code, so deferred cleanup runs before os.Exit.
 func realMain() int {
 	if len(os.Args) > 1 && os.Args[1] == "openapi" {
-		if err := writeOpenAPI(os.Stdout); err != nil {
+		if err := writeOpenAPI(os.Stdout, modules); err != nil {
 			fmt.Fprintln(os.Stderr, "openapi:", err)
 			return 1
 		}
@@ -63,11 +63,24 @@ func realMain() int {
 	return 0
 }
 
-// writeOpenAPI prints the OpenAPI document as YAML. It needs no database.
-func writeOpenAPI(w io.Writer) error {
-	r := chi.NewRouter()
-	api := httpx.NewAPI(r, version)
+// writeOpenAPI prints the OpenAPI document as YAML for every module in
+// available. It needs no database: Module.Init must not do I/O.
+func writeOpenAPI(w io.Writer, available []app.Module) error {
+	names := make([]string, 0, len(available))
+	for _, m := range available {
+		names = append(names, m.Name())
+	}
+	reg := app.NewRegistry(available...)
+	enabled, err := reg.Enable(names)
+	if err != nil {
+		return fmt.Errorf("enable modules: %w", err)
+	}
+	logger := slog.New(slog.DiscardHandler)
+	api := httpx.NewAPI(chi.NewRouter(), version)
 	httpx.RegisterMeta(api, serviceName, version, nil)
+	if err := reg.Start(enabled, newDeps(logger, infra{}), api); err != nil {
+		return fmt.Errorf("start modules: %w", err)
+	}
 	spec, err := api.OpenAPI().YAML()
 	if err != nil {
 		return err
@@ -127,7 +140,27 @@ func newHandler(logger *slog.Logger, names []string, available []app.Module, in 
 	r := httpx.NewRouter(logger)
 	httpx.MountReadiness(r, in.Checks...)
 
-	deps := &app.Deps{
+	deps := newDeps(logger, in)
+	started := make([]string, 0, len(enabled))
+	for _, m := range enabled {
+		started = append(started, m.Name())
+	}
+
+	var startErr error
+	r.Route("/api/v1", func(v1 chi.Router) {
+		api := httpx.NewAPI(v1, version)
+		httpx.RegisterMeta(api, serviceName, version, started)
+		startErr = reg.Start(enabled, deps, api)
+	})
+	if startErr != nil {
+		return nil, fmt.Errorf("start modules: %w", startErr)
+	}
+	logger.Info("modules started", "modules", started)
+	return r, nil
+}
+
+func newDeps(logger *slog.Logger, in infra) *app.Deps {
+	return &app.Deps{
 		Logger:        logger,
 		Services:      app.NewServices(),
 		Bus:           eventbus.New(logger),
@@ -138,21 +171,6 @@ func newHandler(logger *slog.Logger, names []string, available []app.Module, in 
 		Tx:       in.Tx,
 		Platform: in.Platform,
 	}
-	started := make([]string, 0, len(enabled))
-	for _, m := range enabled {
-		started = append(started, m.Name())
-	}
-
-	var startErr error
-	r.Route("/api/v1", func(v1 chi.Router) {
-		httpx.RegisterMeta(httpx.NewAPI(v1, version), serviceName, version, started)
-		startErr = reg.Start(enabled, deps, v1)
-	})
-	if startErr != nil {
-		return nil, fmt.Errorf("start modules: %w", startErr)
-	}
-	logger.Info("modules started", "modules", started)
-	return r, nil
 }
 
 // skipUnbuiltCoreModules drops core modules this binary does not contain yet.

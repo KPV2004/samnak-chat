@@ -82,6 +82,9 @@ func NewAPI(r chi.Router, version string) huma.API {
 	cfg.SchemasPath = ""
 	// Without this Huma adds a "$schema" property to every response body.
 	cfg.CreateHooks = nil
+	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"bearer": {Type: "http", Scheme: "bearer", BearerFormat: "JWT"},
+	}
 	return humachi.New(r, cfg)
 }
 
