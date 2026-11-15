@@ -1,14 +1,18 @@
 import { useEffect } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { useT } from "../i18n/useT";
 import { useChat, useChatState } from "../state/chat";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
+import { ThreadPanel } from "./ThreadPanel";
+import { TypingIndicator } from "./typing";
 import { channelTitle, useNameOf } from "./names";
 
 export function ChannelPage() {
   const t = useT();
   const { channelId = "" } = useParams();
+  const [params, setParams] = useSearchParams();
+  const rootId = params.get("thread");
   const chat = useChat();
   const { channels } = useChatState();
   const nameOf = useNameOf();
@@ -35,12 +39,27 @@ export function ChannelPage() {
           <small className="muted">{t("chat.members", { n: channel.member_count })}</small>
         </header>
         <MessageList channelId={channelId} />
+        <TypingIndicator channelId={channelId} />
         {channel.archived_at ? (
           <p className="chat-archived muted">{t("chat.archived")}</p>
         ) : (
           <Composer channelId={channelId} />
         )}
       </div>
+      {rootId && (
+        <ThreadPanel
+          key={rootId}
+          channelId={channelId}
+          rootId={rootId}
+          onClose={() =>
+            setParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete("thread");
+              return next;
+            })
+          }
+        />
+      )}
     </div>
   );
 }
