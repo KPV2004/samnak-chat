@@ -92,10 +92,10 @@ Complete `internal/app/registry.go`. This is the one task allowed to edit `inter
 **SRS:** PLT-01, 02, 06, NFR-11, NFR-13 · **Arch:** 5.2, 7 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** M0-01..05 merged (wave 2)
 
 **Acceptance criteria**
-- [ ] `main.go`: config → logger → db pool → event bus → registry `Enable` (an error stops the process with exit 1 and the message) → `Start` under `/api/v1` → HTTP server; SIGINT/SIGTERM shuts down gracefully with a 15 s timeout
-- [ ] `GET /api/v1/meta` returns the contract in `tasks/plan.md`, served through Huma (`humachi`) so it appears in OpenAPI
-- [ ] `go run ./cmd/server openapi` prints the OpenAPI YAML; `api/openapi.yaml` is committed
-- [ ] API test with `httptest`: `/meta` lists modules; a fake module with a missing dependency makes startup fail with its name
+- [x] `main.go`: config → logger → db pool → event bus → registry `Enable` (an error stops the process with exit 1 and the message) → `Start` under `/api/v1` → HTTP server; SIGINT/SIGTERM shuts down gracefully with a 15 s timeout
+- [x] `GET /api/v1/meta` returns the contract in `tasks/plan.md`, served through Huma (`humachi`) so it appears in OpenAPI
+- [x] `go run ./cmd/server openapi` prints the OpenAPI YAML; `api/openapi.yaml` is committed
+- [x] API test with `httptest`: `/meta` lists modules; a fake module with a missing dependency makes startup fail with its name
 
 **Files:** `cmd/server/`, `api/openapi.yaml`, `internal/platform/httpx/huma.go`
 
@@ -188,12 +188,12 @@ Decisions to confirm:
 
 ---
 
-## [ ] M1-02 platform/redis: client, readiness check and rate limiter
+## [x] M1-02 platform/redis: client, readiness check and rate limiter
 **SRS:** AUTH-06, PLT-08 · **Arch:** 3.2 · **Tier:** low (Sonnet) · **Size:** S · **Depends on:** none
 
-- [ ] `redis.Open(ctx, url)` returns a client and pings it; `Check` for `httpx.MountReadiness`
-- [ ] `RateLimiter.Allow(ctx, key, limit, window) (bool, error)` using a fixed window in Redis; the limiter is an interface so use cases can take a fake
-- [ ] Integration tests with testcontainers (redis:7), skipped with a clear message when Docker is unavailable
+- [x] `redis.Open(ctx, url)` returns a client and pings it; `Check` for `httpx.MountReadiness`
+- [x] `RateLimiter.Allow(ctx, key, limit, window) (bool, error)` using a fixed window in Redis; the limiter is an interface so use cases can take a fake
+- [x] Integration tests with testcontainers (redis:7), skipped with a clear message when Docker is unavailable
 
 **Files:** `internal/platform/redis/`
 
