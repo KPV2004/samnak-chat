@@ -17,10 +17,8 @@ export const chatEn = {
   "chat.loadError": "Could not load your channels.",
   "chat.notFound": "This channel does not exist, or you are not a member.",
   "chat.unknownUser": "Unknown member",
-  "chat.you": "You",
   "chat.members": "{n} members",
   "chat.archived": "This channel is archived. No new messages can be sent.",
-  "chat.channelName": "Channel {name}",
   "chat.mentionChannel": "@channel",
 
   "chat.browse.title": "Browse channels",
@@ -110,10 +108,8 @@ export const chatTh: Record<keyof typeof chatEn, string> = {
   "chat.loadError": "โหลดรายการช่องไม่สำเร็จ",
   "chat.notFound": "ไม่พบช่องนี้ หรือคุณไม่ได้เป็นสมาชิก",
   "chat.unknownUser": "สมาชิกที่ไม่รู้จัก",
-  "chat.you": "คุณ",
   "chat.members": "{n} สมาชิก",
   "chat.archived": "ช่องนี้ถูกเก็บถาวรแล้ว ส่งข้อความใหม่ไม่ได้",
-  "chat.channelName": "ช่อง {name}",
   "chat.mentionChannel": "@channel",
 
   "chat.browse.title": "ดูช่องทั้งหมด",
