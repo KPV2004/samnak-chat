@@ -387,3 +387,22 @@ func (q *Queries) UpdateMessageBody(ctx context.Context, arg UpdateMessageBodyPa
 	}
 	return result.RowsAffected(), nil
 }
+
+const updateMessagePayload = `-- name: UpdateMessagePayload :execrows
+UPDATE chat_messages SET payload = $3
+WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL AND kind <> 'text'
+`
+
+type UpdateMessagePayloadParams struct {
+	WorkspaceID uuid.UUID
+	ID          uuid.UUID
+	Payload     []byte
+}
+
+func (q *Queries) UpdateMessagePayload(ctx context.Context, arg UpdateMessagePayloadParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateMessagePayload, arg.WorkspaceID, arg.ID, arg.Payload)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

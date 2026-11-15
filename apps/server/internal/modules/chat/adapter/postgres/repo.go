@@ -462,7 +462,7 @@ func (r *Repo) MessageByClientID(ctx context.Context, workspaceID, senderID, cli
 	if err != nil {
 		return usecase.MessageView{}, wrap(err, "get message")
 	}
-	return toMessage(gen.GetMessageRow(row)), nil
+	return r.hydrateOne(ctx, q, wid, toMessage(gen.GetMessageRow(row)))
 }
 
 func (r *Repo) Message(ctx context.Context, workspaceID, messageID string) (usecase.MessageView, error) {
@@ -482,7 +482,7 @@ func (r *Repo) Message(ctx context.Context, workspaceID, messageID string) (usec
 	if err != nil {
 		return usecase.MessageView{}, wrap(err, "get message")
 	}
-	return toMessage(row), nil
+	return r.hydrateOne(ctx, q, wid, toMessage(row))
 }
 
 // threadFilter turns an optional root ID into the nullable query argument.
@@ -522,6 +522,9 @@ func (r *Repo) MessagesAfter(ctx context.Context, workspaceID, channelID string,
 	for i, row := range rows {
 		out[i] = toMessage(gen.GetMessageRow(row))
 	}
+	if err := r.hydrate(ctx, q, wid, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -549,6 +552,9 @@ func (r *Repo) MessagesBefore(ctx context.Context, workspaceID, channelID string
 	out := make([]usecase.MessageView, len(rows))
 	for i, row := range rows {
 		out[i] = toMessage(gen.GetMessageRow(row))
+	}
+	if err := r.hydrate(ctx, q, wid, out); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

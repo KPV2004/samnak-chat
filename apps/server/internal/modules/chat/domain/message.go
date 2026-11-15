@@ -56,6 +56,15 @@ func ValidateBody(body string) error {
 	return nil
 }
 
+// ValidateContent checks a new message: a body of 1 to 4,000 characters, or,
+// when the message has attachments, a body that may be blank.
+func ValidateContent(body string, attachments int) error {
+	if attachments > 0 && strings.TrimSpace(body) == "" && utf8.RuneCountInString(body) <= MaxBodyRunes && !strings.ContainsRune(body, 0) {
+		return nil
+	}
+	return ValidateBody(body)
+}
+
 var (
 	mentionUserRe    = regexp.MustCompile(`<@([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})>`)
 	mentionChannelRe = regexp.MustCompile(`<!channel>`)

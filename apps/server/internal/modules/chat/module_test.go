@@ -36,6 +36,11 @@ func TestOperationsAppearInOpenAPIWithoutDatabase(t *testing.T) {
 		"/chat/channels/{id}/messages": {"GET", "POST"},
 		"/chat/channels/{id}/read":     {"POST"},
 		"/chat/messages/{id}":          {"PATCH", "DELETE"},
+
+		"/chat/uploads":                         {"POST"},
+		"/chat/attachments/{id}":                {"GET"},
+		"/chat/messages/{id}/reactions":         {"POST"},
+		"/chat/messages/{id}/reactions/{emoji}": {"DELETE"},
 	}
 	paths := api.OpenAPI().Paths
 	for path, methods := range want {
@@ -53,24 +58,37 @@ func TestOperationsAppearInOpenAPIWithoutDatabase(t *testing.T) {
 	}
 }
 
-// chat provides the CardRegistry contract; until M2-05 every call fails with
-// an error that wraps app.ErrInvalid.
-func TestCardRegistryStub(t *testing.T) {
+// chat provides the CardRegistry contract. Without a database the checks that
+// come before any storage still apply: a kind must be registered under its
+// module's name.
+func TestCardRegistryChecksKinds(t *testing.T) {
 	svc := app.NewServices()
 	chat.New().Provide(svc)
 	cards, ok := app.Lookup[app.CardRegistry](svc)
 	if !ok {
 		t.Fatal("chat does not provide app.CardRegistry")
 	}
-	cards.Register(app.CardKind{Kind: "demo.card", Module: "demo"}) // must not panic
 	ctx := t.Context()
-	if _, err := cards.Post(ctx, app.Card{Kind: "demo.card"}); !errors.Is(err, app.ErrInvalid) {
-		t.Errorf("Post = %v, want ErrInvalid", err)
+	post := func(kind string) error {
+		_, err := cards.Post(ctx, app.Card{Kind: kind, FallbackText: "x"})
+		return err
+	}
+	if err := post("demo.card"); !errors.Is(err, app.ErrInvalid) {
+		t.Errorf("Post of an unregistered kind = %v, want ErrInvalid", err)
+	}
+	for _, bad := range []app.CardKind{
+		{Kind: "other.card", Module: "demo"},
+		{Kind: "democard", Module: "demo"},
+		{Kind: "demo.", Module: "demo"},
+		{Kind: "demo.card", Module: ""},
+		{Kind: "text", Module: "text"},
+	} {
+		cards.Register(bad) // ignored, and must not panic
+		if err := post(bad.Kind); !errors.Is(err, app.ErrInvalid) {
+			t.Errorf("Post after Register(%+v) = %v, want ErrInvalid", bad, err)
+		}
 	}
 	if err := cards.Update(ctx, "w", "m", nil); !errors.Is(err, app.ErrInvalid) {
-		t.Errorf("Update = %v, want ErrInvalid", err)
-	}
-	if _, err := cards.DirectChannel(ctx, "w", nil); !errors.Is(err, app.ErrInvalid) {
-		t.Errorf("DirectChannel = %v, want ErrInvalid", err)
+		t.Errorf("Update with a bad workspace = %v, want ErrInvalid", err)
 	}
 }

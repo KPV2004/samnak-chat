@@ -46,3 +46,7 @@ WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL;
 -- name: SoftDeleteMessage :execrows
 UPDATE chat_messages SET body = '', payload = NULL, fallback_text = '', mentions = '{}', mentions_channel = false, deleted_at = $3
 WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL;
+
+-- name: UpdateMessagePayload :execrows
+UPDATE chat_messages SET payload = $3
+WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL AND kind <> 'text';

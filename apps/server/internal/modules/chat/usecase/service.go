@@ -22,19 +22,21 @@ const (
 // Service holds the chat flows. Every method that acts for a user takes the
 // Principal and reads the workspace from it only.
 type Service struct {
-	tx    app.TxManager
-	repo  Repository
-	ws    Workspace
-	perms Permissions
-	dir   Directory
-	ev    Events
-	log   *slog.Logger
-	now   func() time.Time
+	tx     app.TxManager
+	repo   Repository
+	ws     Workspace
+	perms  Permissions
+	dir    Directory
+	ev     Events
+	store  app.ObjectStorage // nil when object storage is not configured
+	typing *typingLimiter
+	log    *slog.Logger
+	now    func() time.Time
 }
 
 // New builds a Service. now is injected so tests can control time.
-func New(tx app.TxManager, repo Repository, ws Workspace, perms Permissions, dir Directory, ev Events, log *slog.Logger, now func() time.Time) *Service {
-	return &Service{tx: tx, repo: repo, ws: ws, perms: perms, dir: dir, ev: ev, log: log, now: now}
+func New(tx app.TxManager, repo Repository, ws Workspace, perms Permissions, dir Directory, ev Events, store app.ObjectStorage, log *slog.Logger, now func() time.Time) *Service {
+	return &Service{tx: tx, repo: repo, ws: ws, perms: perms, dir: dir, ev: ev, store: store, typing: newTypingLimiter(typingInterval, now), log: log, now: now}
 }
 
 // clock returns the current time in UTC, rounded to what Postgres stores.

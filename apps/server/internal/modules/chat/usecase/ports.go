@@ -3,6 +3,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
@@ -20,10 +21,20 @@ type ChannelView struct {
 	DMUserIDs    []string // members of a direct message, else empty
 }
 
-// MessageView is a message with its thread size.
+// MessageView is a message with its thread size, files and reactions. A
+// deleted message has neither files nor reactions.
 type MessageView struct {
 	domain.Message
-	ReplyCount int64
+	ReplyCount  int64
+	Attachments []domain.Attachment
+	Reactions   []ReactionGroup
+}
+
+// ReactionGroup is the people who used one emoji on a message, oldest first.
+// Groups are ordered by when the emoji first appeared.
+type ReactionGroup struct {
+	Emoji   string
+	UserIDs []string
 }
 
 // Member is a channel member.
@@ -87,6 +98,26 @@ type Repository interface {
 	MessagesBefore(ctx context.Context, workspaceID, channelID string, beforeSeq int64, threadRootID string, limit int) ([]MessageView, error)
 	UpdateMessageBody(ctx context.Context, workspaceID, messageID, body string, mentions []string, mentionsChannel bool, at time.Time) error
 	SoftDeleteMessage(ctx context.Context, workspaceID, messageID string, at time.Time) error
+
+	// AddReaction reports whether the reaction is new.
+	AddReaction(ctx context.Context, workspaceID, messageID, userID, emoji string, at time.Time) (added bool, err error)
+	// RemoveReaction reports whether the reaction existed.
+	RemoveReaction(ctx context.Context, workspaceID, messageID, userID, emoji string) (removed bool, err error)
+
+	InsertAttachment(ctx context.Context, a domain.Attachment) error
+	Attachment(ctx context.Context, workspaceID, attachmentID string) (domain.Attachment, error)
+	// AttachmentsByIDs returns the files that exist, in upload order.
+	AttachmentsByIDs(ctx context.Context, workspaceID string, attachmentIDs []string) ([]domain.Attachment, error)
+	// AttachToMessage links files the uploader put in the channel and that no
+	// message uses yet. It fails with ErrConflict when any file does not
+	// qualify, so the surrounding transaction rolls back.
+	AttachToMessage(ctx context.Context, workspaceID, channelID, uploaderID, messageID string, attachmentIDs []string) error
+
+	// UpdateMessagePayload replaces the payload of a card message.
+	UpdateMessagePayload(ctx context.Context, workspaceID, messageID string, payload json.RawMessage) error
+	// MemberWorkspace returns the workspace of a channel the user is a member
+	// of, or ErrNotFound.
+	MemberWorkspace(ctx context.Context, channelID, userID string) (workspaceID string, err error)
 }
 
 // Workspace answers membership questions through the workspace module.
@@ -112,6 +143,10 @@ type Events interface {
 	MessageCreated(ctx context.Context, ch domain.Channel, m MessageView, recipients []string)
 	MessageUpdated(ctx context.Context, m MessageView, recipients []string)
 	MessageDeleted(ctx context.Context, m MessageView, recipients []string)
+	// CardUpdated tells recipients a card's payload changed (m has the new one).
+	CardUpdated(ctx context.Context, m MessageView, recipients []string)
+	// Typing tells recipients that userID is typing in a channel.
+	Typing(ctx context.Context, workspaceID, channelID, userID string, recipients []string)
 	// ChannelRead goes to the reader's own devices only.
 	ChannelRead(ctx context.Context, v ChannelView, userID string)
 	// ChannelUpdated tells recipients that a channel was created, changed or

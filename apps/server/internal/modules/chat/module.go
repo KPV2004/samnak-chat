@@ -41,8 +41,8 @@ func (*Module) Name() string { return "chat" }
 // service chat needs from them has a safe fallback.
 func (*Module) Requires() []string { return nil }
 
-func (*Module) Provide(s *app.Services) {
-	app.Provide[app.CardRegistry](s, cardStub{})
+func (m *Module) Provide(s *app.Services) {
+	app.Provide[app.CardRegistry](s, newCardRegistry(m))
 }
 
 // Init builds the use cases. It does no I/O: with no "db" in d.Platform (the
@@ -71,8 +71,11 @@ func (m *Module) Init(d *app.Deps) error {
 	}
 	pool, _ := d.Platform["db"].(*pgxpool.Pool)
 	events := rtadapter.New(d.Realtime, m.log, publisher{bus: d.Bus, log: m.log}.messageCreated)
-	m.uc = usecase.New(d.Tx, postgres.New(pool), members{d.Services}, permissions{d.Services}, directory{d.Services}, events, m.log, time.Now)
+	m.uc = usecase.New(d.Tx, postgres.New(pool), members{d.Services}, permissions{d.Services}, directory{d.Services}, events, d.Storage, m.log, time.Now)
 	m.services = d.Services
+	if d.Realtime != nil {
+		d.Realtime.Handle("typing", rtadapter.TypingHandler(m.uc))
+	}
 	return nil
 }
 

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -105,6 +106,12 @@ func (f *fakeMembers) Role(_ context.Context, workspaceID, userID string) (app.R
 	return "", fmt.Errorf("not a member: %w", app.ErrForbidden)
 }
 
+func (f *fakeMembers) remove(workspaceID, userID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.roles, [2]string{workspaceID, userID})
+}
+
 func (f *fakeMembers) set(workspaceID, userID string, r app.Role) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -160,8 +167,9 @@ type delivery struct {
 
 // fakeRealtime records deliveries.
 type fakeRealtime struct {
-	mu   sync.Mutex
-	list []delivery
+	mu       sync.Mutex
+	list     []delivery
+	handlers map[string]app.ClientHandler
 }
 
 func (f *fakeRealtime) SendToUsers(_ context.Context, ids []string, env app.Envelope) error {
@@ -172,7 +180,27 @@ func (f *fakeRealtime) SendToUsers(_ context.Context, ids []string, env app.Enve
 }
 func (f *fakeRealtime) Online(context.Context, []string) ([]string, error) { return nil, nil }
 func (f *fakeRealtime) DisconnectDevice(context.Context, string) error     { return nil }
-func (f *fakeRealtime) Handle(string, app.ClientHandler)                   {}
+
+func (f *fakeRealtime) Handle(typ string, h app.ClientHandler) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.handlers == nil {
+		f.handlers = map[string]app.ClientHandler{}
+	}
+	f.handlers[typ] = h
+}
+
+// client plays a WebSocket client: it hands a frame to the handler chat
+// registered, as the hub does after auth, and returns the handler's error.
+func (f *fakeRealtime) client(typ string, from app.Identity, data string) error {
+	f.mu.Lock()
+	h := f.handlers[typ]
+	f.mu.Unlock()
+	if h == nil {
+		return fmt.Errorf("no handler for %q", typ)
+	}
+	return h(context.Background(), from, json.RawMessage(data))
+}
 
 // of returns the deliveries of one type.
 func (f *fakeRealtime) of(typ string) []delivery {
@@ -191,6 +219,59 @@ func (f *fakeRealtime) reset() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.list = nil
+}
+
+// fakeStorage is an app.ObjectStorage that keeps objects in memory: the test
+// "uploads" with put, and Stat sees what was put.
+type fakeStorage struct {
+	mu      sync.Mutex
+	objects map[string]int64
+	puts    []putCall
+	gets    []getCall
+}
+
+type putCall struct {
+	Key, ContentType string
+	Size             int64
+	TTL              time.Duration
+}
+
+type getCall struct {
+	Key, FileName string
+	TTL           time.Duration
+}
+
+func (f *fakeStorage) PresignPut(_ context.Context, key, contentType string, size int64, ttl time.Duration) (app.PresignedRequest, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.puts = append(f.puts, putCall{key, contentType, size, ttl})
+	return app.PresignedRequest{
+		URL: "https://storage.test/" + key + "?sig=put", Method: "PUT", ExpiresAt: time.Now().Add(ttl),
+		Headers: map[string]string{"Content-Type": contentType, "Content-Length": fmt.Sprint(size)},
+	}, nil
+}
+
+func (f *fakeStorage) PresignGet(_ context.Context, key, fileName string, ttl time.Duration) (app.PresignedRequest, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.gets = append(f.gets, getCall{key, fileName, ttl})
+	return app.PresignedRequest{URL: "https://storage.test/" + key + "?sig=get", Method: "GET", ExpiresAt: time.Now().Add(ttl)}, nil
+}
+
+func (f *fakeStorage) Stat(_ context.Context, key string) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if size, ok := f.objects[key]; ok {
+		return size, nil
+	}
+	return 0, fmt.Errorf("object %q: %w", key, app.ErrNotFound)
+}
+
+// put stores an object as if the client had uploaded it.
+func (f *fakeStorage) put(key string, size int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.objects[key] = size
 }
 
 type eventLog struct {
@@ -232,6 +313,8 @@ type env struct {
 	auth    fakeAuth
 	members *fakeMembers
 	rt      *fakeRealtime
+	cards   app.CardRegistry
+	storage *fakeStorage
 	events  *eventLog
 	bus     *eventbus.Bus
 }
@@ -253,6 +336,7 @@ func newEnvWith(t *testing.T, rt *fakeRealtime) *env {
 	e := &env{
 		t: t, pool: pool, dir: &fakeDirectory{users: map[string]auth.UserSummary{}}, auth: fakeAuth{},
 		members: &fakeMembers{roles: map[[2]string]app.Role{}}, rt: rt, events: &eventLog{},
+		storage: &fakeStorage{objects: map[string]int64{}},
 	}
 	policy := &fakePolicy{allowed: map[workspace.Action]map[app.Role]bool{}}
 	svc := app.NewServices()
@@ -274,7 +358,7 @@ func newEnvWith(t *testing.T, rt *fakeRealtime) *env {
 	}
 	deps := &app.Deps{
 		Logger: logger, Services: svc, Bus: e.bus, Tx: database.NewTxManager(pool),
-		Notifications: app.NoopNotificationRegistry{}, Platform: map[string]any{"db": pool},
+		Notifications: app.NoopNotificationRegistry{}, Platform: map[string]any{"db": pool}, Storage: e.storage,
 	}
 	if rt != nil {
 		deps.Realtime = rt
@@ -288,6 +372,7 @@ func newEnvWith(t *testing.T, rt *fakeRealtime) *env {
 		t.Fatal(startErr)
 	}
 	e.h = r
+	e.cards, _ = app.Lookup[app.CardRegistry](svc)
 	return e
 }
 
@@ -386,6 +471,25 @@ type messageBody struct {
 	MentionsChannel bool     `json:"mentions_channel"`
 	EditedAt        *string  `json:"edited_at"`
 	DeletedAt       *string  `json:"deleted_at"`
+
+	Payload      json.RawMessage  `json:"payload"`
+	FallbackText string           `json:"fallback_text"`
+	Attachments  []attachmentBody `json:"attachments"`
+	Reactions    []reactionBody   `json:"reactions"`
+}
+
+type attachmentBody struct {
+	ID       string `json:"id"`
+	FileName string `json:"file_name"`
+	Size     int64  `json:"size"`
+	MimeType string `json:"mime_type"`
+	IsImage  bool   `json:"is_image"`
+}
+
+type reactionBody struct {
+	Emoji string `json:"emoji"`
+	Count int64  `json:"count"`
+	Me    bool   `json:"me"`
 }
 
 type pageBody struct {
