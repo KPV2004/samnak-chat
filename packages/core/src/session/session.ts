@@ -44,6 +44,15 @@ export interface Session {
   readonly api: M1Api;
   getState(): SessionState;
   subscribe(listener: () => void): () => void;
+  /** The current access token, for connections that authenticate outside `client` (the WebSocket). */
+  getAccessToken(): string | null;
+  /**
+   * Refreshes after `rejectedToken` was refused. Resolves true when a newer token is available,
+   * false when the refresh was refused (which also ends the session).
+   */
+  refreshAccessToken(rejectedToken: string): Promise<boolean>;
+  /** Called after a refresh replaced the access token. */
+  onTokenChange(listener: () => void): () => void;
   register(input: RegisterInput): Promise<User>;
   login(input: LoginInput): Promise<TokenPair>;
   /** Signs out on the server (best effort) and always clears local state. */
@@ -61,6 +70,7 @@ export function createSession(opts: SessionOptions): Session {
   let data = opts.store.load();
   let state = toState(data);
   const listeners = new Set<() => void>();
+  const tokenListeners = new Set<() => void>();
 
   function commit(next: SessionData | null) {
     data = next;
@@ -76,6 +86,7 @@ export function createSession(opts: SessionOptions): Session {
       deviceId: pair.device_id,
       workspaceId,
     });
+    tokenListeners.forEach((l) => l());
   }
 
   let inflight: Promise<void> | null = null;
@@ -117,6 +128,18 @@ export function createSession(opts: SessionOptions): Session {
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    getAccessToken: () => data?.accessToken ?? null,
+    async refreshAccessToken(rejectedToken) {
+      try {
+        return await refresh(rejectedToken);
+      } catch {
+        return false;
+      }
+    },
+    onTokenChange(listener) {
+      tokenListeners.add(listener);
+      return () => tokenListeners.delete(listener);
     },
     register: (input) => api.register(input),
     async login(input) {
