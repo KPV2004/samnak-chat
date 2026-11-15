@@ -145,6 +145,8 @@ type Events interface {
 	MessageDeleted(ctx context.Context, m MessageView, recipients []string)
 	// CardUpdated tells recipients a card's payload changed (m has the new one).
 	CardUpdated(ctx context.Context, m MessageView, recipients []string)
+	// Typing tells recipients that userID is typing in a channel.
+	Typing(ctx context.Context, workspaceID, channelID, userID string, recipients []string)
 	// ChannelRead goes to the reader's own devices only.
 	ChannelRead(ctx context.Context, v ChannelView, userID string)
 	// ChannelUpdated tells recipients that a channel was created, changed or

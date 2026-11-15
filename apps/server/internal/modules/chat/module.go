@@ -73,6 +73,9 @@ func (m *Module) Init(d *app.Deps) error {
 	events := rtadapter.New(d.Realtime, m.log, publisher{bus: d.Bus, log: m.log}.messageCreated)
 	m.uc = usecase.New(d.Tx, postgres.New(pool), members{d.Services}, permissions{d.Services}, directory{d.Services}, events, d.Storage, m.log, time.Now)
 	m.services = d.Services
+	if d.Realtime != nil {
+		d.Realtime.Handle("typing", rtadapter.TypingHandler(m.uc))
+	}
 	return nil
 }
 

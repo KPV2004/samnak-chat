@@ -92,6 +92,16 @@ func (p *Publisher) CardUpdated(ctx context.Context, m usecase.MessageView, reci
 	p.send(ctx, "card.updated", recipients, cardData{WorkspaceID: m.WorkspaceID, ChannelID: m.ChannelID, MessageID: m.ID, Payload: m.Payload})
 }
 
+type typingData struct {
+	WorkspaceID string `json:"workspace_id"`
+	ChannelID   string `json:"channel_id"`
+	UserID      string `json:"user_id"`
+}
+
+func (p *Publisher) Typing(ctx context.Context, workspaceID, channelID, userID string, recipients []string) {
+	p.send(ctx, "typing", recipients, typingData{WorkspaceID: workspaceID, ChannelID: channelID, UserID: userID})
+}
+
 type readData struct {
 	WorkspaceID  string `json:"workspace_id"`
 	ChannelID    string `json:"channel_id"`

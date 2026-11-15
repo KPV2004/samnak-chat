@@ -106,6 +106,12 @@ func (f *fakeMembers) Role(_ context.Context, workspaceID, userID string) (app.R
 	return "", fmt.Errorf("not a member: %w", app.ErrForbidden)
 }
 
+func (f *fakeMembers) remove(workspaceID, userID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.roles, [2]string{workspaceID, userID})
+}
+
 func (f *fakeMembers) set(workspaceID, userID string, r app.Role) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -161,8 +167,9 @@ type delivery struct {
 
 // fakeRealtime records deliveries.
 type fakeRealtime struct {
-	mu   sync.Mutex
-	list []delivery
+	mu       sync.Mutex
+	list     []delivery
+	handlers map[string]app.ClientHandler
 }
 
 func (f *fakeRealtime) SendToUsers(_ context.Context, ids []string, env app.Envelope) error {
@@ -173,7 +180,27 @@ func (f *fakeRealtime) SendToUsers(_ context.Context, ids []string, env app.Enve
 }
 func (f *fakeRealtime) Online(context.Context, []string) ([]string, error) { return nil, nil }
 func (f *fakeRealtime) DisconnectDevice(context.Context, string) error     { return nil }
-func (f *fakeRealtime) Handle(string, app.ClientHandler)                   {}
+
+func (f *fakeRealtime) Handle(typ string, h app.ClientHandler) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.handlers == nil {
+		f.handlers = map[string]app.ClientHandler{}
+	}
+	f.handlers[typ] = h
+}
+
+// client plays a WebSocket client: it hands a frame to the handler chat
+// registered, as the hub does after auth, and returns the handler's error.
+func (f *fakeRealtime) client(typ string, from app.Identity, data string) error {
+	f.mu.Lock()
+	h := f.handlers[typ]
+	f.mu.Unlock()
+	if h == nil {
+		return fmt.Errorf("no handler for %q", typ)
+	}
+	return h(context.Background(), from, json.RawMessage(data))
+}
 
 // of returns the deliveries of one type.
 func (f *fakeRealtime) of(typ string) []delivery {
