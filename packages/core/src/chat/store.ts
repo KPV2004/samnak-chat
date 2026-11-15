@@ -7,9 +7,8 @@ import {
   find,
   mapMessage,
   newChannelState,
-  oldestSeq,
+  applyRead,
   pendingMessage,
-  readUpTo,
   removeMessage,
   upsert,
   type ChannelState,
@@ -48,6 +47,8 @@ export interface ChatStore {
   loadChannels(): Promise<void>;
   /** Loads the newest page the first time, then the next older one. */
   loadHistory(channelId: string, limit?: number): Promise<void>;
+  /** Loads every reply under a top-level message. They join the channel's messages. */
+  loadThread(channelId: string, rootId: string): Promise<void>;
   /** Fetches `after_seq=` pages until `has_more` is false. Runs once at a time per channel. */
   catchUp(channelId: string): Promise<void>;
   /**
@@ -57,6 +58,8 @@ export interface ChatStore {
   send(channelId: string, body: string, options?: SendOptions): { clientMsgId: string; done: Promise<void> };
   /** Sends a failed message again with the same `client_msg_id`. */
   retry(channelId: string, clientMsgId: string): Promise<void>;
+  /** Applies a message a REST call returned (an edit, a delete) as if its event had arrived. */
+  applyMessage(message: Message): void;
   /** Drops a message that was not sent. */
   discard(channelId: string, clientMsgId: string): void;
   markRead(channelId: string): Promise<void>;
@@ -88,6 +91,8 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
   const reading = new Map<string, Promise<void>>();
   const readAgain = new Set<string>();
   let disposed = false;
+  // Bumped by `reset()`: an answer that was asked for before it must not fill the new state.
+  let epoch = 0;
 
   function commit(next: ChatState) {
     state = next;
@@ -118,10 +123,11 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
     if (state.channels[id]) return Promise.resolve();
     let loading = loadingChannel.get(id);
     if (!loading) {
+      const asked = epoch;
       loading = api
         .getChannel(id)
         .then((c) => {
-          if (!state.channels[id]) setChannel(id, newChannelState(c, upToSeq));
+          if (asked === epoch && !state.channels[id]) setChannel(id, newChannelState(c, upToSeq));
         })
         .finally(() => loadingChannel.delete(id));
       loadingChannel.set(id, loading);
@@ -184,10 +190,12 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
   }
 
   async function pull(channelId: string) {
+    const asked = epoch;
     for (;;) {
       const ch = state.channels[channelId];
       if (!ch || disposed) return;
       const page = await api.listMessages(channelId, { after_seq: ch.lastSeq, limit: 100 });
+      if (asked !== epoch) return;
       applyFetched(channelId, page.items);
       if (!page.has_more || page.items.length === 0) break;
     }
@@ -222,33 +230,49 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
     }),
     opts.realtime.on("message.created", (d) => void onMessage(d, true)),
     opts.realtime.on("message.updated", (d) => void onMessage(d, false)),
-    opts.realtime.on("message.deleted", (d) => {
-      if (!inView(d.workspace_id)) return;
-      const deletedAt = d.deleted_at ?? now().toISOString();
-      update(d.channel_id, (ch) =>
-        mapMessage(ch, d.message_id, (m) => (m.deleted_at ? m : { ...m, body: "", deleted_at: deletedAt })),
-      );
-    }),
+    opts.realtime.on("message.deleted", (d) => void onMessage(d, false)),
     opts.realtime.on("card.updated", (d) => {
       if (!inView(d.workspace_id)) return;
       update(d.channel_id, (ch) => mapMessage(ch, d.message_id, (m) => ({ ...m, payload: d.payload })));
     }),
     opts.realtime.on("channel.read", (d) => {
       if (!inView(d.workspace_id)) return;
-      update(d.channel_id, (ch) => readUpTo(ch, d.seq, userId));
+      update(d.channel_id, (ch) => applyRead(ch, d));
+      // A read position beyond what we hold means messages we have not seen.
+      const ch = state.channels[d.channel_id];
+      if (ch && d.last_read_seq > ch.lastSeq) void catchUp(d.channel_id).catch(noop);
     }),
-    opts.realtime.on("channel.updated", (d) => {
-      if (!inView(d.workspace_id)) return;
-      const c = d.channel;
-      const ch = state.channels[c.id];
-      if (!ch) {
-        setChannel(c.id, newChannelState(c));
+    opts.realtime.on("channel.updated", (d) => void onChannelUpdated(d)),
+  ];
+
+  async function onChannelUpdated(d: ServerEventMap["channel.updated"]) {
+    if (!inView(d.workspace_id)) return;
+    const held = state.channels[d.channel_id];
+    if (!held) {
+      // The event has no per-user counts, so a channel we do not know is fetched whole.
+      try {
+        await ensureChannel(d.channel_id, d.last_seq);
+      } catch {
         return;
       }
-      setChannel(c.id, { ...ch, channel: c });
-      if (c.last_seq > ch.lastSeq) void catchUp(c.id).catch(noop); // a message we have not seen
-    }),
-  ];
+      const fetched = state.channels[d.channel_id];
+      if (fetched && !disposed && fetched.channel.last_seq > fetched.lastSeq) void catchUp(d.channel_id).catch(noop);
+      return;
+    }
+    const channel = {
+      ...held.channel,
+      type: d.type,
+      name: d.name,
+      topic: d.topic,
+      last_seq: d.last_seq,
+      member_count: d.member_count,
+      dm_user_ids: d.dm_user_ids,
+      archived_at: d.archived_at,
+      created_at: d.created_at,
+    };
+    setChannel(d.channel_id, { ...held, channel });
+    if (d.last_seq > held.lastSeq) void catchUp(d.channel_id).catch(noop); // a message we have not seen
+  }
 
   // --- reading state ------------------------------------------------------
 
@@ -310,7 +334,9 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
     },
 
     async loadChannels() {
+      const asked = epoch;
       const { items } = await api.listChannels();
+      if (asked !== epoch) return;
       const channels = { ...state.channels };
       const behind: string[] = [];
       for (const c of items) {
@@ -339,10 +365,33 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
     async loadHistory(channelId, limit = 50) {
       const ch = state.channels[channelId];
       if (!ch || ch.hasMoreBefore === false) return;
-      const before = ch.hasMoreBefore === null ? ch.lastSeq + 1 : oldestSeq(ch);
-      if (before === undefined) return;
+      // The first page has no cursor: it is the newest one, whatever we know of last_seq.
+      const before = ch.hasMoreBefore === null ? undefined : (ch.historyBefore ?? undefined);
+      const asked = epoch;
       const page = await api.listMessages(channelId, { before_seq: before, limit });
-      update(channelId, (cur) => ({ ...page.items.reduce(upsert, cur), hasMoreBefore: page.has_more }));
+      if (asked !== epoch) return;
+      const seqs = page.items.map((m) => m.seq);
+      update(channelId, (cur) => ({
+        ...page.items.reduce(upsert, cur),
+        hasMoreBefore: page.has_more,
+        historyBefore: seqs.length > 0 ? Math.min(...seqs) : cur.historyBefore,
+      }));
+      // A page can reach past what the channel list said; the gap between is fetched forward.
+      const now = state.channels[channelId];
+      if (now && seqs.some((q) => q > now.lastSeq)) void catchUp(channelId).catch(noop);
+    },
+
+    async loadThread(channelId, rootId) {
+      const asked = epoch;
+      let before: number | undefined;
+      for (;;) {
+        const page = await api.listMessages(channelId, { thread_root_id: rootId, before_seq: before, limit: 100 });
+        if (asked !== epoch) return;
+        update(channelId, (cur) => page.items.reduce(upsert, cur));
+        const oldest = Math.min(...page.items.map((m) => m.seq));
+        if (!page.has_more || page.items.length === 0 || (before !== undefined && oldest >= before)) return;
+        before = oldest;
+      }
     },
 
     catchUp,
@@ -364,6 +413,13 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
       return post(clientMsgId);
     },
 
+    applyMessage(message) {
+      void onMessage(
+        { workspace_id: opts.getWorkspaceId?.() ?? "", channel_id: message.channel_id, message },
+        false,
+      );
+    },
+
     discard(channelId, clientMsgId) {
       const ch = state.channels[channelId];
       const m = ch?.messages.find((x) => x.id === clientMsgId);
@@ -380,6 +436,7 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
     },
 
     reset() {
+      epoch++;
       drafts.clear();
       commit({ channels: {}, workspaceUnread: {}, activeChannelId: null });
     },

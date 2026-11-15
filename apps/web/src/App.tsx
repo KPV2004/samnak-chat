@@ -1,4 +1,9 @@
 import { Navigate, Route, Routes } from "react-router";
+import { ChannelPage } from "./chat/ChannelPage";
+import { BrowseChannels } from "./chat/BrowseChannels";
+import { ChatHome, ChatLayout } from "./chat/ChatLayout";
+import { NewChannel } from "./chat/NewChannel";
+import { NewDm } from "./chat/NewDm";
 import { Home } from "./Home";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { Devices } from "./pages/Devices";
@@ -17,6 +22,13 @@ export function App() {
       <Route path="/register" element={<Register />} />
       <Route element={<Shell />}>
         <Route index element={<Home />} />
+        <Route path="chat" element={<ChatLayout />}>
+          <Route index element={<ChatHome />} />
+          <Route path="browse" element={<BrowseChannels />} />
+          <Route path="new" element={<NewChannel />} />
+          <Route path="dm" element={<NewDm />} />
+          <Route path=":channelId" element={<ChannelPage />} />
+        </Route>
         <Route path="members" element={<Members />} />
         <Route path="invites" element={<Invites />} />
         <Route path="profile" element={<Profile />} />

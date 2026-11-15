@@ -60,4 +60,41 @@ describe("m2 api", () => {
     await api.leaveChannel("c1");
     expect(last()).toMatchObject({ url: "http://x/api/v1/chat/channels/c1/leave", method: "POST" });
   });
+
+  it("adds and removes a reaction, encoding the emoji", async () => {
+    const { api, last } = setup(204);
+    await api.addReaction("m1", "👍");
+    expect(last()).toMatchObject({ url: "http://x/api/v1/chat/messages/m1/reactions", method: "POST", body: { emoji: "👍" } });
+    await api.removeReaction("m1", "👍");
+    expect(last()).toMatchObject({
+      url: `http://x/api/v1/chat/messages/m1/reactions/${encodeURIComponent("👍")}`,
+      method: "DELETE",
+    });
+  });
+
+  it("opens a direct message and creates a channel", async () => {
+    const { api, last } = setup(201, {});
+    await api.openDm(["u2"]);
+    expect(last()).toMatchObject({ url: "http://x/api/v1/chat/dms", method: "POST", body: { user_ids: ["u2"] } });
+    await api.createChannel({ type: "private", name: "ops", member_ids: ["u2"] });
+    expect(last()).toMatchObject({
+      url: "http://x/api/v1/chat/channels",
+      method: "POST",
+      body: { type: "private", name: "ops", member_ids: ["u2"] },
+    });
+  });
+
+  it("lists channel members and fetches one channel", async () => {
+    const { api, last } = setup(200, { items: [] });
+    await api.listChannelMembers("c1");
+    expect(last()).toMatchObject({ url: "http://x/api/v1/chat/channels/c1/members", method: "GET" });
+    await api.getChannel("c1");
+    expect(last()).toMatchObject({ url: "http://x/api/v1/chat/channels/c1", method: "GET" });
+  });
+
+  it("asks for the replies of a thread", async () => {
+    const { api, last } = setup(200, { items: [], has_more: false });
+    await api.listMessages("c1", { thread_root_id: "r1", limit: 100 });
+    expect(last().url).toBe("http://x/api/v1/chat/channels/c1/messages?thread_root_id=r1&limit=100");
+  });
 });

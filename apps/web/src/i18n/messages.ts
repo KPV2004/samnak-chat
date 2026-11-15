@@ -1,5 +1,8 @@
+import { chatEn, chatTh } from "./chat-messages";
+
 export const messages = {
   th: {
+    ...chatTh,
     title: "Samnak Chat",
     modules: "โมดูลที่เปิดใช้งาน",
     loading: "กำลังโหลด…",
@@ -121,6 +124,7 @@ export const messages = {
     "error.network": "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง",
   },
   en: {
+    ...chatEn,
     title: "Samnak Chat",
     modules: "Enabled modules",
     loading: "Loading…",

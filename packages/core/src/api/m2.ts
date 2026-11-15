@@ -1,98 +1,80 @@
-// Hand-written M2 (chat) shapes and calls, from the plan's "Chat API" section.
-// Replace with the generated schema once the chat module's OpenAPI is merged
-// (checkpoint C), the way m1.ts did.
+// M2 (chat) types come from the server's OpenAPI document (npm run gen:api);
+// this file re-exports them under stable names and holds the typed calls, the
+// way m1.ts does. A call is typed by the generated operation for its path, so
+// reshaping an endpoint on the server makes `npm run build` fail here.
+//
+// Reactions and attachments are not in the document yet (M2-05 adds them), so
+// their types and calls are written by hand below until `make openapi` brings
+// them in; then replace them like the rest.
 import type { ApiClient } from "./client";
+import type { components, paths } from "./schema";
 
-export type ChannelType = "public" | "private" | "dm";
+type Schemas = components["schemas"];
 
-export interface Channel {
-  id: string;
-  type: ChannelType;
-  name: string;
-  topic: string;
-  last_seq: number;
-  last_read_seq: number;
-  unread_count: number;
-  mention_count: number;
-  member_count: number;
-  dm_user_ids: string[];
-  archived_at: string | null;
-  created_at: string;
+export type Channel = Schemas["Channel"];
+export type ChannelType = Channel["type"];
+export type ChannelMember = Schemas["ChannelMember"];
+export type Attachment = Schemas["Attachment"];
+export type Reaction = Schemas["Reaction"];
+/** The document types `payload` as an empty object (it is a raw JSON card payload); it is `unknown` here. */
+export type Message = Omit<Schemas["Message"], "payload"> & { payload: unknown };
+
+export type MessagePage = Omit<Schemas["ListMessagesOutputBody"], "items"> & { items: Message[] };
+export type ListMessagesParams = NonNullable<paths["/chat/channels/{id}/messages"]["get"]["parameters"]["query"]>;
+export type ChannelScope = NonNullable<NonNullable<paths["/chat/channels"]["get"]["parameters"]["query"]>["scope"]>;
+
+/** `attachment_ids` is added by M2-05; it is not in the document yet. */
+export type SendMessageInput = Schemas["SendMessageInputBody"] & { attachment_ids?: string[] };
+export type CreateChannelInput = Schemas["CreateChannelInputBody"];
+
+type Method = "get" | "post" | "patch" | "delete";
+type Operation<P extends keyof paths, M extends Method> = Exclude<paths[P][M], undefined>;
+/** The methods a path really has: the generator marks the others `?: never`. */
+type MethodsOf<P extends keyof paths> = { [M in Method]: [Operation<P, M>] extends [never] ? never : M }[Method];
+
+type JsonResponse<O> = O extends { responses: { 200: { content: { "application/json": infer R } } } }
+  ? R
+  : O extends { responses: { 201: { content: { "application/json": infer R } } } }
+    ? R
+    : void;
+
+interface CallOptions {
+  body?: unknown;
+  params?: Record<string, string>;
+  query?: Record<string, string | number | undefined>;
 }
 
-export interface ChannelMember {
-  user_id: string;
-  display_name: string;
-  joined_at: string;
+const base = "/api/v1";
+const enc = encodeURIComponent;
+
+// Unlike m1's `call`, a query value of 0 is sent: `after_seq=0` means "from the start".
+function request<T>(client: ApiClient, method: string, path: string, opts: CallOptions = {}): Promise<T> {
+  let url = base + path.replace(/\{(\w+)\}/g, (_, name: string) => enc(opts.params?.[name] ?? ""));
+  const qs = Object.entries(opts.query ?? {})
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `${k}=${enc(String(v))}`)
+    .join("&");
+  if (qs) url += `?${qs}`;
+  const init: Parameters<ApiClient["request"]>[1] = { method: method.toUpperCase() };
+  if (opts.body !== undefined) {
+    init.headers = { "Content-Type": "application/json" };
+    init.body = JSON.stringify(opts.body);
+  }
+  return client.request(url, init);
 }
 
-export interface Attachment {
-  id: string;
-  file_name: string;
-  size: number;
-  mime_type: string;
-  is_image: boolean;
-}
-
-export interface Reaction {
-  emoji: string;
-  count: number;
-  me: boolean;
-}
-
-export interface Message {
-  id: string;
-  channel_id: string;
-  seq: number;
-  sender_id: string;
-  client_msg_id: string;
-  /** `text` or a card kind such as `approval.request`. */
-  kind: string;
-  body: string;
-  payload: unknown;
-  fallback_text: string;
-  thread_root_id: string | null;
-  reply_count: number;
-  attachments: Attachment[];
-  reactions: Reaction[];
-  mentions: string[];
-  mentions_channel: boolean;
-  edited_at: string | null;
-  deleted_at: string | null;
-  created_at: string;
-}
-
-export interface MessagePage {
-  items: Message[];
-  has_more: boolean;
-}
-
-export interface ListMessagesParams {
-  /** Catch-up: messages with a greater `seq`, ascending. */
-  after_seq?: number;
-  /** History: messages with a smaller `seq`. */
-  before_seq?: number;
-  /** At most 100. */
-  limit?: number;
-  thread_root_id?: string;
-}
-
-export interface SendMessageInput {
-  client_msg_id: string;
-  body: string;
-  thread_root_id?: string;
-  attachment_ids?: string[];
-}
-
-export interface CreateChannelInput {
-  type: "public" | "private";
-  name: string;
-  topic?: string;
-  member_ids?: string[];
+/** Calls an operation by the key it has in the generated `paths`. */
+function call<P extends keyof paths, M extends MethodsOf<P>>(
+  client: ApiClient,
+  method: M,
+  path: P,
+  opts?: CallOptions,
+): Promise<JsonResponse<Operation<P, M>>> {
+  return request(client, method, path as string, opts);
 }
 
 export interface M2Api {
-  listChannels(scope?: "joined" | "public"): Promise<{ items: Channel[] }>;
+  listChannels(scope?: ChannelScope): Promise<{ items: Channel[] }>;
   createChannel(input: CreateChannelInput): Promise<Channel>;
   openDm(userIds: string[]): Promise<Channel>;
   getChannel(id: string): Promise<Channel>;
@@ -105,45 +87,32 @@ export interface M2Api {
   editMessage(id: string, body: string): Promise<Message>;
   deleteMessage(id: string): Promise<void>;
   markRead(channelId: string, seq: number): Promise<void>;
+  /** Hand-written until M2-05's endpoints are in the document. */
   addReaction(messageId: string, emoji: string): Promise<void>;
+  /** Hand-written until M2-05's endpoints are in the document. */
   removeReaction(messageId: string, emoji: string): Promise<void>;
-}
-
-const base = "/api/v1/chat";
-const enc = encodeURIComponent;
-
-type Query = Record<string, string | number | undefined>;
-
-function call<T>(client: ApiClient, method: string, path: string, body?: unknown, query?: Query): Promise<T> {
-  const qs = Object.entries(query ?? {})
-    .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => `${k}=${enc(String(v))}`)
-    .join("&");
-  const init: Parameters<ApiClient["request"]>[1] = { method };
-  if (body !== undefined) {
-    init.headers = { "Content-Type": "application/json" };
-    init.body = JSON.stringify(body);
-  }
-  return client.request(`${base}${path}${qs ? `?${qs}` : ""}`, init);
 }
 
 export function createM2Api(client: ApiClient): M2Api {
   return {
-    listChannels: (scope) => call(client, "GET", "/channels", undefined, { scope }),
-    createChannel: (input) => call(client, "POST", "/channels", input),
-    openDm: (userIds) => call(client, "POST", "/dms", { user_ids: userIds }),
-    getChannel: (id) => call(client, "GET", `/channels/${enc(id)}`),
-    joinChannel: (id) => call(client, "POST", `/channels/${enc(id)}/join`),
-    leaveChannel: (id) => call(client, "POST", `/channels/${enc(id)}/leave`),
-    listChannelMembers: (id) => call(client, "GET", `/channels/${enc(id)}/members`),
-    listMessages: (channelId, params = {}) =>
-      call(client, "GET", `/channels/${enc(channelId)}/messages`, undefined, { ...params }),
-    sendMessage: (channelId, input) => call(client, "POST", `/channels/${enc(channelId)}/messages`, input),
-    editMessage: (id, body) => call(client, "PATCH", `/messages/${enc(id)}`, { body }),
-    deleteMessage: (id) => call(client, "DELETE", `/messages/${enc(id)}`),
-    markRead: (channelId, seq) => call(client, "POST", `/channels/${enc(channelId)}/read`, { seq }),
-    addReaction: (messageId, emoji) => call(client, "POST", `/messages/${enc(messageId)}/reactions`, { emoji }),
+    listChannels: (scope) => call(client, "get", "/chat/channels", { query: { scope } }),
+    createChannel: (input) => call(client, "post", "/chat/channels", { body: input }),
+    openDm: (userIds) => call(client, "post", "/chat/dms", { body: { user_ids: userIds } }),
+    getChannel: (id) => call(client, "get", "/chat/channels/{id}", { params: { id } }),
+    joinChannel: (id) => call(client, "post", "/chat/channels/{id}/join", { params: { id } }),
+    leaveChannel: (id) => call(client, "post", "/chat/channels/{id}/leave", { params: { id } }),
+    listChannelMembers: (id) => call(client, "get", "/chat/channels/{id}/members", { params: { id } }),
+    listMessages: (id, params = {}) =>
+      call(client, "get", "/chat/channels/{id}/messages", { params: { id }, query: { ...params } }) as Promise<MessagePage>,
+    sendMessage: (id, input) =>
+      call(client, "post", "/chat/channels/{id}/messages", { params: { id }, body: input }) as Promise<Message>,
+    editMessage: (id, body) =>
+      call(client, "patch", "/chat/messages/{id}", { params: { id }, body: { body } }) as Promise<Message>,
+    deleteMessage: (id) => call(client, "delete", "/chat/messages/{id}", { params: { id } }),
+    markRead: (id, seq) => call(client, "post", "/chat/channels/{id}/read", { params: { id }, body: { seq } }),
+    addReaction: (messageId, emoji) =>
+      request(client, "post", "/chat/messages/{id}/reactions", { params: { id: messageId }, body: { emoji } }),
     removeReaction: (messageId, emoji) =>
-      call(client, "DELETE", `/messages/${enc(messageId)}/reactions/${enc(emoji)}`),
+      request(client, "delete", "/chat/messages/{id}/reactions/{emoji}", { params: { id: messageId, emoji } }),
   };
 }

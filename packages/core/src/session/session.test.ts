@@ -229,3 +229,44 @@ describe("session sign in and out", () => {
     expect(session.getState()).toEqual({ signedIn: true, deviceId: "d1", workspaceId: "w1" });
   });
 });
+
+describe("session tokens for the realtime client", () => {
+  it("exposes the current access token and null once signed out", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(res({}));
+    const session = createSession({ baseUrl: "", store: signedIn(), fetch: fetchMock });
+    expect(session.getAccessToken()).toBe("acc0");
+    await session.logout(false);
+    expect(session.getAccessToken()).toBeNull();
+  });
+
+  it("refreshes on request and says whether a fresh token is available", async () => {
+    const fetchMock = vi.fn(async () => res(pair(1)));
+    const session = createSession({ baseUrl: "", store: signedIn(), fetch: fetchMock });
+    await expect(session.refreshAccessToken("acc0")).resolves.toBe(true);
+    expect(session.getAccessToken()).toBe("acc1");
+    // A token that was already replaced needs no second refresh.
+    await expect(session.refreshAccessToken("acc0")).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports false when the refresh was refused, and the session ends", async () => {
+    const fetchMock = vi.fn(async () => res({ error: { code: "unauthorized", message: "no" } }, 401));
+    const session = createSession({ baseUrl: "", store: signedIn(), fetch: fetchMock });
+    await expect(session.refreshAccessToken("acc0")).resolves.toBe(false);
+    expect(session.getState().signedIn).toBe(false);
+  });
+
+  it("tells token listeners when a refresh replaced the access token", async () => {
+    const fetchMock = vi.fn(async () => res(pair(1)));
+    const session = createSession({ baseUrl: "", store: signedIn(), fetch: fetchMock });
+    const listener = vi.fn();
+    const off = session.onTokenChange(listener);
+    await session.refreshAccessToken("acc0");
+    expect(listener).toHaveBeenCalledTimes(1);
+    session.setWorkspaceId("w9"); // not a token change
+    expect(listener).toHaveBeenCalledTimes(1);
+    off();
+    await session.refreshAccessToken("acc1");
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});

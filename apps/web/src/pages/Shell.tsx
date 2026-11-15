@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation } from "react-router";
 import { LanguageSelect } from "../components/LanguageSelect";
+import { ChatProvider } from "../state/chat";
 import { useT } from "../i18n/useT";
 import { useLocale } from "../state/locale";
 import { useMe, useSyncWorkspace, useWorkspaces } from "../state/queries";
@@ -39,7 +40,7 @@ export function Shell() {
   if (!signedIn) return <Navigate to="/login" replace state={{ from: location }} />;
 
   return (
-    <>
+    <ChatProvider>
       <header className="shell-header">
         <Link to="/" className="brand">
           {t("title")}
@@ -69,14 +70,15 @@ export function Shell() {
         <NavLink to="/" end>
           {t("nav.home")}
         </NavLink>
+        <NavLink to="/chat">{t("nav.chat")}</NavLink>
         <NavLink to="/members">{t("nav.members")}</NavLink>
         <NavLink to="/invites">{t("nav.invites")}</NavLink>
         <NavLink to="/profile">{t("nav.profile")}</NavLink>
         <NavLink to="/devices">{t("nav.devices")}</NavLink>
       </nav>
-      <main>
+      <main className={location.pathname.startsWith("/chat") ? "wide" : undefined}>
         <Outlet />
       </main>
-    </>
+    </ChatProvider>
   );
 }

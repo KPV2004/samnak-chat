@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createApiClient } from "./client";
-import type { Device, Invite, Member, TokenPair, User, Workspace } from "./m1";
+import type { Device, Invite, Member, MemberPage, TokenPair, User, Workspace } from "./m1";
 import { createM1Api } from "./m1";
 import type { components } from "./schema";
 
@@ -22,7 +22,9 @@ describe("M1 types come from the generated schema", () => {
     const api = createM1Api(createApiClient({ baseUrl: "" }));
     expectTypeOf(api.register).returns.resolves.toEqualTypeOf<Schemas["UserBody"]>();
     expectTypeOf(api.login).parameter(0).toEqualTypeOf<Schemas["LoginInputBody"]>();
-    expectTypeOf(api.listMembers).returns.resolves.toEqualTypeOf<Schemas["ListMembersOutputBody"]>();
+    expectTypeOf(api.listMembers).returns.resolves.toEqualTypeOf<MemberPage>();
+    // Chat's channel members page is also called ListMembersOutputBody in the document; this must be the workspace's.
+    expectTypeOf<MemberPage["items"][number]>().toEqualTypeOf<Schemas["Member"]>();
     expectTypeOf(api.acceptInvite).returns.resolves.toEqualTypeOf<Schemas["Workspace"]>();
     expectTypeOf(api.createInvite).parameter(0).toEqualTypeOf<Schemas["CreateInviteInputBody"]>();
   });
