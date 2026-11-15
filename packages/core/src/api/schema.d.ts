@@ -130,6 +130,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a presigned download URL for a file */
+        get: operations["chat-get-attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/channels": {
         parameters: {
             query?: never;
@@ -288,6 +305,57 @@ export interface paths {
         patch: operations["chat-edit-message"];
         trace?: never;
     };
+    "/chat/messages/{id}/reactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** React to a message with an emoji; repeating it changes nothing */
+        post: operations["chat-add-reaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/messages/{id}/reactions/{emoji}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove my reaction; removing one that is not there changes nothing */
+        delete: operations["chat-remove-reaction"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Presign the upload of a file of at most 50 MB */
+        post: operations["chat-request-upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/meta": {
         parameters: {
             query?: never;
@@ -426,6 +494,10 @@ export interface components {
         AddMembersInputBody: {
             user_ids: string[] | null;
         };
+        AddReactionInputBody: {
+            /** @description One emoji, such as 👍. Plain text is rejected */
+            emoji: string;
+        };
         ApiError: {
             error: components["schemas"]["ApiErrorBody"];
         };
@@ -448,6 +520,12 @@ export interface components {
             mime_type: string;
             /** Format: int64 */
             size: number;
+        };
+        AttachmentURLOutputBody: {
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Presigned download URL; opening it saves the file under its name */
+            url: string;
         };
         Channel: {
             /** Format: date-time */
@@ -640,10 +718,22 @@ export interface components {
             /** @description The other people; the caller is added */
             user_ids: string[] | null;
         };
+        PresignedUpload: {
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Send exactly these headers; the URL is signed for them */
+            headers: {
+                [key: string]: string;
+            };
+            method: string;
+            /** @description Presigned URL; send the file bytes to it */
+            url: string;
+        };
         Reaction: {
             /** Format: int64 */
             count: number;
             emoji: string;
+            /** @description The viewer used this emoji. In a WebSocket event it is true for the recipient */
             me: boolean;
         };
         RefreshInputBody: {
@@ -660,7 +750,9 @@ export interface components {
             password: string;
         };
         SendMessageInputBody: {
-            /** @description Markdown, 1 to 4,000 characters. Mention people with <@user_id> and everyone with <!channel> */
+            /** @description Files from POST /chat/uploads that you uploaded to this channel; each can be used once */
+            attachment_ids?: string[] | null;
+            /** @description Markdown, 1 to 4,000 characters; may be empty when attachment_ids is not. Mention people with <@user_id> and everyone with <!channel> */
             body: string;
             /**
              * Format: uuid
@@ -710,6 +802,24 @@ export interface components {
             role?: "owner" | "admin" | "manager" | "member" | "guest";
             /** @enum {string} */
             status?: "active" | "deactivated";
+        };
+        UploadInputBody: {
+            /** @description A channel the caller is in */
+            channel_id: string;
+            file_name: string;
+            /** @example image/png */
+            mime_type: string;
+            /**
+             * Format: int64
+             * @description Bytes, at most 50 MB
+             */
+            size: number;
+        };
+        UploadOutputBody: {
+            /** @description Pass it in attachment_ids when sending a message */
+            attachment_id: string;
+            /** @description Upload with PUT before sending the message; expires after 15 minutes */
+            upload: components["schemas"]["PresignedUpload"];
         };
         UserBody: {
             /**
@@ -1180,6 +1290,37 @@ export interface operations {
             };
         };
     };
+    "chat-get-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentURLOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     "chat-list-channels": {
         parameters: {
             query?: {
@@ -1624,6 +1765,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-add-reaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddReactionInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-remove-reaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /** @description The emoji, percent-encoded */
+                emoji: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-request-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadOutputBody"];
                 };
             };
             /** @description Error */
