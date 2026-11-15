@@ -121,3 +121,16 @@ func DirectKey(self string, others []string) (key string, members []string, err 
 	slices.Sort(all)
 	return strings.Join(all, ","), all, nil
 }
+
+// Actions of the chat module for the shared permission check (WSP-07). A rule
+// that also depends on the resource, such as "the author", is checked in the
+// use case after Can has passed.
+const (
+	// ActionChannelCreate lets a user create channels. Guests cannot.
+	ActionChannelCreate = "chat.channel.create"
+	// ActionChannelManage lets a user edit or archive any channel; the
+	// creator of a channel may always do so.
+	ActionChannelManage = "chat.channel.manage"
+	// ActionMessageModerate lets a user delete anyone's message (CHAT-10).
+	ActionMessageModerate = "chat.message.moderate"
+)
