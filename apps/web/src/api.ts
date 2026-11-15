@@ -1,6 +1,3 @@
-import { createApiClient } from "@samnak/core";
+import { session } from "./session";
 
-export const api = createApiClient({
-  baseUrl: "",
-  getToken: () => null,
-});
+export const api = session.client;
