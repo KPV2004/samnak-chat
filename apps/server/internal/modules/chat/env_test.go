@@ -386,6 +386,25 @@ type messageBody struct {
 	MentionsChannel bool     `json:"mentions_channel"`
 	EditedAt        *string  `json:"edited_at"`
 	DeletedAt       *string  `json:"deleted_at"`
+
+	Payload      json.RawMessage  `json:"payload"`
+	FallbackText string           `json:"fallback_text"`
+	Attachments  []attachmentBody `json:"attachments"`
+	Reactions    []reactionBody   `json:"reactions"`
+}
+
+type attachmentBody struct {
+	ID       string `json:"id"`
+	FileName string `json:"file_name"`
+	Size     int64  `json:"size"`
+	MimeType string `json:"mime_type"`
+	IsImage  bool   `json:"is_image"`
+}
+
+type reactionBody struct {
+	Emoji string `json:"emoji"`
+	Count int64  `json:"count"`
+	Me    bool   `json:"me"`
 }
 
 type pageBody struct {

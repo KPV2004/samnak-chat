@@ -122,6 +122,24 @@ func (q *Queries) FilterChannelMembers(ctx context.Context, arg FilterChannelMem
 	return items, nil
 }
 
+const getMemberWorkspace = `-- name: GetMemberWorkspace :one
+SELECT workspace_id FROM chat_channel_members WHERE channel_id = $1 AND user_id = $2
+`
+
+type GetMemberWorkspaceParams struct {
+	ChannelID uuid.UUID
+	UserID    uuid.UUID
+}
+
+// The workspace of a channel the user is in. Typing frames carry no workspace,
+// so membership itself says which one it is.
+func (q *Queries) GetMemberWorkspace(ctx context.Context, arg GetMemberWorkspaceParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getMemberWorkspace, arg.ChannelID, arg.UserID)
+	var workspace_id uuid.UUID
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
+}
+
 const insertChannelMember = `-- name: InsertChannelMember :execrows
 INSERT INTO chat_channel_members (channel_id, workspace_id, user_id, joined_at)
 VALUES ($1, $2, $3, $4)

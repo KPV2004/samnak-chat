@@ -10,6 +10,19 @@ import (
 	"github.com/google/uuid"
 )
 
+type ChatAttachment struct {
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+	ChannelID   uuid.UUID
+	UploaderID  uuid.UUID
+	MessageID   *uuid.UUID
+	ObjectKey   string
+	FileName    string
+	Size        int64
+	MimeType    string
+	CreatedAt   time.Time
+}
+
 type ChatChannel struct {
 	ID          uuid.UUID
 	WorkspaceID uuid.UUID
@@ -49,4 +62,12 @@ type ChatMessage struct {
 	EditedAt        *time.Time
 	DeletedAt       *time.Time
 	CreatedAt       time.Time
+}
+
+type ChatReaction struct {
+	MessageID   uuid.UUID
+	WorkspaceID uuid.UUID
+	UserID      uuid.UUID
+	Emoji       string
+	CreatedAt   time.Time
 }

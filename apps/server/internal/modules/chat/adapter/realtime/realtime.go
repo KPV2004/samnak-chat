@@ -49,23 +49,35 @@ type messageData struct {
 	Message     wire.Message `json:"message"`
 }
 
-func messageEvent(m usecase.MessageView) messageData {
-	return messageData{WorkspaceID: m.WorkspaceID, ChannelID: m.ChannelID, Message: wire.ToMessage(m)}
+func messageEvent(m usecase.MessageView, viewerID string) messageData {
+	return messageData{WorkspaceID: m.WorkspaceID, ChannelID: m.ChannelID, Message: wire.ToMessage(m, viewerID)}
+}
+
+// sendMessage delivers a message event. Reactions say whether the viewer used
+// an emoji, so a message that has some goes out once per recipient.
+func (p *Publisher) sendMessage(ctx context.Context, typ string, m usecase.MessageView, recipients []string) {
+	if len(m.Reactions) == 0 {
+		p.send(ctx, typ, recipients, messageEvent(m, ""))
+		return
+	}
+	for _, r := range recipients {
+		p.send(ctx, typ, []string{r}, messageEvent(m, r))
+	}
 }
 
 func (p *Publisher) MessageCreated(ctx context.Context, ch domain.Channel, m usecase.MessageView, recipients []string) {
-	p.send(ctx, "message.created", recipients, messageEvent(m))
+	p.sendMessage(ctx, "message.created", m, recipients)
 	if p.publish != nil {
 		p.publish(ctx, ch, m)
 	}
 }
 
 func (p *Publisher) MessageUpdated(ctx context.Context, m usecase.MessageView, recipients []string) {
-	p.send(ctx, "message.updated", recipients, messageEvent(m))
+	p.sendMessage(ctx, "message.updated", m, recipients)
 }
 
 func (p *Publisher) MessageDeleted(ctx context.Context, m usecase.MessageView, recipients []string) {
-	p.send(ctx, "message.deleted", recipients, messageEvent(m))
+	p.sendMessage(ctx, "message.deleted", m, recipients)
 }
 
 type readData struct {

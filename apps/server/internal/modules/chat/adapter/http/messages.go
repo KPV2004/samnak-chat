@@ -40,7 +40,7 @@ func (h *Handler) listMessages(ctx context.Context, in *listMessagesInput) (*lis
 	out.Body.HasMore = page.HasMore
 	out.Body.Items = make([]wire.Message, len(page.Items))
 	for i, m := range page.Items {
-		out.Body.Items[i] = wire.ToMessage(m)
+		out.Body.Items[i] = wire.ToMessage(m, p.UserID)
 	}
 	return out, nil
 }
@@ -74,7 +74,7 @@ func (h *Handler) sendMessage(ctx context.Context, in *sendMessageInput) (*messa
 	if created {
 		status = http.StatusCreated
 	}
-	return &messageOutput{Status: status, Body: wire.ToMessage(v)}, nil
+	return &messageOutput{Status: status, Body: wire.ToMessage(v, p.UserID)}, nil
 }
 
 type editMessageInput struct {
@@ -93,7 +93,7 @@ func (h *Handler) editMessage(ctx context.Context, in *editMessageInput) (*messa
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
-	return &messageOutput{Status: http.StatusOK, Body: wire.ToMessage(v)}, nil
+	return &messageOutput{Status: http.StatusOK, Body: wire.ToMessage(v, p.UserID)}, nil
 }
 
 func (h *Handler) deleteMessage(ctx context.Context, in *idInput) (*struct{}, error) {

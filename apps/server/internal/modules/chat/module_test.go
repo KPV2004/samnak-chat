@@ -36,6 +36,9 @@ func TestOperationsAppearInOpenAPIWithoutDatabase(t *testing.T) {
 		"/chat/channels/{id}/messages": {"GET", "POST"},
 		"/chat/channels/{id}/read":     {"POST"},
 		"/chat/messages/{id}":          {"PATCH", "DELETE"},
+
+		"/chat/messages/{id}/reactions":         {"POST"},
+		"/chat/messages/{id}/reactions/{emoji}": {"DELETE"},
 	}
 	paths := api.OpenAPI().Paths
 	for path, methods := range want {

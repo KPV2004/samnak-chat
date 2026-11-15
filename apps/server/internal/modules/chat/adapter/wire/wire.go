@@ -4,6 +4,7 @@ package wire
 
 import (
 	"encoding/json"
+	"slices"
 	"time"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat/usecase"
@@ -37,7 +38,7 @@ func ToChannel(v usecase.ChannelView) Channel {
 	}
 }
 
-// Attachment is a file on a message. Uploads arrive with M2-05.
+// Attachment is a file on a message.
 type Attachment struct {
 	ID       string `json:"id"`
 	FileName string `json:"file_name"`
@@ -46,11 +47,11 @@ type Attachment struct {
 	IsImage  bool   `json:"is_image"`
 }
 
-// Reaction counts one emoji on a message. Reactions arrive with M2-05.
+// Reaction counts one emoji on a message.
 type Reaction struct {
 	Emoji string `json:"emoji"`
 	Count int64  `json:"count"`
-	Me    bool   `json:"me"`
+	Me    bool   `json:"me" doc:"The viewer used this emoji. In a WebSocket event it is true for the recipient"`
 }
 
 // Message is a message of a channel.
@@ -75,7 +76,8 @@ type Message struct {
 	CreatedAt       time.Time       `json:"created_at"`
 }
 
-func ToMessage(v usecase.MessageView) Message {
+// ToMessage converts a message as viewerID sees it: Reaction.Me is about them.
+func ToMessage(v usecase.MessageView, viewerID string) Message {
 	m := v.Message
 	out := Message{
 		ID: m.ID, ChannelID: m.ChannelID, Seq: m.Seq, SenderID: m.SenderID, ClientMsgID: m.ClientMsgID, Kind: m.Kind,
@@ -89,6 +91,12 @@ func ToMessage(v usecase.MessageView) Message {
 	if m.ThreadRootID != "" {
 		root := m.ThreadRootID
 		out.ThreadRootID = &root
+	}
+	for _, a := range v.Attachments {
+		out.Attachments = append(out.Attachments, Attachment{ID: a.ID, FileName: a.FileName, Size: a.Size, MimeType: a.MimeType, IsImage: a.IsImage()})
+	}
+	for _, g := range v.Reactions {
+		out.Reactions = append(out.Reactions, Reaction{Emoji: g.Emoji, Count: int64(len(g.UserIDs)), Me: slices.Contains(g.UserIDs, viewerID)})
 	}
 	return out
 }

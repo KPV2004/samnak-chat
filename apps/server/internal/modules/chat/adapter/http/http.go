@@ -49,6 +49,8 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	huma.Register(api, op("chat-send-message", http.MethodPost, "/channels/{id}/messages", "Send a message; repeating client_msg_id returns the original with 200", 0), h.sendMessage)
 	huma.Register(api, op("chat-edit-message", http.MethodPatch, "/messages/{id}", "Edit my message", 0), h.editMessage)
 	huma.Register(api, op("chat-delete-message", http.MethodDelete, "/messages/{id}", "Delete my message (admins: any message)", http.StatusNoContent), h.deleteMessage)
+	huma.Register(api, op("chat-add-reaction", http.MethodPost, "/messages/{id}/reactions", "React to a message with an emoji; repeating it changes nothing", http.StatusNoContent), h.addReaction)
+	huma.Register(api, op("chat-remove-reaction", http.MethodDelete, "/messages/{id}/reactions/{emoji}", "Remove my reaction; removing one that is not there changes nothing", http.StatusNoContent), h.removeReaction)
 	huma.Register(api, op("chat-mark-read", http.MethodPost, "/channels/{id}/read", "Move my read position forward", http.StatusNoContent), h.markRead)
 }
 

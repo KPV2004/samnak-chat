@@ -34,3 +34,8 @@ WHERE c.id = m.channel_id AND c.workspace_id = @workspace_id
   AND m.channel_id = @channel_id AND m.user_id = @user_id
   AND LEAST(@seq::bigint, c.last_seq) > m.last_read_seq
 RETURNING m.last_read_seq;
+
+-- name: GetMemberWorkspace :one
+-- The workspace of a channel the user is in. Typing frames carry no workspace,
+-- so membership itself says which one it is.
+SELECT workspace_id FROM chat_channel_members WHERE channel_id = $1 AND user_id = $2;
