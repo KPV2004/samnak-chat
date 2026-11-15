@@ -1,5 +1,14 @@
 components:
   schemas:
+    AcceptInviteInputBody:
+      additionalProperties: false
+      properties:
+        token:
+          maxLength: 256
+          type: string
+      required:
+        - token
+      type: object
     ApiError:
       additionalProperties: false
       properties:
@@ -25,6 +34,211 @@ components:
         - code
         - message
       type: object
+    CreateInputBody:
+      additionalProperties: false
+      properties:
+        name:
+          description: Display name, 1 to 100 characters
+          type: string
+        slug:
+          description: Unique, 3 to 40 characters of a-z, 0-9 and hyphen
+          examples:
+            - acme-team
+          type: string
+      required:
+        - name
+        - slug
+      type: object
+    CreateInviteInputBody:
+      additionalProperties: false
+      properties:
+        email:
+          description: Leave out for a link invite anyone can use once
+          type: string
+        role:
+          enum:
+            - admin
+            - member
+            - guest
+          type: string
+      required:
+        - role
+      type: object
+    DeviceBody:
+      additionalProperties: false
+      properties:
+        current:
+          description: True for the device that sent this request
+          type: boolean
+        id:
+          type: string
+        last_seen_at:
+          format: date-time
+          type: string
+        name:
+          examples:
+            - Firefox on Linux
+          type: string
+        platform:
+          enum:
+            - web
+            - desktop
+            - ios
+            - android
+          type: string
+      required:
+        - id
+        - name
+        - platform
+        - last_seen_at
+        - current
+      type: object
+    DevicesOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/DeviceBody"
+          type: array
+      required:
+        - items
+      type: object
+    Invite:
+      additionalProperties: false
+      properties:
+        created_at:
+          format: date-time
+          type: string
+        email:
+          description: Null for a link invite
+          type:
+            - string
+            - "null"
+        expires_at:
+          format: date-time
+          type: string
+        id:
+          type: string
+        role:
+          enum:
+            - admin
+            - member
+            - guest
+          type: string
+        token:
+          description: Shown once, when the invite is created
+          type: string
+      required:
+        - id
+        - email
+        - role
+        - expires_at
+        - created_at
+      type: object
+    ListInvitesOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/Invite"
+          type: array
+      required:
+        - items
+      type: object
+    ListMembersOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/Member"
+          type: array
+        next_cursor:
+          description: Empty on the last page
+          type: string
+      required:
+        - items
+        - next_cursor
+      type: object
+    ListOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/Workspace"
+          type: array
+      required:
+        - items
+      type: object
+    LoginInputBody:
+      additionalProperties: false
+      properties:
+        device_name:
+          examples:
+            - Firefox on Linux
+          maxLength: 100
+          minLength: 1
+          type: string
+        email:
+          maxLength: 254
+          type: string
+        password:
+          maxLength: 128
+          type: string
+        platform:
+          enum:
+            - web
+            - desktop
+            - ios
+            - android
+          type: string
+      required:
+        - email
+        - password
+        - device_name
+        - platform
+      type: object
+    LogoutInputBody:
+      additionalProperties: false
+      properties:
+        all_devices:
+          description: Log out every device of the user, not only this one
+          type: boolean
+      type: object
+    Member:
+      additionalProperties: false
+      properties:
+        display_name:
+          description: Empty when the auth module is unavailable
+          type: string
+        email:
+          description: Empty when the auth module is unavailable
+          type: string
+        joined_at:
+          format: date-time
+          type: string
+        role:
+          enum:
+            - owner
+            - admin
+            - manager
+            - member
+            - guest
+          type: string
+        status:
+          enum:
+            - active
+            - deactivated
+          type: string
+        user_id:
+          type: string
+      required:
+        - user_id
+        - display_name
+        - email
+        - role
+        - status
+        - joined_at
+      type: object
     MetaBody:
       additionalProperties: false
       properties:
@@ -49,6 +263,171 @@ components:
         - version
         - modules
       type: object
+    RefreshInputBody:
+      additionalProperties: false
+      properties:
+        refresh_token:
+          maxLength: 512
+          minLength: 1
+          type: string
+      required:
+        - refresh_token
+      type: object
+    RegisterInputBody:
+      additionalProperties: false
+      properties:
+        display_name:
+          examples:
+            - Alice
+          maxLength: 100
+          minLength: 1
+          type: string
+        email:
+          description: Trimmed and lower-cased; unique
+          examples:
+            - alice@example.com
+          maxLength: 254
+          type: string
+        password:
+          maxLength: 128
+          minLength: 8
+          type: string
+      required:
+        - email
+        - password
+        - display_name
+      type: object
+    TokenPairBody:
+      additionalProperties: false
+      properties:
+        access_token:
+          description: "JWT, send as Authorization: Bearer"
+          type: string
+        device_id:
+          type: string
+        expires_in:
+          description: Seconds until the access token expires
+          examples:
+            - 900
+          format: int64
+          type: integer
+        refresh_token:
+          description: "Opaque, single use: every refresh returns a new one"
+          type: string
+        user:
+          $ref: "#/components/schemas/UserBody"
+      required:
+        - access_token
+        - refresh_token
+        - expires_in
+        - device_id
+        - user
+      type: object
+    UpdateMeInputBody:
+      additionalProperties: false
+      properties:
+        avatar_url:
+          description: http or https URL; empty removes the avatar
+          maxLength: 2048
+          type: string
+        display_name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        locale:
+          enum:
+            - th
+            - en
+          type: string
+        timezone:
+          description: IANA name
+          examples:
+            - Asia/Bangkok
+          type: string
+      type: object
+    UpdateMemberInputBody:
+      additionalProperties: false
+      properties:
+        role:
+          description: Only an owner may grant or change owner
+          enum:
+            - owner
+            - admin
+            - manager
+            - member
+            - guest
+          type: string
+        status:
+          enum:
+            - active
+            - deactivated
+          type: string
+      type: object
+    UserBody:
+      additionalProperties: false
+      properties:
+        avatar_url:
+          description: Empty when the user has no avatar
+          examples:
+            - https://cdn.example.com/a.png
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        display_name:
+          examples:
+            - Alice
+          type: string
+        email:
+          examples:
+            - alice@example.com
+          type: string
+        id:
+          examples:
+            - 0192f0c1-7b1e-7c3a-9d1e-5b6f4a3c2d10
+          type: string
+        locale:
+          enum:
+            - th
+            - en
+          type: string
+        timezone:
+          description: IANA name
+          examples:
+            - Asia/Bangkok
+          type: string
+      required:
+        - id
+        - email
+        - display_name
+        - avatar_url
+        - locale
+        - timezone
+        - created_at
+      type: object
+    Workspace:
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          enum:
+            - owner
+            - admin
+            - manager
+            - member
+            - guest
+          type: string
+        slug:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+        - role
+      type: object
   securitySchemes:
     bearer:
       bearerFormat: JWT
@@ -59,6 +438,319 @@ info:
   version: 0.0.0-dev
 openapi: 3.1.0
 paths:
+  /auth/devices:
+    get:
+      operationId: auth-list-devices
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevicesOutputBody"
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unauthorized
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      security:
+        - bearer: []
+      summary: Devices that are logged in
+      tags:
+        - auth
+  /auth/devices/{id}:
+    delete:
+      operationId: auth-revoke-device
+      parameters:
+        - description: Device ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Device ID
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Not Found
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      security:
+        - bearer: []
+      summary: Log one device out
+      tags:
+        - auth
+  /auth/login:
+    post:
+      description: Five failed logins per minute per email and per IP are answered with 429.
+      operationId: auth-login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPairBody"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unauthorized
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Too Many Requests
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      summary: Log in on a new device
+      tags:
+        - auth
+  /auth/logout:
+    post:
+      operationId: auth-logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unauthorized
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      security:
+        - bearer: []
+      summary: Log out this device, or all of them
+      tags:
+        - auth
+  /auth/me:
+    get:
+      operationId: auth-get-me
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserBody"
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unauthorized
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      security:
+        - bearer: []
+      summary: The current user
+      tags:
+        - auth
+    patch:
+      operationId: auth-update-me
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserBody"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unauthorized
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      security:
+        - bearer: []
+      summary: Edit the profile
+      tags:
+        - auth
+  /auth/refresh:
+    post:
+      description: The refresh token is single use. Sending a spent one revokes the whole device.
+      operationId: auth-refresh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPairBody"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unauthorized
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      summary: Trade a refresh token for a new token pair
+      tags:
+        - auth
+  /auth/register:
+    post:
+      operationId: auth-register
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserBody"
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Bad Request
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Conflict
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      summary: Create an account
+      tags:
+        - auth
   /meta:
     get:
       operationId: get-meta
@@ -78,5 +770,244 @@ paths:
       summary: Server name, version and enabled modules
       tags:
         - platform
+  /workspace:
+    get:
+      operationId: workspace-list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List my workspaces with my role
+      tags:
+        - workspace
+    post:
+      operationId: workspace-create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Create a workspace; the caller becomes its owner
+      tags:
+        - workspace
+  /workspace/invites:
+    get:
+      operationId: workspace-list-invites
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListInvitesOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List pending invites, without tokens (owner or admin)
+      tags:
+        - workspace
+    post:
+      description: An invite with an email can only be accepted by the user with that email. It expires after 7 days and cannot grant owner.
+      operationId: workspace-create-invite
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invite"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Create an invite; the token is returned only in this response (owner or admin)
+      tags:
+        - workspace
+  /workspace/invites/accept:
+    post:
+      description: 404 when the token is unknown, expired, revoked or used; 403 when the invite is for another email; 409 when already a member.
+      operationId: workspace-accept-invite
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptInviteInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Join a workspace with an invite token
+      tags:
+        - workspace
+  /workspace/invites/{id}:
+    delete:
+      operationId: workspace-revoke-invite
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Revoke a pending invite (owner or admin)
+      tags:
+        - workspace
+  /workspace/members:
+    get:
+      operationId: workspace-list-members
+      parameters:
+        - description: Opaque cursor from the previous page's next_cursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Opaque cursor from the previous page's next_cursor
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int64
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListMembersOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List the members of the workspace in X-Workspace-ID
+      tags:
+        - workspace
+  /workspace/members/{userId}:
+    delete:
+      operationId: workspace-remove-member
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Remove a member (owner or admin)
+      tags:
+        - workspace
+    patch:
+      operationId: workspace-update-member
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Change a member's role or status (owner or admin)
+      tags:
+        - workspace
 servers:
   - url: /api/v1

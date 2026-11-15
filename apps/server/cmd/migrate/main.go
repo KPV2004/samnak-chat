@@ -9,16 +9,23 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database/migrations"
 )
 
 // moduleMigrations lists the migration sets of modules, keyed by module name.
 // Each FS holds its files under a "<module>" directory. Modules join here later.
-var moduleMigrations = map[string]embed.FS{}
+var moduleMigrations = map[string]embed.FS{
+	"auth":      auth.Migrations,
+	"workspace": workspace.Migrations,
+}
 
 type settings struct {
 	DatabaseURL string
@@ -32,7 +39,9 @@ func loadSettings() (settings, error) {
 	if url == "" {
 		return settings{}, errors.New("DATABASE_URL is required")
 	}
-	return settings{DatabaseURL: url, Modules: parseModules(os.Getenv("MODULES_ENABLED"))}, nil
+	// Core modules are always on, so their migrations always run.
+	mods := append(slices.Clone(app.CoreModules), parseModules(os.Getenv("MODULES_ENABLED"))...)
+	return settings{DatabaseURL: url, Modules: mods}, nil
 }
 
 func parseModules(s string) []string {

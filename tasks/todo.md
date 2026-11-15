@@ -173,7 +173,7 @@ Read the M1 section of `tasks/plan.md` first: it fixes the API shapes, token rul
 Module layout follows `docs/architecture.md` 5.3. Use sqlc (`go tool sqlc generate`) for queries and goose SQL files for migrations, exported from the module as `var Migrations embed.FS` (files under `migrations/`).
 Do **not** edit `cmd/server`, `cmd/migrate`, `internal/app` or another module; the planner registers modules at checkpoint B. Test the module through its own `module.go` with a Huma test API and a real Postgres (testcontainers), as `cmd/server/main_test.go` does.
 
-## [ ] M1-01 auth: register, login, access tokens, profile
+## [x] M1-01 auth: register, login, access tokens, profile
 **SRS:** AUTH-01, 02, 06, 07 · **Arch:** 5.3, 8, 12 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** none
 
 **Acceptance criteria**
@@ -186,7 +186,7 @@ Do **not** edit `cmd/server`, `cmd/migrate`, `internal/app` or another module; t
 
 **Files:** `internal/modules/auth/` (except `api.go`, which the planner owns)
 
-## [ ] M1-02 auth: refresh rotation, logout, devices
+## [x] M1-02 auth: refresh rotation, logout, devices
 **SRS:** AUTH-03, 04, 05 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** M1-01 (same session)
 
 **Acceptance criteria**
@@ -198,7 +198,7 @@ Do **not** edit `cmd/server`, `cmd/migrate`, `internal/app` or another module; t
 
 **Files:** `internal/modules/auth/`
 
-## [ ] M1-03 workspace: workspaces, members, roles, `Can`
+## [x] M1-03 workspace: workspaces, members, roles, `Can`
 **SRS:** WSP-01, 03, 04, 05, 06, 07, 08 · **Arch:** 8.1, 12 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** none
 
 **Acceptance criteria**
@@ -213,7 +213,7 @@ Do **not** edit `cmd/server`, `cmd/migrate`, `internal/app` or another module; t
 
 **Files:** `internal/modules/workspace/`
 
-## [ ] M1-04 workspace: invites
+## [x] M1-04 workspace: invites
 **SRS:** WSP-02 · **Tier:** low (Sonnet) · **Size:** M · **Depends on:** M1-03 (same session)
 
 **Acceptance criteria**
@@ -224,7 +224,7 @@ Do **not** edit `cmd/server`, `cmd/migrate`, `internal/app` or another module; t
 
 **Files:** `internal/modules/workspace/`
 
-## [ ] M1-05 platform: Redis and rate limiting
+## [x] M1-05 platform: Redis and rate limiting
 **SRS:** AUTH-06, NFR-04, NFR-07 · **Arch:** 3.2 · **Tier:** low (Sonnet) · **Size:** S · **Depends on:** none
 
 **Acceptance criteria**
@@ -234,7 +234,7 @@ Do **not** edit `cmd/server`, `cmd/migrate`, `internal/app` or another module; t
 
 **Files:** `internal/platform/redis/`, `internal/platform/ratelimit/`
 
-## [ ] M1-06 web: sign-in, session and workspaces
+## [x] M1-06 web: sign-in, session and workspaces
 **SRS:** AUTH-01..05, 07, WSP-01, 02, 04, 05 · **Arch:** 13 · **Tier:** low (Sonnet) · **Size:** L (split into commits) · **Depends on:** none (builds against the API table in `tasks/plan.md`)
 
 **Acceptance criteria**
@@ -246,14 +246,28 @@ Do **not** edit `cmd/server`, `cmd/migrate`, `internal/app` or another module; t
 
 **Files:** `apps/web/`, `packages/core/`, `package-lock.json`
 
-## [ ] M1-07 Wiring, isolation and acceptance (wave 2)
-**SRS:** NFR-06, 16.3 M1 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** checkpoint B
+## [ ] M1-07 Redis login limiter, generated web types, acceptance test (wave 2)
+**SRS:** AUTH-06, NFR-04, NFR-06, NFR-13, 16.3 M1 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** checkpoint B
 
-Details are written at checkpoint B.
+**Acceptance criteria**
+- [ ] Redis login limiter: an auth adapter implementing `usecase.LoginLimiter` on Redis (`Blocked` reads the count, `Fail` does `INCR` + `PEXPIRE … NX` in one pipeline, 5 per minute). `auth.Init` uses it when `d.Platform["redis"]` holds a `*redis.Client`, otherwise the in-memory one. testcontainers test
+- [ ] `cmd/server`: opens Redis from `REDIS_URL` (startup fails with a clear message if unreachable), adds it to `Deps.Platform["redis"]` and to `/readyz` as check `redis`, closes it on shutdown
+- [ ] `packages/core`: M1 request and response types come from the generated `schema.d.ts` (keep `m1.ts` only as re-exports and the typed calls); `npm run build` fails if the server shape drifts
+- [ ] `cmd/server` acceptance test (testcontainers Postgres and Redis, real modules, `httptest` server) that runs the SRS 16.3 M1 flow: two users register, one creates a workspace and invites the other by email, the other accepts and lists members; a third user gets 403 on that workspace for members, invites and member changes; a rotated refresh token is rejected on reuse
+- [ ] All Go and web checks pass, and `make openapi` leaves no diff
+
+**Files:** `internal/modules/auth/adapter/redis/`, `internal/modules/auth/module.go`, `cmd/server/`, `packages/core/src/api/`, `go.mod`, `go.sum`
 
 ## Checkpoint B: after M1 wave 1 (planner)
-- [ ] Branches merged; auth and workspace registered in `cmd/server` and `cmd/migrate`; Redis limiter wired
-- [ ] OpenAPI regenerated; all checks pass; CI green
+- [x] Branches merged; auth and workspace registered in `cmd/server` and `cmd/migrate` (Redis limiter moved to M1-07)
+- [x] OpenAPI regenerated (18 operations); Go and web checks pass; CI pending on push
+- [x] Live run with curl: register, duplicate 409, create workspace, outsider 403, email invite and accept, member list with names, refresh rotation, reuse 401 and device revoked, 6th bad login 429
+
+Planner notes from checkpoint B:
+- `cmd/migrate` now always runs core module migrations; before, auth and workspace tables were never created.
+- `cmd/server` passes `jwt_secret` in `Deps.Platform`; `server openapi` passes a placeholder secret.
+- MinIO: the init container raced the Bitnami setup restart. It is replaced by `MINIO_DEFAULT_BUCKETS`.
+- Accepted worker deviations: refresh reuse also revokes the device row; the login limiter counts failures only; client IP is the socket address (no `X-Forwarded-For` until a trusted-proxy setting exists); `ActionRegistry` lets later modules add actions to `Can`.
 
 ## Checkpoint M1: SRS 16.3 acceptance (planner)
 - [ ] Two users sign up, one creates a workspace and invites the other, who joins

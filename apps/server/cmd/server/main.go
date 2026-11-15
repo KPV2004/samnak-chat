@@ -18,6 +18,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/config"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/eventbus"
@@ -35,7 +37,10 @@ var version = "0.0.0-dev"
 
 // modules is every module this binary can run. MODULES_ENABLED picks from it.
 // Modules are added here as they land.
-var modules []app.Module
+var modules = []app.Module{
+	auth.New(),
+	workspace.New(),
+}
 
 func main() {
 	os.Exit(realMain())
@@ -78,7 +83,10 @@ func writeOpenAPI(w io.Writer, available []app.Module) error {
 	logger := slog.New(slog.DiscardHandler)
 	api := httpx.NewAPI(chi.NewRouter(), version)
 	httpx.RegisterMeta(api, serviceName, version, nil)
-	if err := reg.Start(enabled, newDeps(logger, infra{}), api); err != nil {
+	// Modules need config to Init but never use it here; the placeholder
+	// secret signs nothing.
+	deps := newDeps(logger, infra{Platform: map[string]any{"jwt_secret": "openapi-only"}})
+	if err := reg.Start(enabled, deps, api); err != nil {
 		return fmt.Errorf("start modules: %w", err)
 	}
 	spec, err := api.OpenAPI().YAML()
@@ -104,7 +112,7 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 
 	handler, err := newHandler(logger, cfg.Modules, available, infra{
 		Tx:       database.NewTxManager(pool),
-		Platform: map[string]any{"db": pool},
+		Platform: map[string]any{"db": pool, "jwt_secret": cfg.JWTSecret},
 		Checks:   []httpx.Check{{Name: "db", Fn: pool.Ping}},
 	})
 	if err != nil {
