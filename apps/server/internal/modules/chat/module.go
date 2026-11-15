@@ -71,7 +71,7 @@ func (m *Module) Init(d *app.Deps) error {
 	}
 	pool, _ := d.Platform["db"].(*pgxpool.Pool)
 	events := rtadapter.New(d.Realtime, m.log, publisher{bus: d.Bus, log: m.log}.messageCreated)
-	m.uc = usecase.New(d.Tx, postgres.New(pool), members{d.Services}, permissions{d.Services}, directory{d.Services}, events, m.log, time.Now)
+	m.uc = usecase.New(d.Tx, postgres.New(pool), members{d.Services}, permissions{d.Services}, directory{d.Services}, events, d.Storage, m.log, time.Now)
 	m.services = d.Services
 	return nil
 }

@@ -77,22 +77,28 @@ func (s *Service) ListMessages(ctx context.Context, p app.Principal, channelID s
 
 // SendInput is a new text message.
 type SendInput struct {
-	ChannelID    string
-	ClientMsgID  string
-	Body         string
-	ThreadRootID string
+	ChannelID     string
+	ClientMsgID   string
+	Body          string // may be blank when AttachmentIDs is not empty
+	ThreadRootID  string
+	AttachmentIDs []string // files from RequestUpload; see SendMessage
 }
 
 // SendMessage stores a message with the next seq of the channel. Sending the
 // same client_msg_id again returns the stored message with created=false and
-// publishes nothing (CHAT-05, CHAT-06).
+// publishes nothing (CHAT-05, CHAT-06). Files listed in AttachmentIDs must
+// belong to the caller, be uploaded to this channel and not be used yet.
 func (s *Service) SendMessage(ctx context.Context, p app.Principal, in SendInput) (v MessageView, created bool, err error) {
 	clientID, err := uuid.Parse(in.ClientMsgID)
 	if err != nil {
 		return MessageView{}, false, fmt.Errorf("client_msg_id must be a UUID: %w", app.ErrInvalid)
 	}
 	in.ClientMsgID = clientID.String()
-	if err := domain.ValidateBody(in.Body); err != nil {
+	fileIDs, err := parseAttachmentIDs(in.AttachmentIDs)
+	if err != nil {
+		return MessageView{}, false, err
+	}
+	if err := domain.ValidateContent(in.Body, len(fileIDs)); err != nil {
 		return MessageView{}, false, err
 	}
 	ch, err := s.memberChannel(ctx, p, in.ChannelID)
@@ -107,6 +113,10 @@ func (s *Service) SendMessage(ctx context.Context, p app.Principal, in SendInput
 		return MessageView{}, false, fmt.Errorf("the channel is archived: %w", app.ErrConflict)
 	}
 	root, err := s.threadRoot(ctx, p, ch.ID, in.ThreadRootID)
+	if err != nil {
+		return MessageView{}, false, err
+	}
+	files, err := s.checkFiles(ctx, p, ch.ID, fileIDs)
 	if err != nil {
 		return MessageView{}, false, err
 	}
@@ -144,7 +154,13 @@ func (s *Service) SendMessage(ctx context.Context, p app.Principal, in SendInput
 			return nil
 		}
 		msg.Seq = seq
-		return s.repo.InsertMessage(ctx, msg)
+		if err := s.repo.InsertMessage(ctx, msg); err != nil {
+			return err
+		}
+		if len(files) == 0 {
+			return nil
+		}
+		return s.repo.AttachToMessage(ctx, p.WorkspaceID, ch.ID, p.UserID, msg.ID, fileIDs)
 	})
 	if err != nil {
 		return MessageView{}, false, err
@@ -154,6 +170,10 @@ func (s *Service) SendMessage(ctx context.Context, p app.Principal, in SendInput
 	}
 
 	v = MessageView{Message: msg}
+	for _, f := range files {
+		f.MessageID = msg.ID
+		v.Attachments = append(v.Attachments, f)
+	}
 	if recipients, err := s.repo.MemberIDs(ctx, p.WorkspaceID, ch.ID); err != nil {
 		s.log.WarnContext(ctx, "chat: list recipients", "channel_id", ch.ID, "error", err)
 	} else {

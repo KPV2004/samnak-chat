@@ -37,6 +37,8 @@ func TestOperationsAppearInOpenAPIWithoutDatabase(t *testing.T) {
 		"/chat/channels/{id}/read":     {"POST"},
 		"/chat/messages/{id}":          {"PATCH", "DELETE"},
 
+		"/chat/uploads":                         {"POST"},
+		"/chat/attachments/{id}":                {"GET"},
 		"/chat/messages/{id}/reactions":         {"POST"},
 		"/chat/messages/{id}/reactions/{emoji}": {"DELETE"},
 	}
