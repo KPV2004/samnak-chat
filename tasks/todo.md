@@ -279,3 +279,78 @@ Planner notes from checkpoint M1:
 - The web now offers the `manager` role (SRS section 2, WSP-03). Invites still cannot grant owner or manager; managers are assigned after joining.
 - `REDIS_URL` is required at startup; the login limiter uses Redis when present.
 - Before v0.1: require a `JWT_SECRET` of at least 32 bytes outside dev, and decide on a trusted-proxy setting for client IPs.
+
+---
+
+# M2: realtime chat
+
+Read the M2 section of `tasks/plan.md` first: it fixes the WebSocket protocol, the chat API, the rules and the new contracts (`app.Realtime`, `app.ObjectStorage`, `app.CardRegistry`).
+Same rules as M1: do not edit `cmd/server`, `cmd/migrate`, `internal/app`, another module, `tasks/` or `AGENTS.md`. Test through your own package with fakes for the contracts and real Postgres or Redis via testcontainers.
+
+## [ ] M2-01 platform/realtime: WebSocket hub
+**SRS:** CHAT-07, CHAT-17 (presence only), NFR-02, 03, 04 · **Arch:** 9.2 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** none
+
+**Acceptance criteria**
+- [ ] `realtime.NewHub(logger, auth app.Authenticator-lookup via *app.Services, redis *redis.Client)` implements `app.Realtime`; `hub.Mount(r chi.Router)` serves `GET /api/v1/ws` (use `github.com/coder/websocket`)
+- [ ] Handshake, envelope, ping/pong, 60 s idle timeout, 64 KiB inbound limit and close codes exactly as in the plan; `Handle` dispatches registered client types and rejects unknown ones without closing
+- [ ] One reader and one writer goroutine per connection, bounded queue of 256, slow clients disconnected; graceful `Close(ctx)` for shutdown
+- [ ] Redis fan-out (`rt:users`, `rt:control`) so `SendToUsers` and `DisconnectDevice` work across two hubs on the same Redis; presence keys with 60 s TTL and `Online`
+- [ ] Tests with `httptest` servers and real WebSocket clients: handshake success and failure, ping, idle timeout (short in tests), slow-client drop, two hubs sharing a Redis container deliver to each other's clients, `DisconnectDevice` across hubs, `go test -race`
+- [ ] A benchmark or test that holds 1,000 concurrent connections on one hub (NFR-03), skipped with `-short`
+
+**Files:** `internal/platform/realtime/`
+
+## [ ] M2-02 platform/storage: presigned URLs
+**SRS:** CHAT-14, NFR-07 · **Arch:** 3.2 · **Tier:** low (Sonnet) · **Size:** S · **Depends on:** none
+
+**Acceptance criteria**
+- [ ] `storage.New(ctx, cfg)` (endpoint, bucket, access key, secret, region default `us-east-1`, path-style for MinIO) implements `app.ObjectStorage` with `github.com/minio/minio-go/v7`
+- [ ] `PresignPut` signs content type and length, so the upload must match them; `PresignGet` sets `Content-Disposition: attachment; filename*=UTF-8''...` (Thai file names work); `Stat` maps a missing key to `app.ErrNotFound`
+- [ ] testcontainers test against `bitnamilegacy/minio` (or `minio/minio` if it pulls): upload through the presigned PUT with `net/http`, a mismatched size is rejected, download through the presigned GET, Stat before and after
+
+**Files:** `internal/platform/storage/`
+
+## [ ] M2-03 chat: channels, messages, threads, read state
+**SRS:** CHAT-01..13 · **Arch:** 5.3, 8, 9.1 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** none
+
+**Acceptance criteria**
+- [ ] Tables `chat_channels`, `chat_channel_members`, `chat_messages` per SRS 13 with the unique keys in the plan; migrations exported as `chat.Migrations`
+- [ ] Channel endpoints from the plan (create, DM, list joined and public, get, patch, archive, join, leave, members), with the visibility rules (private and DM → 404 for non-members; guests only see channels they were added to)
+- [ ] Message endpoints: send with `seq` and `client_msg_id` exactly as in the plan's rules (test a concurrent duplicate send), `after_seq` and `before_seq` pagination, edit and soft delete, one-level threads with `reply_count`, mentions parsing, 4,000-character limit
+- [ ] Read state: `POST .../read` (only moves forward), `unread_count` and `mention_count` per channel
+- [ ] After commit, sends `message.created`, `message.updated`, `message.deleted`, `channel.read` (to the reader's own devices) and `channel.updated` through `Deps.Realtime` when it is not nil; publishes `chat.message_created`; subscribes to `workspace.member_removed`
+- [ ] Provides a stub `app.CardRegistry` whose methods return an error wrapping `app.ErrInvalid` ("cards arrive in M2-05"), so the contract is wired
+- [ ] Tests: domain unit tests; API tests for every visibility rule, NFR-06 (workspace A cannot see workspace B's channels), ordering under 20 concurrent senders (seqs are 1..20 with no gaps), duplicate send, catch-up after a gap; a fake `app.Realtime` records deliveries
+
+**Files:** `internal/modules/chat/` (create the module, including `api.go` and `events.go`)
+
+## [ ] M2-04 packages/core: realtime client and chat sync engine
+**SRS:** CHAT-05..09, 12, NFR-09 · **Arch:** 9.1, 13 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** none (protocol and shapes in the plan)
+
+**Acceptance criteria**
+- [ ] `RealtimeClient` with an injected WebSocket factory (no DOM types in core): auth handshake with the current access token, ping every 30 s, reconnect with exponential backoff and jitter (1 s → 30 s), re-auth after token refresh, typed `on(type, handler)`
+- [ ] `ChatStore` (framework-free, `subscribe`/`getState` for `useSyncExternalStore`): per channel, messages kept sorted by `seq`, deduplicated by `id` and `client_msg_id`; optimistic send with a generated UUID `client_msg_id`, marked pending, then failed or confirmed; retry resends the same `client_msg_id`
+- [ ] Gap handling: an incoming `seq` greater than `last + 1`, or a reconnect, triggers `GET messages?after_seq=` until `has_more` is false
+- [ ] Applies `message.updated`, `message.deleted`, `channel.read` and `card.updated`; unread counts per channel
+- [ ] Hand-written types for the M2 shapes in `src/api/m2.ts` until checkpoint C
+- [ ] vitest with a fake socket and fake fetch: out-of-order delivery, duplicate delivery, reconnect catch-up, optimistic send confirmed by both the POST response and the WebSocket echo (one message, not two), retry after failure keeps the same `client_msg_id`
+
+**Files:** `packages/core/`
+
+## [ ] M2-05 chat: uploads, reactions, cards, typing, presence (wave 2)
+**SRS:** CHAT-14, 15, 17, 18, PLT-11 · **Depends on:** checkpoint C. Written at checkpoint C.
+
+## [ ] M2-06 web: chat UI (wave 2)
+**SRS:** CHAT-01..18 · **Depends on:** checkpoint C. Written at checkpoint C.
+
+## [ ] M2-07 AUTH-08 and M2 acceptance test (wave 3)
+**SRS:** AUTH-08, 16.3 M2 · **Depends on:** M2-05. Written after wave 2.
+
+## Checkpoint C: after M2 wave 1 (planner)
+- [ ] Branches merged; chat registered; `cmd/server` creates the hub and storage, mounts `/api/v1/ws`, fills `Deps.Realtime` and `Deps.Storage`, closes the hub on shutdown
+- [ ] OpenAPI regenerated; all checks pass; CI green
+
+## Checkpoint M2: SRS 16.3 acceptance (planner)
+- [ ] Two users in two browsers see each other's messages within 1 second
+- [ ] After a network drop and reconnect, messages are complete and in order
+- [ ] Re-sending the same message creates no duplicate

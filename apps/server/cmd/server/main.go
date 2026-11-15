@@ -208,11 +208,8 @@ func newDeps(logger *slog.Logger, in infra) *app.Deps {
 		Services:      app.NewServices(),
 		Bus:           eventbus.New(logger),
 		Notifications: app.NoopNotificationRegistry{},
-		// Cards stays nil until the chat module provides the registry (M2).
-		// Modules that register cards must not be enabled before then.
-		Cards:    nil,
-		Tx:       in.Tx,
-		Platform: in.Platform,
+		Tx:            in.Tx,
+		Platform:      in.Platform,
 	}
 }
 

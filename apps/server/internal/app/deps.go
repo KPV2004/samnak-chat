@@ -10,8 +10,11 @@ type Deps struct {
 	Services      *Services
 	Bus           EventBus
 	Notifications NotificationRegistry
-	Cards         CardRegistry
 	Tx            TxManager
+	// Realtime and Storage may be nil in tests and in the openapi command;
+	// modules must not use them in Init, only in request handling.
+	Realtime Realtime
+	Storage  ObjectStorage
 	// Platform carries infrastructure handles (db pool, redis, storage, jobs).
 	// Typed accessors live in internal/platform; modules type-assert there.
 	Platform map[string]any

@@ -122,6 +122,79 @@ Rules: login failures are limited to 5 per minute per email and per IP (AUTH-06)
 | 2 | M1-07 wiring, isolation tests, web on generated types, acceptance test | 1 worker |
 | Checkpoint M1 | SRS 16.3 M1 acceptance | Planner |
 
+## M2: realtime chat (SRS CHAT-01..15, 17, 18, AUTH-08, PLT-11)
+
+### Contracts the planner fixed before M2
+
+- `app.Realtime` (`internal/app/realtime.go`): `SendToUsers`, `Online`, `DisconnectDevice`, `Handle(msgType, ClientHandler)`, and `app.Envelope`. Implemented by `platform/realtime`, passed as `Deps.Realtime`.
+- `app.ObjectStorage` (`internal/app/storage.go`): `PresignPut`, `PresignGet`, `Stat`. Implemented by `platform/storage`, passed as `Deps.Storage`.
+- `app.CardRegistry` (`internal/app/card.go`) now takes an `app.Card` with explicit workspace and sender, and adds `DirectChannel`. chat provides it in `Provide`; `Deps.Cards` is removed, so other modules use `app.Lookup[app.CardRegistry]`.
+- `Deps.Realtime` and `Deps.Storage` may be nil in tests and in `server openapi`; use them only while handling requests.
+
+### WebSocket protocol (`GET /api/v1/ws`)
+
+- The hub upgrades without auth. The first client message must be `{"type":"auth","data":{"access_token":"..."}}` within 10 s. The hub calls `app.Authenticator`; on success it replies `{"type":"ready","data":{"user_id","device_id"}}`, otherwise it closes with code 4401.
+- Every frame is an `app.Envelope` (`{type, data}`), JSON text frames, at most 64 KiB inbound.
+- Client sends `{"type":"ping"}` every 30 s; the hub replies `{"type":"pong"}`. No inbound frame for 60 s → close.
+- One reader and one writer goroutine per connection; a bounded send queue (256). A slow client whose queue is full is disconnected, never blocks others.
+- Fan-out across instances via Redis pub/sub channel `rt:users` (message: target user IDs + envelope) and `rt:control` (disconnect device). Each instance delivers to its own connections.
+- Presence: Redis key `rt:online:{user_id}` with a 60 s TTL, refreshed on ping. `Online` reads these keys.
+- Server → client types (SRS 14.3): `message.created`, `message.updated`, `message.deleted`, `card.updated`, `channel.read`, `channel.updated`, `presence.changed`, `typing`, `notification.created`. Client → server: `auth`, `ping`, `typing`.
+- Every server event's `data` carries `workspace_id`; clients drop events for workspaces they are not viewing but still update unread counts.
+- The WebSocket never replays history. After `ready`, the client calls `GET .../messages?after_seq=` per channel it has open.
+
+### Chat API (prefix `/chat`; all operations use `RequireMember`)
+
+| Method and path | Body or query | Response |
+| --- | --- | --- |
+| `GET /chat/channels` | `?scope=joined\|public` (default joined) | `{items: Channel[]}` |
+| `POST /chat/channels` | `{type: public\|private, name, topic?, member_ids?}` | 201 `Channel` |
+| `POST /chat/dms` | `{user_ids}` (1–8 others; same set returns the existing DM) | 200/201 `Channel` |
+| `GET /chat/channels/{id}` | | `Channel` |
+| `PATCH /chat/channels/{id}` | `{name?, topic?, archived?}` | `Channel` |
+| `POST /chat/channels/{id}/join` · `/leave` | | 204 |
+| `GET /chat/channels/{id}/members` | | `{items: ChannelMember[]}` |
+| `POST /chat/channels/{id}/members` | `{user_ids}` | 204 |
+| `GET /chat/channels/{id}/messages` | `?after_seq=` (catch-up, ascending) or `?before_seq=` (history); `?limit` ≤ 100; `?thread_root_id=` | `{items: Message[], has_more}` |
+| `POST /chat/channels/{id}/messages` | `{client_msg_id (UUID), body, thread_root_id?, attachment_ids?}` | 201 `Message`, or 200 with the original on a repeated `client_msg_id` |
+| `PATCH /chat/messages/{id}` | `{body}` | `Message` |
+| `DELETE /chat/messages/{id}` | | 204 |
+| `POST /chat/channels/{id}/read` | `{seq}` | 204 |
+| `POST /chat/messages/{id}/reactions` | `{emoji}` | 204 |
+| `DELETE /chat/messages/{id}/reactions/{emoji}` | | 204 |
+| `POST /chat/uploads` | `{channel_id, file_name, size, mime_type}` | 201 `{attachment_id, upload: {url, method, headers, expires_at}}` |
+| `GET /chat/attachments/{id}` | | `{url, expires_at}` (presigned download) |
+
+Shapes:
+
+- `Channel {id, type: public|private|dm, name, topic, last_seq, last_read_seq, unread_count, mention_count, member_count, dm_user_ids, archived_at, created_at}`
+- `ChannelMember {user_id, display_name, joined_at}`
+- `Message {id, channel_id, seq, sender_id, client_msg_id, kind, body, payload, fallback_text, thread_root_id, reply_count, attachments: Attachment[], reactions: {emoji, count, me}[], mentions: string[], mentions_channel, edited_at, deleted_at, created_at}`; `kind` is `text` or a card kind. A deleted message keeps its row and seq, with empty body and `deleted_at` set.
+- `Attachment {id, file_name, size, mime_type, is_image}`
+
+Rules:
+
+- `seq`: in the send transaction, `UPDATE chat_channels SET last_seq = last_seq + 1 ... RETURNING last_seq`, then insert. A rolled-back send leaves no gap. Unique `(channel_id, seq)` and `(sender_id, client_msg_id)`.
+- A repeated `client_msg_id` returns the stored message and does not publish again (also when two sends race: catch the unique violation and read the original).
+- Mentions are tokens in the body: `<@user_id>` and `<!channel>`. The server stores the parsed user IDs (members of the channel only).
+- Body is markdown, 1–4,000 characters (CHAT-04); attachments only messages may have an empty body.
+- Public channels: any active workspace member may read and join. Private channels and DMs: members only; everyone else gets 404, not 403, so their existence does not leak. Guests see only channels they were added to.
+- Edit and delete: own messages; admins and owners may delete anyone's (CHAT-10).
+- Threads are one level deep: a reply's root must be a top-level message in the same channel. Replies get their own `seq` in the channel.
+- Uploads: at most 50 MB, key `chat/{workspace_id}/{attachment_id}`, presigned for 15 minutes (NFR-07). Sending with `attachment_ids` checks the object exists (`Stat`) and belongs to the sender and channel.
+- Events (`chat/events.go`): `chat.message_created {workspace_id, channel_id, message_id, seq, sender_id, channel_type, thread_root_id, mentions, mentions_channel}`. Realtime delivery to channel members happens after the transaction commits.
+- chat listens to `workspace.member_removed` and removes that user from the workspace's channels.
+
+### M2 waves
+
+| Wave | Tasks | Run as |
+| --- | --- | --- |
+| 1 | M2-01 realtime hub, M2-02 storage, M2-03 chat core, M2-04 core sync engine | 4 parallel workers |
+| Checkpoint C | Planner merges, wires realtime, storage and chat into `cmd/server` | Planner |
+| 2 | M2-05 chat extras (uploads, reactions, cards, typing, presence), M2-06 web chat UI | 2 parallel workers |
+| 3 | M2-07 AUTH-08, acceptance test | 1 worker |
+| Checkpoint M2 | SRS 16.3 M2 acceptance | Planner |
+
 ## Later milestones (to be broken down at each checkpoint)
 
 | Milestone | Scope | SRS IDs |
