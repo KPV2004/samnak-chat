@@ -1,6 +1,32 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createApiClient } from "./client";
+import type { Device, Invite, Member, TokenPair, User, Workspace } from "./m1";
 import { createM1Api } from "./m1";
+import type { components } from "./schema";
+
+type Schemas = components["schemas"];
+
+// `npm run build` type-checks this file, so these fail the build when the
+// server's OpenAPI document and the types the web app uses drift apart.
+describe("M1 types come from the generated schema", () => {
+  it("are the generated types", () => {
+    expectTypeOf<User>().toEqualTypeOf<Schemas["UserBody"]>();
+    expectTypeOf<TokenPair>().toEqualTypeOf<Schemas["TokenPairBody"]>();
+    expectTypeOf<Device>().toEqualTypeOf<Schemas["DeviceBody"]>();
+    expectTypeOf<Workspace>().toEqualTypeOf<Schemas["Workspace"]>();
+    expectTypeOf<Member>().toEqualTypeOf<Schemas["Member"]>();
+    expectTypeOf<Invite>().toEqualTypeOf<Schemas["Invite"]>();
+  });
+
+  it("type the calls by the generated operations", () => {
+    const api = createM1Api(createApiClient({ baseUrl: "" }));
+    expectTypeOf(api.register).returns.resolves.toEqualTypeOf<Schemas["UserBody"]>();
+    expectTypeOf(api.login).parameter(0).toEqualTypeOf<Schemas["LoginInputBody"]>();
+    expectTypeOf(api.listMembers).returns.resolves.toEqualTypeOf<Schemas["ListMembersOutputBody"]>();
+    expectTypeOf(api.acceptInvite).returns.resolves.toEqualTypeOf<Schemas["Workspace"]>();
+    expectTypeOf(api.createInvite).parameter(0).toEqualTypeOf<Schemas["CreateInviteInputBody"]>();
+  });
+});
 
 function setup() {
   const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, statusText: "", json: async () => ({}) });
