@@ -5,8 +5,8 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react()],
   server: {
-    // API_URL points the dev proxy at a server on another port.
-    proxy: { "/api": process.env.API_URL ?? "http://localhost:8080" },
+    // API_URL points the dev proxy at a server on another port. `ws` forwards the chat WebSocket.
+    proxy: { "/api": { target: process.env.API_URL ?? "http://localhost:8080", ws: true } },
   },
   test: {
     environment: "jsdom",
