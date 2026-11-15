@@ -11,8 +11,8 @@ import (
 )
 
 const createRefreshToken = `-- name: CreateRefreshToken :exec
-INSERT INTO auth_refresh_tokens (id, device_id, token_hash, expires_at, created_at)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO auth_refresh_tokens (id, device_id, token_hash, expires_at)
+VALUES ($1, $2, $3, $4)
 `
 
 type CreateRefreshTokenParams struct {
@@ -20,7 +20,6 @@ type CreateRefreshTokenParams struct {
 	DeviceID  string
 	TokenHash []byte
 	ExpiresAt time.Time
-	CreatedAt time.Time
 }
 
 func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error {
@@ -29,7 +28,6 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 		arg.DeviceID,
 		arg.TokenHash,
 		arg.ExpiresAt,
-		arg.CreatedAt,
 	)
 	return err
 }

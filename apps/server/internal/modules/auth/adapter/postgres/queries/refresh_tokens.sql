@@ -1,6 +1,6 @@
 -- name: CreateRefreshToken :exec
-INSERT INTO auth_refresh_tokens (id, device_id, token_hash, expires_at, created_at)
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO auth_refresh_tokens (id, device_id, token_hash, expires_at)
+VALUES ($1, $2, $3, $4);
 
 -- name: GetRefreshTokenForUpdate :one
 SELECT * FROM auth_refresh_tokens WHERE token_hash = $1 FOR UPDATE;
