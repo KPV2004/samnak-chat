@@ -66,7 +66,21 @@ func toTokenPair(s usecase.Session) TokenPairBody {
 	}
 }
 
+// DeviceBody is the Device shape of the API.
+type DeviceBody struct {
+	ID         string    `json:"id"`
+	Name       string    `json:"name" example:"Firefox on Linux"`
+	Platform   string    `json:"platform" enum:"web,desktop,ios,android"`
+	LastSeenAt time.Time `json:"last_seen_at"`
+	Current    bool      `json:"current" doc:"True for the device that sent this request"`
+}
+
 type userOutput struct{ Body UserBody }
+type devicesOutput struct {
+	Body struct {
+		Items []DeviceBody `json:"items" nullable:"false"`
+	}
+}
 type tokenPairOutput struct{ Body TokenPairBody }
 
 type registerInput struct {
@@ -113,6 +127,22 @@ func limitKey(addr string) string {
 	return ip.String()
 }
 
+type refreshInput struct {
+	Body struct {
+		RefreshToken string `json:"refresh_token" minLength:"1" maxLength:"512"`
+	}
+}
+
+type logoutInput struct {
+	Body struct {
+		AllDevices bool `json:"all_devices,omitempty" doc:"Log out every device of the user, not only this one"`
+	}
+}
+
+type deviceIDInput struct {
+	ID string `path:"id" doc:"Device ID"`
+}
+
 type updateMeInput struct {
 	Body struct {
 		DisplayName *string `json:"display_name,omitempty" minLength:"1" maxLength:"100"`
@@ -122,7 +152,7 @@ type updateMeInput struct {
 	}
 }
 
-// Register adds the endpoints of M1-01 to api, which is the /auth group.
+// Register adds the endpoints to api, which is the /auth group.
 func (h *Handlers) Register(api huma.API) {
 	user := huma.Middlewares{httpx.RequireUser(api, h.services)}
 
@@ -150,6 +180,31 @@ func (h *Handlers) Register(api huma.API) {
 		Summary: "Edit the profile", Tags: []string{tag},
 		Security: httpx.BearerAuth, Middlewares: user, Errors: []int{http.StatusBadRequest, http.StatusUnauthorized},
 	}, h.updateMe)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "auth-refresh", Method: http.MethodPost, Path: "/refresh",
+		Summary: "Trade a refresh token for a new token pair", Tags: []string{tag},
+		Description: "The refresh token is single use. Sending a spent one revokes the whole device.",
+		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized},
+	}, h.refresh)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "auth-logout", Method: http.MethodPost, Path: "/logout",
+		Summary: "Log out this device, or all of them", Tags: []string{tag}, DefaultStatus: http.StatusNoContent,
+		Security: httpx.BearerAuth, Middlewares: user, Errors: []int{http.StatusUnauthorized},
+	}, h.logout)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "auth-list-devices", Method: http.MethodGet, Path: "/devices",
+		Summary: "Devices that are logged in", Tags: []string{tag},
+		Security: httpx.BearerAuth, Middlewares: user, Errors: []int{http.StatusUnauthorized},
+	}, h.devices)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "auth-revoke-device", Method: http.MethodDelete, Path: "/devices/{id}",
+		Summary: "Log one device out", Tags: []string{tag}, DefaultStatus: http.StatusNoContent,
+		Security: httpx.BearerAuth, Middlewares: user, Errors: []int{http.StatusUnauthorized, http.StatusNotFound},
+	}, h.revokeDevice)
 }
 
 func (h *Handlers) register(ctx context.Context, in *registerInput) (*userOutput, error) {
@@ -171,6 +226,55 @@ func (h *Handlers) login(ctx context.Context, in *loginInput) (*tokenPairOutput,
 		return nil, h.fail(ctx, err)
 	}
 	return &tokenPairOutput{Body: toTokenPair(s)}, nil
+}
+
+func (h *Handlers) refresh(ctx context.Context, in *refreshInput) (*tokenPairOutput, error) {
+	s, err := h.svc.Refresh(ctx, in.Body.RefreshToken)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &tokenPairOutput{Body: toTokenPair(s)}, nil
+}
+
+func (h *Handlers) logout(ctx context.Context, in *logoutInput) (*struct{}, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.svc.Logout(ctx, app.Identity{UserID: p.UserID, DeviceID: p.DeviceID}, in.Body.AllDevices); err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return nil, nil
+}
+
+func (h *Handlers) devices(ctx context.Context, _ *struct{}) (*devicesOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ds, err := h.svc.Devices(ctx, p.UserID)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	out := &devicesOutput{}
+	out.Body.Items = make([]DeviceBody, len(ds))
+	for i, d := range ds {
+		out.Body.Items[i] = DeviceBody{
+			ID: d.ID, Name: d.Name, Platform: d.Platform, LastSeenAt: d.LastSeenAt.UTC(), Current: d.ID == p.DeviceID,
+		}
+	}
+	return out, nil
+}
+
+func (h *Handlers) revokeDevice(ctx context.Context, in *deviceIDInput) (*struct{}, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.svc.RevokeDevice(ctx, p.UserID, in.ID); err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return nil, nil
 }
 
 func (h *Handlers) me(ctx context.Context, _ *struct{}) (*userOutput, error) {

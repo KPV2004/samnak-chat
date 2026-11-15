@@ -345,3 +345,302 @@ func TestProvidesDirectory(t *testing.T) {
 		t.Fatalf("Users(nil) = %+v, %v", got, err)
 	}
 }
+
+// Sessions: refresh rotation, logout and devices (M1-02).
+
+func (e *env) refresh(token string) resp {
+	return e.do("POST", "/auth/refresh", req{Body: map[string]any{"refresh_token": token}})
+}
+
+func (e *env) me(access string) int {
+	return e.do("GET", "/auth/me", req{Token: access}).Status
+}
+
+func TestRefreshRotates(t *testing.T) {
+	e := newEnv(t)
+	s := e.login(e.register("Alice"), "Laptop")
+	e.clock.Advance(time.Minute)
+
+	r := e.refresh(s.Refresh)
+	if r.Status != 200 {
+		t.Fatalf("status = %d: %s", r.Status, r.Body)
+	}
+	if r.String("refresh_token") == "" || r.String("refresh_token") == s.Refresh {
+		t.Error("refresh token was not rotated")
+	}
+	if r.String("access_token") == s.Access || r.String("device_id") != s.DeviceID {
+		t.Errorf("access token or device wrong: %s", r.Body)
+	}
+	if r.JSON()["expires_in"] != float64(900) || r.String("user", "display_name") != "Alice" {
+		t.Errorf("body = %s", r.Body)
+	}
+	if e.me(r.String("access_token")) != 200 {
+		t.Error("new access token does not work")
+	}
+
+	// The new refresh token works once more; the first is spent.
+	if r2 := e.refresh(r.String("refresh_token")); r2.Status != 200 {
+		t.Fatalf("second rotation: %d %s", r2.Status, r2.Body)
+	}
+}
+
+func TestRefreshStoresOnlyTheHash(t *testing.T) {
+	e := newEnv(t)
+	s := e.login(e.register("Alice"), "Laptop")
+	var n int
+	err := e.pool.QueryRow(context.Background(),
+		"SELECT count(*) FROM auth_refresh_tokens WHERE encode(token_hash, 'escape') = $1 OR encode(token_hash, 'base64') LIKE '%' || $1 || '%'", s.Refresh).Scan(&n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Error("the raw refresh token is stored")
+	}
+	var size int
+	if err := e.pool.QueryRow(context.Background(), "SELECT length(token_hash) FROM auth_refresh_tokens WHERE device_id = $1", s.DeviceID).Scan(&size); err != nil || size != 32 {
+		t.Errorf("token_hash length = %d, %v; want a SHA-256", size, err)
+	}
+}
+
+func TestRefreshReuseRevokesTheDevice(t *testing.T) {
+	e := newEnv(t)
+	a := e.register("Alice")
+	s := e.login(a, "Laptop")
+	other := e.login(a, "Phone")
+
+	first := e.refresh(s.Refresh)
+	if first.Status != 200 {
+		t.Fatalf("first refresh: %d %s", first.Status, first.Body)
+	}
+	// An attacker (or a buggy client) replays the spent token.
+	if r := e.refresh(s.Refresh); r.Status != 401 {
+		t.Fatalf("replay: status = %d: %s", r.Status, r.Body)
+	}
+	// The newest token of that device is revoked as well, and so is its access token.
+	if r := e.refresh(first.String("refresh_token")); r.Status != 401 {
+		t.Errorf("newest token still works after reuse: %d %s", r.Status, r.Body)
+	}
+	if e.me(first.String("access_token")) != 401 || e.me(s.Access) != 401 {
+		t.Error("access tokens of the compromised device still work")
+	}
+	var live int
+	if err := e.pool.QueryRow(context.Background(),
+		"SELECT count(*) FROM auth_refresh_tokens WHERE device_id = $1 AND revoked_at IS NULL", s.DeviceID).Scan(&live); err != nil || live != 0 {
+		t.Errorf("%d live refresh tokens remain on the device, %v", live, err)
+	}
+
+	// Other devices of the user are untouched.
+	if e.me(other.Access) != 200 || e.refresh(other.Refresh).Status != 200 {
+		t.Error("another device was revoked")
+	}
+}
+
+func TestRefreshRejectsUnknownExpiredAndMalformed(t *testing.T) {
+	e := newEnv(t)
+	s := e.login(e.register("Alice"), "Laptop")
+	for name, tok := range map[string]string{"unknown": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "garbage": "x", "access token": s.Access} {
+		if r := e.refresh(tok); r.Status != 401 {
+			t.Errorf("%s: status = %d: %s", name, r.Status, r.Body)
+		}
+	}
+	if r := e.do("POST", "/auth/refresh", req{Body: map[string]any{}}); r.Status != 400 {
+		t.Errorf("missing token: status = %d", r.Status)
+	}
+
+	e.clock.Advance(30*24*time.Hour + time.Second)
+	if r := e.refresh(s.Refresh); r.Status != 401 {
+		t.Errorf("expired: status = %d: %s", r.Status, r.Body)
+	}
+	// Expiry is not theft: the device is not revoked for it.
+	var revoked bool
+	if err := e.pool.QueryRow(context.Background(), "SELECT revoked_at IS NOT NULL FROM auth_devices WHERE id = $1", s.DeviceID).Scan(&revoked); err != nil || revoked {
+		t.Errorf("device revoked by an expired token: %v, %v", revoked, err)
+	}
+}
+
+func TestConcurrentRefreshWithOneTokenSucceedsOnce(t *testing.T) {
+	e := newEnv(t)
+	s := e.login(e.register("Alice"), "Laptop")
+	const n = 6
+	statuses := make(chan int, n)
+	for range n {
+		go func() { statuses <- e.refresh(s.Refresh).Status }()
+	}
+	ok := 0
+	for range n {
+		if <-statuses == 200 {
+			ok++
+		}
+	}
+	if ok != 1 {
+		t.Fatalf("%d refreshes succeeded with one token, want exactly 1", ok)
+	}
+}
+
+func TestRefreshUpdatesLastSeen(t *testing.T) {
+	e := newEnv(t)
+	s := e.login(e.register("Alice"), "Laptop")
+	lastSeen := func() time.Time {
+		var at time.Time
+		if err := e.pool.QueryRow(context.Background(), "SELECT last_seen_at FROM auth_devices WHERE id = $1", s.DeviceID).Scan(&at); err != nil {
+			t.Fatal(err)
+		}
+		return at
+	}
+	atLogin := lastSeen()
+	if d := atLogin.Sub(e.clock.Now()); d > time.Second || d < -time.Second {
+		t.Errorf("last_seen_at at login = %v, clock = %v", atLogin, e.clock.Now())
+	}
+	e.clock.Advance(10 * time.Minute)
+	if r := e.refresh(s.Refresh); r.Status != 200 {
+		t.Fatal(r.Body)
+	}
+	if got := lastSeen(); got.Sub(atLogin) < 9*time.Minute {
+		t.Errorf("last_seen_at after refresh = %v, login = %v", got, atLogin)
+	}
+}
+
+func TestLogoutRevokesCurrentDevice(t *testing.T) {
+	e := newEnv(t)
+	a := e.register("Alice")
+	laptop := e.login(a, "Laptop")
+	phone := e.login(a, "Phone")
+
+	if r := e.do("POST", "/auth/logout", req{Token: laptop.Access, Body: map[string]any{"all_devices": false}}); r.Status != 204 {
+		t.Fatalf("status = %d: %s", r.Status, r.Body)
+	}
+	// Takes effect at once, with the access token still unexpired.
+	if e.me(laptop.Access) != 401 {
+		t.Error("access token works after logout")
+	}
+	if r := e.refresh(laptop.Refresh); r.Status != 401 {
+		t.Errorf("refresh token works after logout: %d", r.Status)
+	}
+	if e.me(phone.Access) != 200 || e.refresh(phone.Refresh).Status != 200 {
+		t.Error("another device was logged out")
+	}
+	// Logging out twice is a 401: the token is already dead.
+	if r := e.do("POST", "/auth/logout", req{Token: laptop.Access, Body: map[string]any{}}); r.Status != 401 {
+		t.Errorf("second logout: status = %d", r.Status)
+	}
+}
+
+func TestLogoutAllDevices(t *testing.T) {
+	e := newEnv(t)
+	a := e.register("Alice")
+	laptop := e.login(a, "Laptop")
+	phone := e.login(a, "Phone")
+	bob := e.login(e.register("Bob"), "Laptop")
+
+	if r := e.do("POST", "/auth/logout", req{Token: laptop.Access, Body: map[string]any{"all_devices": true}}); r.Status != 204 {
+		t.Fatalf("status = %d: %s", r.Status, r.Body)
+	}
+	for name, s := range map[string]session{"laptop": laptop, "phone": phone} {
+		if e.me(s.Access) != 401 || e.refresh(s.Refresh).Status != 401 {
+			t.Errorf("%s still has access", name)
+		}
+	}
+	if e.me(bob.Access) != 200 {
+		t.Error("another user was logged out")
+	}
+}
+
+func TestLogoutRequiresLogin(t *testing.T) {
+	e := newEnv(t)
+	if r := e.do("POST", "/auth/logout", req{Body: map[string]any{}}); r.Status != 401 {
+		t.Errorf("status = %d", r.Status)
+	}
+}
+
+func TestDevices(t *testing.T) {
+	e := newEnv(t)
+	a := e.register("Alice")
+	laptop := e.login(a, "Laptop")
+	e.clock.Advance(time.Minute)
+	phone := e.login(a, "Phone")
+	e.login(e.register("Bob"), "Bob's laptop")
+
+	r := e.do("GET", "/auth/devices", req{Token: laptop.Access})
+	if r.Status != 200 {
+		t.Fatalf("status = %d: %s", r.Status, r.Body)
+	}
+	items, _ := r.JSON()["items"].([]any)
+	if len(items) != 2 {
+		t.Fatalf("items = %s, want 2 devices of the user only", r.Body)
+	}
+	byID := map[string]map[string]any{}
+	for _, it := range items {
+		d := it.(map[string]any)
+		byID[d["id"].(string)] = d
+	}
+	l, p := byID[laptop.DeviceID], byID[phone.DeviceID]
+	if l == nil || p == nil {
+		t.Fatalf("devices = %s", r.Body)
+	}
+	if l["name"] != "Laptop" || l["platform"] != "web" || l["current"] != true || p["current"] != false {
+		t.Errorf("laptop = %v, phone = %v", l, p)
+	}
+	if _, err := time.Parse(time.RFC3339, l["last_seen_at"].(string)); err != nil {
+		t.Errorf("last_seen_at = %v", l["last_seen_at"])
+	}
+	// Newest first.
+	if items[0].(map[string]any)["id"] != phone.DeviceID {
+		t.Errorf("order: %s", r.Body)
+	}
+	if strings.Contains(string(r.Body), "push_token") {
+		t.Errorf("leaks push_token: %s", r.Body)
+	}
+}
+
+func TestRevokeDevice(t *testing.T) {
+	e := newEnv(t)
+	a := e.register("Alice")
+	laptop := e.login(a, "Laptop")
+	phone := e.login(a, "Phone")
+
+	if r := e.do("DELETE", "/auth/devices/"+phone.DeviceID, req{Token: laptop.Access}); r.Status != 204 {
+		t.Fatalf("status = %d: %s", r.Status, r.Body)
+	}
+	if e.me(phone.Access) != 401 || e.refresh(phone.Refresh).Status != 401 {
+		t.Error("revoked device still has access")
+	}
+	if e.me(laptop.Access) != 200 {
+		t.Error("current device was revoked")
+	}
+	r := e.do("GET", "/auth/devices", req{Token: laptop.Access})
+	if items, _ := r.JSON()["items"].([]any); len(items) != 1 {
+		t.Errorf("revoked device is still listed: %s", r.Body)
+	}
+	// Already revoked: not found.
+	if r := e.do("DELETE", "/auth/devices/"+phone.DeviceID, req{Token: laptop.Access}); r.Status != 404 {
+		t.Errorf("second delete: status = %d", r.Status)
+	}
+}
+
+func TestRevokeAnotherUsersDeviceIsNotFound(t *testing.T) {
+	e := newEnv(t)
+	alice := e.login(e.register("Alice"), "Laptop")
+	bob := e.login(e.register("Bob"), "Laptop")
+
+	for name, id := range map[string]string{
+		"another user's": bob.DeviceID,
+		"unknown":        "00000000-0000-7000-8000-000000000000",
+		"not a uuid":     "nope",
+	} {
+		if r := e.do("DELETE", "/auth/devices/"+id, req{Token: alice.Access}); r.Status != 404 {
+			t.Errorf("%s device: status = %d: %s", name, r.Status, r.Body)
+		}
+	}
+	if e.me(bob.Access) != 200 {
+		t.Error("Bob's device was revoked by Alice")
+	}
+}
+
+func TestSessionEndpointsRequireLogin(t *testing.T) {
+	e := newEnv(t)
+	for _, c := range [][2]string{{"GET", "/auth/devices"}, {"DELETE", "/auth/devices/x"}} {
+		if r := e.do(c[0], c[1], req{}); r.Status != 401 {
+			t.Errorf("%s %s: status = %d", c[0], c[1], r.Status)
+		}
+	}
+}
