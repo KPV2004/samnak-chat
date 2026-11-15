@@ -10,6 +10,20 @@ import (
 	"github.com/google/uuid"
 )
 
+type WorkspaceInvite struct {
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+	Email       *string
+	TokenHash   string
+	Role        string
+	CreatedBy   uuid.UUID
+	ExpiresAt   time.Time
+	CreatedAt   time.Time
+	RevokedAt   *time.Time
+	UsedAt      *time.Time
+	UsedBy      *uuid.UUID
+}
+
 type WorkspaceMember struct {
 	WorkspaceID uuid.UUID
 	UserID      uuid.UUID
