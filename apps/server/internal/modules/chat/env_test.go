@@ -238,7 +238,10 @@ type env struct {
 
 // newEnv wires the chat module to a real database through the Registry, with
 // fakes for what workspace, auth and realtime provide.
-func newEnv(t *testing.T) *env {
+func newEnv(t *testing.T) *env { return newEnvWith(t, &fakeRealtime{}) }
+
+// newEnvWith is newEnv with a chosen Realtime; nil leaves Deps.Realtime unset.
+func newEnvWith(t *testing.T, rt *fakeRealtime) *env {
 	t.Helper()
 	url := sharedDB(t)
 	pool, err := database.Open(context.Background(), url)
@@ -249,7 +252,7 @@ func newEnv(t *testing.T) *env {
 
 	e := &env{
 		t: t, pool: pool, dir: &fakeDirectory{users: map[string]auth.UserSummary{}}, auth: fakeAuth{},
-		members: &fakeMembers{roles: map[[2]string]app.Role{}}, rt: &fakeRealtime{}, events: &eventLog{},
+		members: &fakeMembers{roles: map[[2]string]app.Role{}}, rt: rt, events: &eventLog{},
 	}
 	policy := &fakePolicy{allowed: map[workspace.Action]map[app.Role]bool{}}
 	svc := app.NewServices()
@@ -270,8 +273,11 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	deps := &app.Deps{
-		Logger: logger, Services: svc, Bus: e.bus, Tx: database.NewTxManager(pool), Realtime: e.rt,
+		Logger: logger, Services: svc, Bus: e.bus, Tx: database.NewTxManager(pool),
 		Notifications: app.NoopNotificationRegistry{}, Platform: map[string]any{"db": pool},
+	}
+	if rt != nil {
+		deps.Realtime = rt
 	}
 	r := httpx.NewRouter(logger)
 	var startErr error
