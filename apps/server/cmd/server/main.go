@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
@@ -24,6 +26,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/eventbus"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/httpx"
+	redisclient "github.com/KPV2004/samnak-chat/apps/server/internal/platform/redis"
 )
 
 const (
@@ -104,6 +107,11 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 	if err != nil {
 		return err
 	}
+	rdb, err := openRedis(ctx, cfg.RedisURL)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rdb.Close() }()
 	pool, err := database.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
@@ -114,7 +122,7 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 		Tx:       database.NewTxManager(pool),
 		Platform: map[string]any{"db": pool, "jwt_secret": cfg.JWTSecret},
 		Checks:   []httpx.Check{{Name: "db", Fn: pool.Ping}},
-	})
+	}.withRedis(rdb))
 	if err != nil {
 		return err
 	}
@@ -132,6 +140,33 @@ type infra struct {
 	Tx       app.TxManager
 	Platform map[string]any
 	Checks   []httpx.Check
+}
+
+// withRedis returns in with the Redis client in Platform["redis"] and a
+// "redis" readiness check. It leaves in's own map and slice untouched.
+func (in infra) withRedis(c *goredis.Client) infra {
+	platform := make(map[string]any, len(in.Platform)+1)
+	maps.Copy(platform, in.Platform)
+	platform["redis"] = c
+	in.Platform = platform
+	in.Checks = append(slices.Clone(in.Checks), httpx.Check{
+		Name: "redis",
+		Fn:   func(ctx context.Context) error { return c.Ping(ctx).Err() },
+	})
+	return in
+}
+
+// openRedis connects to the server named by url and fails with a message that
+// points at REDIS_URL, so a bad setting is easy to find at startup.
+func openRedis(ctx context.Context, url string) (*goredis.Client, error) {
+	if url == "" {
+		return nil, errors.New("REDIS_URL is required")
+	}
+	c, err := redisclient.Open(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("cannot reach Redis, check REDIS_URL: %w", err)
+	}
+	return c, nil
 }
 
 // newHandler enables and starts the named modules from available and returns

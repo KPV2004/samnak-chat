@@ -13,12 +13,14 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
+	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
 	httpadapter "github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth/adapter/http"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth/adapter/jwt"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth/adapter/memory"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth/adapter/postgres"
+	redisadapter "github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth/adapter/redis"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth/migrations"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth/usecase"
 )
@@ -55,7 +57,7 @@ type Option func(*options)
 // WithClock sets the time source.
 func WithClock(now func() time.Time) Option { return func(o *options) { o.now = now } }
 
-// WithLoginLimiter replaces the in-memory failed-login counter.
+// WithLoginLimiter replaces the failed-login counter, in memory or Redis.
 func WithLoginLimiter(l usecase.LoginLimiter) Option { return func(o *options) { o.limiter = l } }
 
 func New(opts ...Option) *Module {
@@ -80,7 +82,10 @@ func (m *Module) Provide(s *app.Services) {
 // no database: without a pool the use cases exist but cannot be called.
 //
 // It reads the database pool from d.Platform["db"] and the token secret from
-// d.Platform["jwt_secret"], falling back to the JWT_SECRET variable.
+// d.Platform["jwt_secret"], falling back to the JWT_SECRET variable. When
+// d.Platform["redis"] holds a *redis.Client, failed logins are counted there,
+// shared by every server; otherwise they are counted in memory. WithLoginLimiter
+// overrides both.
 func (m *Module) Init(d *app.Deps) error {
 	pool, _ := d.Platform["db"].(*pgxpool.Pool)
 	secret, _ := d.Platform["jwt_secret"].(string)
@@ -96,7 +101,11 @@ func (m *Module) Init(d *app.Deps) error {
 	}
 	limiter := m.opts.limiter
 	if limiter == nil {
-		limiter = memory.NewLoginLimiter(loginFailureLimit, loginFailureWindow, now)
+		if rdb, ok := d.Platform["redis"].(*goredis.Client); ok && rdb != nil {
+			limiter = redisadapter.NewLoginLimiter(rdb, loginFailureLimit, loginFailureWindow)
+		} else {
+			limiter = memory.NewLoginLimiter(loginFailureLimit, loginFailureWindow, now)
+		}
 	}
 	var repo usecase.Repository
 	if pool != nil {
