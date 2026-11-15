@@ -37,14 +37,14 @@ func (brokenAuth) Authenticate(context.Context, string) (app.Identity, error) {
 	return app.Identity{}, io.ErrUnexpectedEOF
 }
 
-func testLogger(t *testing.T) *slog.Logger {
+func testLogger(t testing.TB) *slog.Logger {
 	t.Helper()
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 // newHubWith starts a hub behind a real router and httptest server. Cleanup
 // closes the hub first, then the server.
-func newHubWith(t *testing.T, auth app.Authenticator, rdb *goredis.Client, opts ...realtime.Option) (*realtime.Hub, *httptest.Server) {
+func newHubWith(t testing.TB, auth app.Authenticator, rdb *goredis.Client, opts ...realtime.Option) (*realtime.Hub, *httptest.Server) {
 	t.Helper()
 	services := app.NewServices()
 	if auth != nil {
@@ -66,7 +66,7 @@ func newHubWith(t *testing.T, auth app.Authenticator, rdb *goredis.Client, opts 
 	return hub, srv
 }
 
-func newHub(t *testing.T, auth app.Authenticator, opts ...realtime.Option) (*realtime.Hub, *httptest.Server) {
+func newHub(t testing.TB, auth app.Authenticator, opts ...realtime.Option) (*realtime.Hub, *httptest.Server) {
 	t.Helper()
 	return newHubWith(t, auth, nil, opts...)
 }
