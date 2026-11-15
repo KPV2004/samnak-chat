@@ -246,7 +246,7 @@ Do **not** edit `cmd/server`, `cmd/migrate`, `internal/app` or another module; t
 
 **Files:** `apps/web/`, `packages/core/`, `package-lock.json`
 
-## [ ] M1-07 Redis login limiter, generated web types, acceptance test (wave 2)
+## [x] M1-07 Redis login limiter, generated web types, acceptance test (wave 2)
 **SRS:** AUTH-06, NFR-04, NFR-06, NFR-13, 16.3 M1 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** checkpoint B
 
 **Acceptance criteria**
@@ -270,6 +270,12 @@ Planner notes from checkpoint B:
 - Accepted worker deviations: refresh reuse also revokes the device row; the login limiter counts failures only; client IP is the socket address (no `X-Forwarded-For` until a trusted-proxy setting exists); `ActionRegistry` lets later modules add actions to `Can`.
 
 ## Checkpoint M1: SRS 16.3 acceptance (planner)
-- [ ] Two users sign up, one creates a workspace and invites the other, who joins
-- [ ] A user outside the workspace gets 403
-- [ ] A rotated refresh token cannot be reused
+- [x] Two users sign up, one creates a workspace and invites the other, who joins (`cmd/server/acceptance_test.go`, and a manual curl run at checkpoint B)
+- [x] A user outside the workspace gets 403 (members, invites, member changes)
+- [x] A rotated refresh token cannot be reused
+- [ ] The M1 web pages checked in a real browser against the running server
+
+Planner notes from checkpoint M1:
+- The web now offers the `manager` role (SRS section 2, WSP-03). Invites still cannot grant owner or manager; managers are assigned after joining.
+- `REDIS_URL` is required at startup; the login limiter uses Redis when present.
+- Before v0.1: require a `JWT_SECRET` of at least 32 bytes outside dev, and decide on a trusted-proxy setting for client IPs.

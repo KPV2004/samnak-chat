@@ -78,7 +78,7 @@ describe("Members", () => {
     renderApp({ route: "/members", ...members("admin") });
     await screen.findByText("Somchai");
     const options = within(screen.getByLabelText("Role of Somchai")).getAllByRole("option");
-    expect(options.map((o) => o.textContent)).toEqual(["Admin", "Member", "Guest"]);
+    expect(options.map((o) => o.textContent)).toEqual(["Admin", "Manager", "Member", "Guest"]);
     expect(screen.getByLabelText("Role of Mali")).toBeDisabled();
   });
 

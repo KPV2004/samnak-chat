@@ -9,7 +9,7 @@ import { canManage, useMe } from "../state/queries";
 import { useSession } from "../state/session";
 import { RequireWorkspace } from "../components/RequireWorkspace";
 
-const roles: Role[] = ["owner", "admin", "member", "guest"];
+const roles: Role[] = ["owner", "admin", "manager", "member", "guest"];
 
 export function Members() {
   return (

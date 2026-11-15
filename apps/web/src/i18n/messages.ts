@@ -84,6 +84,7 @@ export const messages = {
 
     "role.owner": "เจ้าของ",
     "role.admin": "ผู้ดูแล",
+    "role.manager": "หัวหน้า",
     "role.member": "สมาชิก",
     "role.guest": "ผู้เยี่ยมชม",
 
@@ -204,6 +205,7 @@ export const messages = {
 
     "role.owner": "Owner",
     "role.admin": "Admin",
+    "role.manager": "Manager",
     "role.member": "Member",
     "role.guest": "Guest",
 
