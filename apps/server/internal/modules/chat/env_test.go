@@ -286,6 +286,7 @@ type env struct {
 	auth    fakeAuth
 	members *fakeMembers
 	rt      *fakeRealtime
+	cards   app.CardRegistry
 	storage *fakeStorage
 	events  *eventLog
 	bus     *eventbus.Bus
@@ -344,6 +345,7 @@ func newEnvWith(t *testing.T, rt *fakeRealtime) *env {
 		t.Fatal(startErr)
 	}
 	e.h = r
+	e.cards, _ = app.Lookup[app.CardRegistry](svc)
 	return e
 }
 

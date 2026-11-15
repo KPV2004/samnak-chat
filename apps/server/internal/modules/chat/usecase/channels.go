@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat/domain"
 )
@@ -103,35 +105,81 @@ func (s *Service) OpenDirect(ctx context.Context, p app.Principal, userIDs []str
 	if err := s.checkWorkspaceMembers(ctx, p.WorkspaceID, others); err != nil {
 		return ChannelView{}, false, err
 	}
-	if id, err := s.repo.DirectChannelID(ctx, p.WorkspaceID, key); err == nil {
-		v, err := s.channel(ctx, p, id)
-		return v, false, err
-	} else if !errors.Is(err, app.ErrNotFound) {
+	id, created, err := s.directChannel(ctx, p.WorkspaceID, p.UserID, key, members)
+	if err != nil {
 		return ChannelView{}, false, err
 	}
+	if created {
+		v, err = s.announce(ctx, p, id)
+		return v, true, err
+	}
+	v, err = s.channel(ctx, p, id)
+	return v, false, err
+}
+
+// DirectChannel returns the direct message with exactly userIDs in a
+// workspace, creating it when it does not exist. It is for modules that send
+// a card to people and have no Principal, so every user must be an active
+// member of the workspace.
+func (s *Service) DirectChannel(ctx context.Context, workspaceID string, userIDs []string) (string, error) {
+	if _, err := uuid.Parse(workspaceID); err != nil {
+		return "", fmt.Errorf("workspace ID is not a valid ID: %w", app.ErrInvalid)
+	}
+	all, err := domain.ParseIDs(userIDs)
+	if err != nil {
+		return "", err
+	}
+	if len(all) < 2 {
+		return "", fmt.Errorf("a direct message needs at least two different users: %w", app.ErrInvalid)
+	}
+	key, members, err := domain.DirectKey(all[0], all[1:])
+	if err != nil {
+		return "", err
+	}
+	if err := s.checkWorkspaceMembers(ctx, workspaceID, members); err != nil {
+		return "", err
+	}
+	id, created, err := s.directChannel(ctx, workspaceID, all[0], key, members)
+	if err != nil || !created {
+		return id, err
+	}
+	views, err := s.repo.ChannelViews(ctx, workspaceID, all[0], ViewOne, id)
+	if err != nil || len(views) == 0 {
+		s.log.WarnContext(ctx, "chat: load new direct message", "channel_id", id, "error", err)
+		return id, nil
+	}
+	s.announceTo(ctx, views[0])
+	return id, nil
+}
+
+// directChannel finds the direct message with the given member key or creates
+// it, and reports whether it did. members must already be checked.
+func (s *Service) directChannel(ctx context.Context, workspaceID, creator, key string, members []string) (id string, created bool, err error) {
+	id, err = s.repo.DirectChannelID(ctx, workspaceID, key)
+	if err == nil {
+		return id, false, nil
+	}
+	if !errors.Is(err, app.ErrNotFound) {
+		return "", false, err
+	}
 	now := s.clock()
-	ch := domain.Channel{ID: newID(), WorkspaceID: p.WorkspaceID, Type: domain.TypeDirect, DMKey: key, CreatedBy: p.UserID, CreatedAt: now}
+	ch := domain.Channel{ID: newID(), WorkspaceID: workspaceID, Type: domain.TypeDirect, DMKey: key, CreatedBy: creator, CreatedAt: now}
 	err = s.tx.Do(ctx, func(ctx context.Context) error {
 		if err := s.repo.InsertChannel(ctx, ch); err != nil {
 			return err
 		}
-		_, err := s.repo.AddMembers(ctx, p.WorkspaceID, ch.ID, members, now)
+		_, err := s.repo.AddMembers(ctx, workspaceID, ch.ID, members, now)
 		return err
 	})
 	if errors.Is(err, app.ErrConflict) {
 		// Someone created the same direct message at the same time.
-		id, err := s.repo.DirectChannelID(ctx, p.WorkspaceID, key)
-		if err != nil {
-			return ChannelView{}, false, err
-		}
-		v, err := s.channel(ctx, p, id)
-		return v, false, err
+		id, err := s.repo.DirectChannelID(ctx, workspaceID, key)
+		return id, false, err
 	}
 	if err != nil {
-		return ChannelView{}, false, err
+		return "", false, err
 	}
-	v, err = s.announce(ctx, p, ch.ID)
-	return v, true, err
+	return ch.ID, true, nil
 }
 
 // announce loads the channel for p and tells its members it changed.

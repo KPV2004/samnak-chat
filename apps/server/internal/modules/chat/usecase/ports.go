@@ -143,6 +143,8 @@ type Events interface {
 	MessageCreated(ctx context.Context, ch domain.Channel, m MessageView, recipients []string)
 	MessageUpdated(ctx context.Context, m MessageView, recipients []string)
 	MessageDeleted(ctx context.Context, m MessageView, recipients []string)
+	// CardUpdated tells recipients a card's payload changed (m has the new one).
+	CardUpdated(ctx context.Context, m MessageView, recipients []string)
 	// ChannelRead goes to the reader's own devices only.
 	ChannelRead(ctx context.Context, v ChannelView, userID string)
 	// ChannelUpdated tells recipients that a channel was created, changed or

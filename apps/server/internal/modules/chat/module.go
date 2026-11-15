@@ -41,8 +41,8 @@ func (*Module) Name() string { return "chat" }
 // service chat needs from them has a safe fallback.
 func (*Module) Requires() []string { return nil }
 
-func (*Module) Provide(s *app.Services) {
-	app.Provide[app.CardRegistry](s, cardStub{})
+func (m *Module) Provide(s *app.Services) {
+	app.Provide[app.CardRegistry](s, newCardRegistry(m))
 }
 
 // Init builds the use cases. It does no I/O: with no "db" in d.Platform (the

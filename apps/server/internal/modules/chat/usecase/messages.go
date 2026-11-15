@@ -174,15 +174,22 @@ func (s *Service) SendMessage(ctx context.Context, p app.Principal, in SendInput
 		f.MessageID = msg.ID
 		v.Attachments = append(v.Attachments, f)
 	}
-	if recipients, err := s.repo.MemberIDs(ctx, p.WorkspaceID, ch.ID); err != nil {
-		s.log.WarnContext(ctx, "chat: list recipients", "channel_id", ch.ID, "error", err)
-	} else {
-		s.ev.MessageCreated(ctx, ch.Channel, v, recipients)
-		if root != nil {
-			s.refreshRoot(ctx, p.WorkspaceID, root.ID, recipients)
-		}
-	}
+	s.announceCreated(ctx, ch.Channel, v, root)
 	return v, true, nil
+}
+
+// announceCreated tells the channel about a committed message and, for a
+// reply, refreshes the thread root's reply_count.
+func (s *Service) announceCreated(ctx context.Context, ch domain.Channel, v MessageView, root *MessageView) {
+	recipients, err := s.repo.MemberIDs(ctx, ch.WorkspaceID, ch.ID)
+	if err != nil {
+		s.log.WarnContext(ctx, "chat: list recipients", "channel_id", ch.ID, "error", err)
+		return
+	}
+	s.ev.MessageCreated(ctx, ch, v, recipients)
+	if root != nil {
+		s.refreshRoot(ctx, ch.WorkspaceID, root.ID, recipients)
+	}
 }
 
 // previous returns the message p already sent with clientMsgID. Reusing an ID

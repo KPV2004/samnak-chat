@@ -5,6 +5,7 @@ package realtime
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"time"
 
@@ -78,6 +79,17 @@ func (p *Publisher) MessageUpdated(ctx context.Context, m usecase.MessageView, r
 
 func (p *Publisher) MessageDeleted(ctx context.Context, m usecase.MessageView, recipients []string) {
 	p.sendMessage(ctx, "message.deleted", m, recipients)
+}
+
+type cardData struct {
+	WorkspaceID string          `json:"workspace_id"`
+	ChannelID   string          `json:"channel_id"`
+	MessageID   string          `json:"message_id"`
+	Payload     json.RawMessage `json:"payload"`
+}
+
+func (p *Publisher) CardUpdated(ctx context.Context, m usecase.MessageView, recipients []string) {
+	p.send(ctx, "card.updated", recipients, cardData{WorkspaceID: m.WorkspaceID, ChannelID: m.ChannelID, MessageID: m.ID, Payload: m.Payload})
 }
 
 type readData struct {
