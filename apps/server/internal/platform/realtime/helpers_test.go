@@ -132,10 +132,9 @@ func recvErr(c *websocket.Conn, timeout time.Duration) (app.Envelope, error) {
 	return env, nil
 }
 
-// expectClosed waits for the server to close the connection and returns the
-// close code.
-func expectClosed(t *testing.T, c *websocket.Conn, timeout time.Duration) websocket.StatusCode {
-	t.Helper()
+// closeCode waits for the server to close the connection and returns the
+// close code. It is safe to call from any goroutine.
+func closeCode(c *websocket.Conn, timeout time.Duration) (websocket.StatusCode, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	for {
@@ -145,10 +144,19 @@ func expectClosed(t *testing.T, c *websocket.Conn, timeout time.Duration) websoc
 		}
 		code := websocket.CloseStatus(err)
 		if code == -1 {
-			t.Fatalf("connection ended without a close frame: %v", err)
+			return 0, fmt.Errorf("connection ended without a close frame: %w", err)
 		}
-		return code
+		return code, nil
 	}
+}
+
+func expectClosed(t *testing.T, c *websocket.Conn, timeout time.Duration) websocket.StatusCode {
+	t.Helper()
+	code, err := closeCode(c, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return code
 }
 
 // login dials, authenticates with token and waits for ready.

@@ -24,7 +24,6 @@ const (
 const (
 	codeUnauthorized websocket.StatusCode = 4401
 	codeIdle                              = websocket.StatusPolicyViolation
-	codeSlowClient                        = websocket.StatusPolicyViolation
 )
 
 // Defaults from the M2 plan.

@@ -60,6 +60,18 @@ func (c *conn) kick(code websocket.StatusCode, reason string) {
 	})
 }
 
+// drop closes the socket without a close handshake. A slow client cannot be
+// expected to answer one, and waiting for it would hold the writer.
+func (c *conn) drop() {
+	c.kickOnce.Do(func() {
+		c.kicked.Store(true)
+		go func() {
+			defer close(c.kickDone)
+			_ = c.ws.CloseNow()
+		}()
+	})
+}
+
 // enqueue queues a frame without blocking. A client whose queue is full is
 // too slow and gets disconnected, so it can never hold up other users.
 func (c *conn) enqueue(frame []byte) {
@@ -67,7 +79,7 @@ func (c *conn) enqueue(frame []byte) {
 	case c.send <- frame:
 	default:
 		c.hub.log.Warn("realtime: slow client disconnected", "user_id", c.id.UserID, "device_id", c.id.DeviceID)
-		c.kick(codeSlowClient, "slow consumer")
+		c.drop()
 	}
 }
 
@@ -167,7 +179,7 @@ func (c *conn) writeLoop() {
 			err := c.ws.Write(ctx, websocket.MessageText, frame)
 			cancel()
 			if err != nil {
-				c.kick(websocket.StatusInternalError, "write failed")
+				c.drop()
 				return
 			}
 		case <-c.done:
