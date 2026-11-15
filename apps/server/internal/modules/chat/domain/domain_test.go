@@ -182,3 +182,66 @@ func TestMessageRules(t *testing.T) {
 		t.Errorf("double delete = %v, want ErrNotFound", err)
 	}
 }
+
+func TestNormalizeEmoji(t *testing.T) {
+	for _, ok := range []string{"👍", "❤️", "🎉", "👨‍👩‍👧", "🇹🇭", "👍🏽", "1️⃣", "#️⃣"} {
+		got, err := domain.NormalizeEmoji(ok)
+		if err != nil || got != ok {
+			t.Errorf("NormalizeEmoji(%q) = %q, %v; want it accepted", ok, got, err)
+		}
+	}
+	for _, bad := range []string{"", " ", "a", "hello", "1", "<b>", "👍 ", "👍\n", "x👍", "\x00", "\xff", strings.Repeat("👍", 9), "ก"} {
+		if _, err := domain.NormalizeEmoji(bad); !errors.Is(err, app.ErrInvalid) {
+			t.Errorf("NormalizeEmoji(%q) = %v, want ErrInvalid", bad, err)
+		}
+	}
+}
+
+func TestValidateBodyOrAttachments(t *testing.T) {
+	if err := domain.ValidateContent("", 1); err != nil {
+		t.Errorf("empty body with an attachment = %v, want ok", err)
+	}
+	if err := domain.ValidateContent("  ", 0); !errors.Is(err, app.ErrInvalid) {
+		t.Errorf("empty body without attachments = %v, want ErrInvalid", err)
+	}
+	if err := domain.ValidateContent(strings.Repeat("a", 4001), 1); !errors.Is(err, app.ErrInvalid) {
+		t.Errorf("long body with an attachment = %v, want ErrInvalid", err)
+	}
+}
+
+func TestNormalizeFileName(t *testing.T) {
+	got, err := domain.NormalizeFileName(`C:\docs\รายงาน.pdf`)
+	if err != nil || got != "รายงาน.pdf" {
+		t.Errorf("got %q, %v", got, err)
+	}
+	for _, bad := range []string{"", "   ", "..", "a/", strings.Repeat("a", 256), "nul\x00.txt"} {
+		if _, err := domain.NormalizeFileName(bad); !errors.Is(err, app.ErrInvalid) {
+			t.Errorf("NormalizeFileName(%q) = %v, want ErrInvalid", bad, err)
+		}
+	}
+}
+
+func TestValidateUpload(t *testing.T) {
+	if mt, err := domain.NormalizeMimeType("Image/PNG"); err != nil || mt != "image/png" {
+		t.Errorf("mime = %q, %v", mt, err)
+	}
+	if mt, err := domain.NormalizeMimeType("text/plain; charset=utf-8"); err != nil || mt != "text/plain" {
+		t.Errorf("mime with parameters = %q, %v", mt, err)
+	}
+	for _, bad := range []string{"", "png", "image/", "a b/c", "text/pla\nin", strings.Repeat("a", 200) + "/b"} {
+		if _, err := domain.NormalizeMimeType(bad); !errors.Is(err, app.ErrInvalid) {
+			t.Errorf("NormalizeMimeType(%q) = %v, want ErrInvalid", bad, err)
+		}
+	}
+	for _, size := range []int64{0, -1, domain.MaxUploadBytes + 1} {
+		if err := domain.ValidateUploadSize(size); !errors.Is(err, app.ErrInvalid) {
+			t.Errorf("ValidateUploadSize(%d) = %v, want ErrInvalid", size, err)
+		}
+	}
+	if err := domain.ValidateUploadSize(domain.MaxUploadBytes); err != nil {
+		t.Errorf("50 MB = %v, want ok", err)
+	}
+	if !(domain.Attachment{MimeType: "image/png"}).IsImage() || (domain.Attachment{MimeType: "application/pdf"}).IsImage() {
+		t.Error("IsImage is wrong")
+	}
+}
