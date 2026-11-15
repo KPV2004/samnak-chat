@@ -220,7 +220,7 @@ func (h *Handler) leave(ctx context.Context, in *idInput) (*struct{}, error) {
 
 type listMembersOutput struct {
 	Body struct {
-		Items []wire.Member `json:"items" nullable:"false"`
+		Items []wire.ChannelMember `json:"items" nullable:"false"`
 	}
 }
 
@@ -234,7 +234,7 @@ func (h *Handler) listMembers(ctx context.Context, in *idInput) (*listMembersOut
 		return nil, h.fail(ctx, err)
 	}
 	out := &listMembersOutput{}
-	out.Body.Items = make([]wire.Member, len(members))
+	out.Body.Items = make([]wire.ChannelMember, len(members))
 	for i, m := range members {
 		out.Body.Items[i] = wire.ToMember(m)
 	}

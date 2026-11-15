@@ -130,6 +130,164 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my channels, or the public channels I can join */
+        get: operations["chat-list-channels"];
+        put?: never;
+        /** Create a public or private channel */
+        post: operations["chat-create-channel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/channels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a channel */
+        get: operations["chat-get-channel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename, set the topic of, or archive a channel */
+        patch: operations["chat-update-channel"];
+        trace?: never;
+    };
+    "/chat/channels/{id}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join a public channel */
+        post: operations["chat-join-channel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/channels/{id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Leave a channel */
+        post: operations["chat-leave-channel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/channels/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the members of a channel */
+        get: operations["chat-list-members"];
+        put?: never;
+        /** Add workspace members to a channel */
+        post: operations["chat-add-members"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/channels/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catch up with after_seq, or page back with before_seq */
+        get: operations["chat-list-messages"];
+        put?: never;
+        /** Send a message; repeating client_msg_id returns the original with 200 */
+        post: operations["chat-send-message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/channels/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move my read position forward */
+        post: operations["chat-mark-read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/dms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open a direct message; the same people always give the same channel */
+        post: operations["chat-open-dm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/messages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete my message (admins: any message) */
+        delete: operations["chat-delete-message"];
+        options?: never;
+        head?: never;
+        /** Edit my message */
+        patch: operations["chat-edit-message"];
+        trace?: never;
+    };
     "/meta": {
         parameters: {
             query?: never;
@@ -265,6 +423,9 @@ export interface components {
         AcceptInviteInputBody: {
             token: string;
         };
+        AddMembersInputBody: {
+            user_ids: string[] | null;
+        };
         ApiError: {
             error: components["schemas"]["ApiErrorBody"];
         };
@@ -279,6 +440,58 @@ export interface components {
              * @example channel not found
              */
             message: string;
+        };
+        Attachment: {
+            file_name: string;
+            id: string;
+            is_image: boolean;
+            mime_type: string;
+            /** Format: int64 */
+            size: number;
+        };
+        Channel: {
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Members of a direct message, empty otherwise */
+            dm_user_ids: string[];
+            id: string;
+            /**
+             * Format: int64
+             * @description The caller's read position; 0 when not a member
+             */
+            last_read_seq: number;
+            /** Format: int64 */
+            last_seq: number;
+            /** Format: int64 */
+            member_count: number;
+            /** Format: int64 */
+            mention_count: number;
+            /** @description Empty for direct messages */
+            name: string;
+            topic: string;
+            /** @enum {string} */
+            type: "public" | "private" | "dm";
+            /** Format: int64 */
+            unread_count: number;
+        };
+        ChannelMember: {
+            /** @description Empty when the auth module is unavailable */
+            display_name: string;
+            /** Format: date-time */
+            joined_at: string;
+            user_id: string;
+        };
+        CreateChannelInputBody: {
+            /** @description Workspace members to add besides the caller */
+            member_ids?: string[] | null;
+            /** @description 1 to 80 characters, unique in the workspace */
+            name: string;
+            /** @description At most 250 characters */
+            topic?: string;
+            /** @enum {string} */
+            type: "public" | "private";
         };
         CreateInputBody: {
             /** @description Display name, 1 to 100 characters */
@@ -309,6 +522,9 @@ export interface components {
         DevicesOutputBody: {
             items: components["schemas"]["DeviceBody"][];
         };
+        EditMessageInputBody: {
+            body: string;
+        };
         Invite: {
             /** Format: date-time */
             created_at: string;
@@ -322,13 +538,25 @@ export interface components {
             /** @description Shown once, when the invite is created */
             token?: string;
         };
+        ListChannelsOutputBody: {
+            items: components["schemas"]["Channel"][];
+        };
         ListInvitesOutputBody: {
             items: components["schemas"]["Invite"][];
         };
         ListMembersOutputBody: {
+            items: components["schemas"]["ChannelMember"][];
+        };
+        ListMembersOutputBody1: {
             items: components["schemas"]["Member"][];
             /** @description Empty on the last page */
             next_cursor: string;
+        };
+        ListMessagesOutputBody: {
+            /** @description More messages exist in the direction of the query */
+            has_more: boolean;
+            /** @description Ascending by seq; replies are included */
+            items: components["schemas"]["Message"][];
         };
         ListOutputBody: {
             items: components["schemas"]["Workspace"][];
@@ -345,6 +573,13 @@ export interface components {
             /** @description Log out every device of the user, not only this one */
             all_devices?: boolean;
         };
+        MarkReadInputBody: {
+            /**
+             * Format: int64
+             * @description The newest seq the user has seen; a smaller value than before is ignored
+             */
+            seq: number;
+        };
         Member: {
             /** @description Empty when the auth module is unavailable */
             display_name: string;
@@ -357,6 +592,35 @@ export interface components {
             /** @enum {string} */
             status: "active" | "deactivated";
             user_id: string;
+        };
+        Message: {
+            attachments: components["schemas"]["Attachment"][];
+            /** @description Empty once deleted */
+            body: string;
+            channel_id: string;
+            client_msg_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+            /** Format: date-time */
+            edited_at: string | null;
+            fallback_text: string;
+            id: string;
+            /** @description text, or a card kind such as approval.request */
+            kind: string;
+            /** @description User IDs mentioned who are in the channel */
+            mentions: string[];
+            mentions_channel: boolean;
+            /** @description Card payload; null for text */
+            payload: Record<string, never> | null;
+            reactions: components["schemas"]["Reaction"][];
+            /** Format: int64 */
+            reply_count: number;
+            sender_id: string;
+            /** Format: int64 */
+            seq: number;
+            thread_root_id: string | null;
         };
         MetaBody: {
             /**
@@ -372,6 +636,16 @@ export interface components {
             /** @example 0.0.0-dev */
             version: string;
         };
+        OpenDMInputBody: {
+            /** @description The other people; the caller is added */
+            user_ids: string[] | null;
+        };
+        Reaction: {
+            /** Format: int64 */
+            count: number;
+            emoji: string;
+            me: boolean;
+        };
         RefreshInputBody: {
             refresh_token: string;
         };
@@ -384,6 +658,17 @@ export interface components {
              */
             email: string;
             password: string;
+        };
+        SendMessageInputBody: {
+            /** @description Markdown, 1 to 4,000 characters. Mention people with <@user_id> and everyone with <!channel> */
+            body: string;
+            /**
+             * Format: uuid
+             * @description Generated by the client; sending it again never creates a second message
+             */
+            client_msg_id: string;
+            /** @description Reply under this top-level message */
+            thread_root_id?: string;
         };
         TokenPairBody: {
             /** @description JWT, send as Authorization: Bearer */
@@ -398,6 +683,12 @@ export interface components {
             /** @description Opaque, single use: every refresh returns a new one */
             refresh_token: string;
             user: components["schemas"]["UserBody"];
+        };
+        UpdateChannelInputBody: {
+            /** @description true archives the channel, false restores it */
+            archived?: boolean;
+            name?: string;
+            topic?: string;
         };
         UpdateMeInputBody: {
             /** @description http or https URL; empty removes the avatar */
@@ -889,6 +1180,463 @@ export interface operations {
             };
         };
     };
+    "chat-list-channels": {
+        parameters: {
+            query?: {
+                /** @description joined: channels I am in; public: public channels I could join */
+                scope?: "joined" | "public";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListChannelsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-create-channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateChannelInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Channel"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-get-channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Channel"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-update-channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateChannelInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Channel"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-join-channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-leave-channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-list-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMembersOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-add-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddMembersInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-list-messages": {
+        parameters: {
+            query?: {
+                /** @description Catch-up: messages with a larger seq, ascending. -1 (the default) means not set */
+                after_seq?: number;
+                /** @description History: messages with a smaller seq. 0 (the default) means the newest messages */
+                before_seq?: number;
+                limit?: number;
+                /** @description Only the replies to this message */
+                thread_root_id?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMessagesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-send-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-mark-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkReadInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-open-dm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenDMInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Channel"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-delete-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-edit-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditMessageInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     "get-meta": {
         parameters: {
             query?: never;
@@ -1123,7 +1871,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListMembersOutputBody"];
+                    "application/json": components["schemas"]["ListMembersOutputBody1"];
                 };
             };
             /** @description Error */

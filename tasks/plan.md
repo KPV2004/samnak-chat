@@ -185,6 +185,20 @@ Rules:
 - Events (`chat/events.go`): `chat.message_created {workspace_id, channel_id, message_id, seq, sender_id, channel_type, thread_root_id, mentions, mentions_channel}`. Realtime delivery to channel members happens after the transaction commits.
 - chat listens to `workspace.member_removed` and removes that user from the workspace's channels.
 
+### Event payloads (fixed at checkpoint C; the server's shapes are canonical)
+
+| Type | `data` |
+| --- | --- |
+| `message.created`, `message.updated`, `message.deleted` | `{workspace_id, channel_id, message: Message}` (a deleted message has empty `body` and `deleted_at`; a reply also sends `message.updated` for its root so `reply_count` stays current) |
+| `channel.read` | `{workspace_id, channel_id, last_read_seq, unread_count, mention_count}` (only to the reader's own devices) |
+| `channel.updated` | `{workspace_id, channel_id, type, name, topic, last_seq, member_count, dm_user_ids, archived_at, created_at}` (no per-user counts) |
+| `card.updated` | `{workspace_id, channel_id, message_id, payload}` |
+| `typing` | `{workspace_id, channel_id, user_id}` (client sends `{channel_id}`; the server fills the rest and fans out to other members) |
+| `presence.changed` | `{user_id, online}` |
+| `error` | `{type, code, message}` (hub reply to a bad client frame; the connection stays open) |
+
+`GET .../messages` pages are always ascending by `seq`. With no cursor (or `before_seq=0`) it returns the newest page. Close codes: 4401 auth failed or device revoked (refresh the token, then reconnect), 1011 server error (reconnect), 1008 idle, 1001 shutdown.
+
 ### M2 waves
 
 | Wave | Tasks | Run as |

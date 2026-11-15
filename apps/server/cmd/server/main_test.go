@@ -238,3 +238,17 @@ func TestServeShutdownTimeoutIsAnError(t *testing.T) {
 		t.Fatal("want a shutdown timeout error")
 	}
 }
+
+// TestOpenAPIWithAllModules builds the spec from every real module, so two
+// modules that register the same Huma schema name fail here, not at startup.
+func TestOpenAPIWithAllModules(t *testing.T) {
+	var buf bytes.Buffer
+	if err := writeOpenAPI(&buf, modules); err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range modules {
+		if !strings.Contains(buf.String(), "/"+m.Name()) {
+			t.Errorf("spec has no paths for module %q", m.Name())
+		}
+	}
+}

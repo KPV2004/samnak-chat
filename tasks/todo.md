@@ -287,7 +287,7 @@ Planner notes from checkpoint M1:
 Read the M2 section of `tasks/plan.md` first: it fixes the WebSocket protocol, the chat API, the rules and the new contracts (`app.Realtime`, `app.ObjectStorage`, `app.CardRegistry`).
 Same rules as M1: do not edit `cmd/server`, `cmd/migrate`, `internal/app`, another module, `tasks/` or `AGENTS.md`. Test through your own package with fakes for the contracts and real Postgres or Redis via testcontainers.
 
-## [ ] M2-01 platform/realtime: WebSocket hub
+## [x] M2-01 platform/realtime: WebSocket hub
 **SRS:** CHAT-07, CHAT-17 (presence only), NFR-02, 03, 04 · **Arch:** 9.2 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** none
 
 **Acceptance criteria**
@@ -300,7 +300,7 @@ Same rules as M1: do not edit `cmd/server`, `cmd/migrate`, `internal/app`, anoth
 
 **Files:** `internal/platform/realtime/`
 
-## [ ] M2-02 platform/storage: presigned URLs
+## [x] M2-02 platform/storage: presigned URLs
 **SRS:** CHAT-14, NFR-07 · **Arch:** 3.2 · **Tier:** low (Sonnet) · **Size:** S · **Depends on:** none
 
 **Acceptance criteria**
@@ -310,7 +310,7 @@ Same rules as M1: do not edit `cmd/server`, `cmd/migrate`, `internal/app`, anoth
 
 **Files:** `internal/platform/storage/`
 
-## [ ] M2-03 chat: channels, messages, threads, read state
+## [x] M2-03 chat: channels, messages, threads, read state
 **SRS:** CHAT-01..13 · **Arch:** 5.3, 8, 9.1 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** none
 
 **Acceptance criteria**
@@ -324,7 +324,7 @@ Same rules as M1: do not edit `cmd/server`, `cmd/migrate`, `internal/app`, anoth
 
 **Files:** `internal/modules/chat/` (create the module, including `api.go` and `events.go`)
 
-## [ ] M2-04 packages/core: realtime client and chat sync engine
+## [x] M2-04 packages/core: realtime client and chat sync engine
 **SRS:** CHAT-05..09, 12, NFR-09 · **Arch:** 9.1, 13 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** none (protocol and shapes in the plan)
 
 **Acceptance criteria**
@@ -338,17 +338,45 @@ Same rules as M1: do not edit `cmd/server`, `cmd/migrate`, `internal/app`, anoth
 **Files:** `packages/core/`
 
 ## [ ] M2-05 chat: uploads, reactions, cards, typing, presence (wave 2)
-**SRS:** CHAT-14, 15, 17, 18, PLT-11 · **Depends on:** checkpoint C. Written at checkpoint C.
+**SRS:** CHAT-14, 15, 17, 18, PLT-11 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** checkpoint C
 
-## [ ] M2-06 web: chat UI (wave 2)
-**SRS:** CHAT-01..18 · **Depends on:** checkpoint C. Written at checkpoint C.
+**Acceptance criteria**
+- [ ] Tables `chat_attachments` and `chat_reactions` per SRS 13. `POST /chat/uploads` and `GET /chat/attachments/{id}` as in the plan through `Deps.Storage` (50 MB cap, key `chat/{workspace_id}/{attachment_id}`, 15-minute URLs); sending with `attachment_ids` checks `Stat`, owner and channel, and allows an empty body; `Message.attachments` is filled, with `is_image` for `image/*`
+- [ ] Reactions: add and remove (idempotent), `Message.reactions` with `count` and `me`, sends `message.updated`
+- [ ] Real `app.CardRegistry` replacing the stub: `Register` (kind must start with its module name), `Post` (fills `kind`, `payload`, `fallback_text`; sends `message.created`), `Update` (only for registered kinds; sends `card.updated`), `DirectChannel` (reuses the DM rules). An unregistered kind shown to clients keeps `kind` and `payload`, and clients fall back to `fallback_text` (PLT-11)
+- [ ] Typing: `Deps.Realtime.Handle("typing", …)` in `Init` when Realtime is set; checks membership, fans out `typing` to other members, at most one per user per channel per 3 s
+- [ ] Presence: `presence.changed` is outside chat's scope; skip it and note it
+- [ ] Tests for each, including NFR-06 for attachments (another workspace's attachment ID → 404), a card from a test-only module registered in the test, and `go test -race`
+
+**Files:** `internal/modules/chat/` (its `api.go` may gain exported helpers), `go.mod`, `go.sum`
+
+## [ ] M2-06 web: chat UI and core alignment (wave 2)
+**SRS:** CHAT-01..13, 15, 17, 18 · **Tier:** low (Sonnet, effort high) · **Size:** L (split into commits) · **Depends on:** checkpoint C
+
+**Acceptance criteria**
+- [ ] Align `packages/core` with the canonical event payloads and page order in `tasks/plan.md` ("Event payloads"): fix `realtime/events.ts` and the store (history pages are ascending; `message.deleted` carries `message`; `channel.read` carries counts; `channel.updated` is flat), handle `error` frames and the close codes; replace hand-written M2 types with ones from the generated `schema.d.ts` (`make openapi` first), keeping `m2.ts` as re-exports and calls
+- [ ] Web: sidebar of joined channels and DMs with unread and mention badges, browse and join public channels, create channel, start a DM; channel view with history loaded upward (`before_seq`), composer (Enter sends, Shift+Enter newline, 4,000-character counter), optimistic send with pending and failed states and retry, edit and delete own messages, thread panel, `@` mention picker inserting `<@user_id>`, rendered mentions, markdown subset (bold, italic, code, links) with no raw HTML, mark read when the newest message is visible, typing indicator, reaction display and toggle, card messages rendered as `fallback_text` unless the kind is known
+- [ ] The realtime client connects once per signed-in session, re-auths after token refresh, and `store.reset()` runs on workspace switch
+- [ ] Thai and English strings for every new label; keyboard and screen-reader friendly (message list is a log region)
+- [ ] Tests: component tests for sending (pending → confirmed), receiving over a fake socket, failed send and retry, thread open, mention picker; `npm run build && npm test && npm run lint` pass
+- [ ] Manual: run the server and `API_URL=... npm run dev -w apps/web -- --port 5174`, and check two browser sessions exchange messages (report what you could and could not check)
+
+**Files:** `apps/web/`, `packages/core/`, `package-lock.json`
 
 ## [ ] M2-07 AUTH-08 and M2 acceptance test (wave 3)
 **SRS:** AUTH-08, 16.3 M2 · **Depends on:** M2-05. Written after wave 2.
 
 ## Checkpoint C: after M2 wave 1 (planner)
-- [ ] Branches merged; chat registered; `cmd/server` creates the hub and storage, mounts `/api/v1/ws`, fills `Deps.Realtime` and `Deps.Storage`, closes the hub on shutdown
-- [ ] OpenAPI regenerated; all checks pass; CI green
+- [x] Branches merged; chat registered; `cmd/server` creates the hub and storage, mounts `/api/v1/ws`, fills `Deps.Realtime` and `Deps.Storage`, closes the hub on shutdown
+- [x] OpenAPI regenerated (32 operations); all checks pass; CI pending on push
+- [x] Live run: two users over WebSocket, message delivered in 5 ms to both, resend with the same `client_msg_id` → 200 with the same message and no second event, unread 1 and mention 1, catch-up `after_seq=0`
+
+Planner notes from checkpoint C:
+- Bug found: chat and workspace both registered a Huma schema named `Member`, which panics at startup when both are enabled. Chat's is now `ChannelMember`, and `TestOpenAPIWithAllModules` builds the spec from every real module.
+- The server's event payloads are canonical (plan, "Event payloads"); `packages/core` assumed other shapes and descending history, fixed in M2-06.
+- `apps/web` gained `@types/node` because `vite.config.ts` reads `API_URL`.
+- Presigned URLs use the host in `S3_ENDPOINT`, so production needs a browser-reachable endpoint there.
+- Known gap: edits and deletes missed while offline are not recovered by `after_seq` catch-up. Revisit in M6 (an `updated_since` query).
 
 ## Checkpoint M2: SRS 16.3 acceptance (planner)
 - [ ] Two users in two browsers see each other's messages within 1 second

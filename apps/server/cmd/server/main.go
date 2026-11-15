@@ -21,12 +21,15 @@ import (
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/config"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/eventbus"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/httpx"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/realtime"
 	redisclient "github.com/KPV2004/samnak-chat/apps/server/internal/platform/redis"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/storage"
 )
 
 const (
@@ -43,6 +46,7 @@ var version = "0.0.0-dev"
 var modules = []app.Module{
 	auth.New(),
 	workspace.New(),
+	chat.New(),
 }
 
 func main() {
@@ -118,8 +122,33 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 	}
 	defer pool.Close()
 
+	store, err := storage.New(ctx, storage.Config{
+		Endpoint:  cfg.S3Endpoint,
+		Bucket:    cfg.S3Bucket,
+		AccessKey: cfg.S3AccessKey,
+		SecretKey: cfg.S3SecretKey,
+		PathStyle: true, // MinIO; AWS also accepts path-style URLs
+	})
+	if err != nil {
+		return fmt.Errorf("object storage, check S3_* settings: %w", err)
+	}
+
+	// The hub looks up app.Authenticator at handshake time, so it shares the
+	// Services that modules provide into.
+	services := app.NewServices()
+	hub := realtime.NewHub(logger, services, rdb)
+	defer func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = hub.Close(closeCtx)
+	}()
+
 	handler, err := newHandler(logger, cfg.Modules, available, infra{
+		Services: services,
 		Tx:       database.NewTxManager(pool),
+		Realtime: hub,
+		Storage:  store,
+		Mount:    hub.Mount,
 		Platform: map[string]any{"db": pool, "jwt_secret": cfg.JWTSecret},
 		Checks:   []httpx.Check{{Name: "db", Fn: pool.Ping}},
 	}.withRedis(rdb))
@@ -137,6 +166,12 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 
 // infra is what newHandler needs from the process: handles that tests replace.
 type infra struct {
+	// Services is shared with the realtime hub; nil means a fresh registry.
+	Services *app.Services
+	Realtime app.Realtime
+	Storage  app.ObjectStorage
+	// Mount adds non-Huma routes to the root router, such as GET /api/v1/ws.
+	Mount    func(chi.Router)
 	Tx       app.TxManager
 	Platform map[string]any
 	Checks   []httpx.Check
@@ -182,6 +217,9 @@ func newHandler(logger *slog.Logger, names []string, available []app.Module, in 
 
 	r := httpx.NewRouter(logger)
 	httpx.MountReadiness(r, in.Checks...)
+	if in.Mount != nil {
+		in.Mount(r)
+	}
 
 	deps := newDeps(logger, in)
 	started := make([]string, 0, len(enabled))
@@ -203,9 +241,15 @@ func newHandler(logger *slog.Logger, names []string, available []app.Module, in 
 }
 
 func newDeps(logger *slog.Logger, in infra) *app.Deps {
+	services := in.Services
+	if services == nil {
+		services = app.NewServices()
+	}
 	return &app.Deps{
 		Logger:        logger,
-		Services:      app.NewServices(),
+		Services:      services,
+		Realtime:      in.Realtime,
+		Storage:       in.Storage,
 		Bus:           eventbus.New(logger),
 		Notifications: app.NoopNotificationRegistry{},
 		Tx:            in.Tx,
