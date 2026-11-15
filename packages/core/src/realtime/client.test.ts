@@ -89,10 +89,11 @@ describe("events", () => {
     const off = rt.on("channel.read", handler);
     rt.connect();
     const s = ready();
-    s.receive("channel.read", { workspace_id: "w1", channel_id: "c1", seq: 4 });
-    expect(handler).toHaveBeenCalledWith({ workspace_id: "w1", channel_id: "c1", seq: 4 });
+    const data = { workspace_id: "w1", channel_id: "c1", last_read_seq: 4, unread_count: 0, mention_count: 0 };
+    s.receive("channel.read", data);
+    expect(handler).toHaveBeenCalledWith(data);
     off();
-    s.receive("channel.read", { workspace_id: "w1", channel_id: "c1", seq: 5 });
+    s.receive("channel.read", { ...data, last_read_seq: 5 });
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
@@ -109,6 +110,27 @@ describe("events", () => {
     s.receive("something.new", {});
     expect(handler).not.toHaveBeenCalled();
     expect(rt.getStatus()).toBe("ready");
+  });
+
+  it("delivers an error frame and keeps the connection open", () => {
+    const rt = setup();
+    const handler = vi.fn();
+    rt.on("error", handler);
+    rt.connect();
+    const s = ready();
+    s.receive("error", { type: "typing", code: "invalid", message: "bad channel_id" });
+    expect(handler).toHaveBeenCalledWith({ type: "typing", code: "invalid", message: "bad channel_id" });
+    expect(s.closed).toBeNull();
+    expect(rt.getStatus()).toBe("ready");
+  });
+
+  it("delivers presence.changed, which carries no workspace_id", () => {
+    const rt = setup();
+    const handler = vi.fn();
+    rt.on("presence.changed", handler);
+    rt.connect();
+    ready().receive("presence.changed", { user_id: "u2", online: true });
+    expect(handler).toHaveBeenCalledWith({ user_id: "u2", online: true });
   });
 
   it("keeps delivering when one handler throws", () => {
@@ -235,6 +257,33 @@ describe("reconnect", () => {
     rt.close();
     vi.advanceTimersByTime(60_000);
     expect(FakeSocket.instances).toHaveLength(1);
+  });
+});
+
+describe("close codes", () => {
+  it.each([
+    [1011, "server error"],
+    [1008, "idle timeout"],
+    [1001, "server shutdown"],
+    [1006, "dropped connection"],
+  ])("reconnects with backoff after %i (%s)", (code) => {
+    const rt = setup();
+    rt.connect();
+    ready();
+    FakeSocket.last().drop(code);
+    expect(rt.getStatus()).toBe("reconnecting");
+    vi.advanceTimersByTime(1_000);
+    expect(FakeSocket.instances).toHaveLength(2);
+  });
+
+  it("without a refresh handler, 4401 retries with backoff instead of looping", () => {
+    const rt = setup();
+    rt.connect();
+    FakeSocket.last().open();
+    FakeSocket.last().drop(4401);
+    expect(FakeSocket.instances).toHaveLength(1);
+    vi.advanceTimersByTime(1_000);
+    expect(FakeSocket.instances).toHaveLength(2);
   });
 });
 

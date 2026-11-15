@@ -23,6 +23,12 @@ export interface ChannelState {
   mentionCount: number;
   /** `null` until history was loaded once. */
   hasMoreBefore: boolean | null;
+  /**
+   * Where the next older page starts (`before_seq`): the oldest `seq` of the pages
+   * `loadHistory` fetched. Not the oldest message held, because thread replies
+   * loaded on their own may be older than the channel history.
+   */
+  historyBefore: number | null;
 }
 
 /** `upToSeq` limits `lastSeq` for a channel first seen through an event that is newer than its page. */
@@ -37,6 +43,7 @@ export function newChannelState(channel: Channel, upToSeq: number = channel.last
     unreadCount: Math.max(0, Math.min(channel.unread_count, lastSeq - channel.last_read_seq)),
     mentionCount: channel.mention_count,
     hasMoreBefore: null,
+    historyBefore: null,
   };
 }
 
@@ -138,22 +145,16 @@ export function account(ch: ChannelState, m: Message, me: string, channelOpen: b
   return next;
 }
 
-/** Applies a read position from another device. It never moves back. */
-export function readUpTo(ch: ChannelState, seq: number, me: string): ChannelState {
-  if (seq <= ch.lastReadSeq) return ch;
-  if (seq >= ch.lastSeq) return { ...ch, lastReadSeq: seq, unreadCount: 0, mentionCount: 0 };
-  // Only loaded messages can be subtracted; an unloaded range leaves the count a little high.
-  const nowRead = ch.messages.filter(
-    (m) => m.status === "sent" && m.seq > ch.lastReadSeq && m.seq <= seq && m.sender_id !== me && !m.deleted_at,
-  );
+/** Applies a read position and the counts the server reports for it. It never moves back. */
+export function applyRead(
+  ch: ChannelState,
+  read: { last_read_seq: number; unread_count: number; mention_count: number },
+): ChannelState {
+  if (read.last_read_seq <= ch.lastReadSeq) return ch;
   return {
     ...ch,
-    lastReadSeq: seq,
-    unreadCount: Math.max(0, ch.unreadCount - nowRead.length),
-    mentionCount: Math.max(0, ch.mentionCount - nowRead.filter((m) => mentionsMe(m, me)).length),
+    lastReadSeq: read.last_read_seq,
+    unreadCount: read.unread_count,
+    mentionCount: read.mention_count,
   };
-}
-
-export function oldestSeq(ch: ChannelState): number | undefined {
-  return ch.messages.find((m) => m.status === "sent")?.seq;
 }

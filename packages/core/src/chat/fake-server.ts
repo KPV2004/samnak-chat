@@ -121,10 +121,11 @@ export class FakeChatServer {
       const rest = ch.messages.filter((x) => x.seq > after);
       return { items: rest.slice(0, limit), has_more: rest.length > limit };
     }
-    const before = q.has("before_seq") ? Number(q.get("before_seq")) : Infinity;
-    const older = ch.messages.filter((x) => x.seq < before);
-    // History is newest first, like a chat view loads it.
-    return { items: older.slice(-limit).reverse(), has_more: older.length > limit };
+    // No cursor, or 0, means the newest page; pages are ascending like the server's.
+    const before = Number(q.get("before_seq") ?? 0) || Infinity;
+    const thread = q.get("thread_root_id");
+    const older = ch.messages.filter((x) => x.seq < before && (!thread || x.thread_root_id === thread));
+    return { items: older.slice(-limit), has_more: older.length > limit };
   }
 
   private async send(ch: FakeChannel, body: { client_msg_id: string; body: string; sender?: string }): Promise<FetchResponse> {

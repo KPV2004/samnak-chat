@@ -215,11 +215,52 @@ describe("history", () => {
     await t.store.loadHistory("c1");
     expect(seqs(t.store)).toEqual([1, 2, 3, 4, 5]);
     expect(t.store.getState().channels.c1!.hasMoreBefore).toBe(false);
-    expect(t.server.requests.filter((r) => r.includes("before_seq"))).toEqual([
-      "GET /channels/c1/messages?before_seq=6&limit=50",
+    expect(t.server.requests.filter((r) => r.includes("/messages"))).toEqual([
+      "GET /channels/c1/messages?limit=50",
       "GET /channels/c1/messages?before_seq=4&limit=50",
       "GET /channels/c1/messages?before_seq=2&limit=50",
     ]);
+  });
+
+  it("keeps the page order ascending whatever the page size", async () => {
+    for (let i = 1; i <= 7; i++) t.server.add("c1", "bob", String(i));
+    t.server.pageSize = 3;
+    await t.store.loadChannels();
+    await t.store.loadHistory("c1");
+    expect(seqs(t.store)).toEqual([5, 6, 7]);
+    await t.store.loadHistory("c1");
+    expect(seqs(t.store)).toEqual([2, 3, 4, 5, 6, 7]);
+  });
+
+  it("catches up when the newest page is ahead of what the channel list said", async () => {
+    t.server.add("c1", "bob", "1");
+    await t.store.loadChannels();
+    t.server.add("c1", "bob", "2");
+    t.server.add("c1", "bob", "3");
+    await t.store.loadHistory("c1");
+    await settle();
+    expect(seqs(t.store)).toEqual([1, 2, 3]);
+    expect(t.store.getState().channels.c1!.lastSeq).toBe(3);
+  });
+});
+
+describe("threads", () => {
+  it("loads every reply of a thread without moving the channel history cursor", async () => {
+    const root = t.server.add("c1", "bob", "root");
+    for (let i = 0; i < 5; i++) t.server.add("c1", "bob", "filler");
+    for (let i = 0; i < 3; i++) t.server.add("c1", "bob", `reply ${i}`, { thread_root_id: root.id });
+    t.server.pageSize = 2;
+    await t.store.loadChannels();
+    await t.store.loadHistory("c1");
+    expect(seqs(t.store)).toEqual([8, 9]);
+    await t.store.loadThread("c1", root.id);
+    const replies = t.store.getState().channels.c1!.messages.filter((m) => m.thread_root_id === root.id);
+    expect(replies.map((m) => m.body)).toEqual(["reply 0", "reply 1", "reply 2"]);
+    await t.store.loadHistory("c1");
+    // The channel history continues below 8, where it stopped, not below the thread's oldest reply.
+    expect(t.server.requests.filter((r) => r.includes("before_seq=") && !r.includes("thread_root_id")).at(-1)).toBe(
+      "GET /channels/c1/messages?before_seq=8&limit=50",
+    );
   });
 });
 
@@ -350,8 +391,12 @@ describe("updates from the server", () => {
   });
 
   it("applies message.deleted: the row stays, the body is blanked", () => {
-    t.emit("message.deleted", { channel_id: "c1", message_id: "m1" });
-    expect(first()).toMatchObject({ id: "m1", seq: 1, body: "", deleted_at: "2026-02-02T00:00:00.000Z" });
+    const m = t.server.messagesOf("c1")[0]!;
+    t.emit("message.deleted", {
+      channel_id: "c1",
+      message: { ...m, body: "", deleted_at: "2026-01-01T02:00:00Z" },
+    });
+    expect(first()).toMatchObject({ id: "m1", seq: 1, body: "", deleted_at: "2026-01-01T02:00:00Z" });
     expect(t.store.getState().channels.c1!.messages).toHaveLength(1);
   });
 
@@ -361,7 +406,7 @@ describe("updates from the server", () => {
   });
 
   it("applies channel.read from another device and clears the unread count", () => {
-    t.emit("channel.read", { channel_id: "c1", seq: 1 });
+    t.emit("channel.read", { channel_id: "c1", last_read_seq: 1, unread_count: 0, mention_count: 0 });
     expect(t.store.getState().channels.c1).toMatchObject({ lastReadSeq: 1, unreadCount: 0, mentionCount: 0 });
   });
 
@@ -370,20 +415,71 @@ describe("updates from the server", () => {
     t.created(t.server.add("c1", "bob", "three"));
     await settle();
     expect(t.store.getState().channels.c1!.unreadCount).toBe(3);
-    t.emit("channel.read", { channel_id: "c1", seq: 2 });
+    t.emit("channel.read", { channel_id: "c1", last_read_seq: 2, unread_count: 1, mention_count: 0 });
     expect(t.store.getState().channels.c1).toMatchObject({ lastReadSeq: 2, unreadCount: 1 });
   });
 
-  it("never moves the read position back", () => {
-    t.emit("channel.read", { channel_id: "c1", seq: 1 });
-    t.emit("channel.read", { channel_id: "c1", seq: 0 });
-    expect(t.store.getState().channels.c1!.lastReadSeq).toBe(1);
+  it("takes the counts of channel.read from the server, mentions included", async () => {
+    t.created(t.server.add("c1", "bob", "two", { mentions_channel: true }));
+    t.created(t.server.add("c1", "bob", "three"));
+    await settle();
+    expect(t.store.getState().channels.c1).toMatchObject({ unreadCount: 3, mentionCount: 1 });
+    t.emit("channel.read", { channel_id: "c1", last_read_seq: 2, unread_count: 1, mention_count: 0 });
+    expect(t.store.getState().channels.c1).toMatchObject({ lastReadSeq: 2, unreadCount: 1, mentionCount: 0 });
   });
 
-  it("applies channel.updated", () => {
-    t.emit("channel.updated", { channel: { ...t.server.channels.get("c1")!.channel, name: "renamed", topic: "new topic" } });
-    expect(t.store.getState().channels.c1!.channel).toMatchObject({ name: "renamed", topic: "new topic" });
-    expect(t.store.getState().channels.c1!.messages).toHaveLength(1);
+  it("never moves the read position back", () => {
+    t.emit("channel.read", { channel_id: "c1", last_read_seq: 1, unread_count: 0, mention_count: 0 });
+    t.emit("channel.read", { channel_id: "c1", last_read_seq: 0, unread_count: 5, mention_count: 2 });
+    expect(t.store.getState().channels.c1).toMatchObject({ lastReadSeq: 1, unreadCount: 0, mentionCount: 0 });
+  });
+
+  it("catches up when channel.read is beyond what it has seen", async () => {
+    t.server.add("c1", "bob", "two");
+    t.server.add("c1", "bob", "three");
+    t.emit("channel.read", { channel_id: "c1", last_read_seq: 3, unread_count: 0, mention_count: 0 });
+    await settle();
+    expect(seqs(t.store)).toEqual([1, 2, 3]);
+  });
+
+  it("applies the flat channel.updated and keeps the per-user counts it does not carry", async () => {
+    t.created(t.server.add("c1", "bob", "two"));
+    await settle();
+    t.emit("channel.updated", {
+      channel_id: "c1",
+      type: "public",
+      name: "renamed",
+      topic: "new topic",
+      last_seq: 2,
+      member_count: 5,
+      dm_user_ids: [],
+      archived_at: null,
+      created_at: "2026-01-01T00:00:00Z",
+    });
+    const ch = t.store.getState().channels.c1!;
+    expect(ch.channel).toMatchObject({ id: "c1", name: "renamed", topic: "new topic", member_count: 5 });
+    expect(ch).toMatchObject({ unreadCount: 2, lastReadSeq: 0 });
+    expect(ch.messages).toHaveLength(2);
+  });
+
+  it("fetches a channel it has not seen when channel.updated names it", async () => {
+    t.server.addChannel("c7", { name: "fresh" });
+    t.emit("channel.updated", {
+      channel_id: "c7", type: "public", name: "fresh", topic: "", last_seq: 0, member_count: 2,
+      dm_user_ids: [], archived_at: null, created_at: "2026-01-01T00:00:00Z",
+    });
+    await settle();
+    expect(t.store.getState().channels.c7!.channel.name).toBe("fresh");
+  });
+
+  it("catches up when channel.updated reports a newer last_seq", async () => {
+    t.server.add("c1", "bob", "two");
+    t.emit("channel.updated", {
+      channel_id: "c1", type: "public", name: "c1", topic: "", last_seq: 2, member_count: 2,
+      dm_user_ids: [], archived_at: null, created_at: "2026-01-01T00:00:00Z",
+    });
+    await settle();
+    expect(seqs(t.store)).toEqual([1, 2]);
   });
 
   it("learns about a channel it has not seen from the first event", async () => {
@@ -445,6 +541,13 @@ describe("workspaces", () => {
   it("reset forgets everything", async () => {
     await t.store.loadChannels();
     t.store.reset();
+    expect(t.store.getState().channels).toEqual({});
+  });
+
+  it("ignores a channel list that arrives after reset", async () => {
+    const pending = t.store.loadChannels();
+    t.store.reset();
+    await pending;
     expect(t.store.getState().channels).toEqual({});
   });
 });
