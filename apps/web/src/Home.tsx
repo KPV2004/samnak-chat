@@ -1,26 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
-import { translate } from "./i18n/i18n";
-import type { Locale } from "./i18n/messages";
-import { useLocale } from "./state/locale";
+import { useT } from "./i18n/useT";
+import { useWorkspaces } from "./state/queries";
 
 export function Home() {
-  const { locale, setLocale } = useLocale();
-  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
+  const t = useT();
+  const { current } = useWorkspaces();
   const meta = useQuery({ queryKey: ["meta"], queryFn: () => api.getMeta() });
 
   return (
-    <main>
-      <header>
-        <h1>{t("title")}</h1>
-        <label>
-          {t("language")}{" "}
-          <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
-            <option value="th">ไทย</option>
-            <option value="en">English</option>
-          </select>
-        </label>
-      </header>
+    <>
+      <h1>{t("title")}</h1>
+      {current && (
+        <p>
+          {t("workspace.current")} <strong>{current.name}</strong>
+        </p>
+      )}
       <section aria-labelledby="modules-heading">
         <h2 id="modules-heading">{t("modules")}</h2>
         {meta.isPending && <p role="status">{t("loading")}</p>}
@@ -43,6 +38,6 @@ export function Home() {
             </ul>
           ))}
       </section>
-    </main>
+    </>
   );
 }
