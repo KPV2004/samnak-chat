@@ -364,7 +364,18 @@ Same rules as M1: do not edit `cmd/server`, `cmd/migrate`, `internal/app`, anoth
 **Files:** `apps/web/`, `packages/core/`, `package-lock.json`
 
 ## [ ] M2-07 AUTH-08 and M2 acceptance test (wave 3)
-**SRS:** AUTH-08, 16.3 M2 · **Depends on:** M2-05. Written after wave 2.
+**SRS:** AUTH-08, 16.3 M2 · **Tier:** low (Sonnet, effort high) · **Size:** M · **Depends on:** M2-05, M2-06 (wave 2 merged)
+
+The hub already authenticates the `auth` frame with the access token and closes a revoked device's sockets through `Hub.DisconnectDevice` (tested with Redis fan-out). What is missing is the trigger from auth and an end-to-end acceptance test for M2.
+
+**Acceptance criteria**
+- [ ] auth publishes `auth.device_revoked` (its own `events.go`, payload `{user_id, device_id}`) on logout, "revoke this device" and "revoke all other devices", through `Deps.EventBus` inside the transaction-free path after the write commits; a replay of a revoke publishes nothing extra
+- [ ] `cmd/server` subscribes to `auth.device_revoked` and calls `hub.DisconnectDevice(ctx, deviceID)`; a revoked device's WebSocket closes with code 4401 on this and on another instance (Redis fan-out), and its next `auth` frame is rejected
+- [ ] An expired or rotated-out access token is rejected at the `auth` frame; chat, workspace and auth HTTP calls with it return 401 (they already do; assert it)
+- [ ] New package `internal/acceptance` boots the real registry (auth, workspace, chat) with the real hub over `httptest` and testcontainers postgres and redis, then asserts the three SRS 16.3 M2 outcomes: two users see each other's message over WebSocket within 1 s; after closing and reconnecting with `after_seq`, messages are complete and in order; resending the same `client_msg_id` creates one message and one `message.created`. Skip with a clear message when Docker is unavailable
+- [ ] `go build ./... && go vet ./... && go test ./...` and `go test -race ./internal/acceptance/` pass; CI green
+
+**Files:** `internal/modules/auth/` (`api.go`, `events.go`, `usecase/`), `internal/acceptance/` (new), `apps/server/cmd/server/`, `go.mod`, `go.sum`
 
 ## Checkpoint C: after M2 wave 1 (planner)
 - [x] Branches merged; chat registered; `cmd/server` creates the hub and storage, mounts `/api/v1/ws`, fills `Deps.Realtime` and `Deps.Storage`, closes the hub on shutdown
