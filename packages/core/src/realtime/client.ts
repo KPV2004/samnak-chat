@@ -8,11 +8,21 @@ import { serverEventTypes, type ClientEventMap, type ServerEventMap, type Server
 export interface SocketLike {
   send(data: string): void;
   close(code?: number, reason?: string): void;
+  // `never` parameters accept the DOM's event-taking handlers; the client
+  // assigns handlers typed with the fields it reads (see `SocketEvents`).
   onopen: ((ev: never) => void) | null;
-  onmessage: ((ev: { data: unknown }) => void) | null;
-  onclose: ((ev: { code: number }) => void) | null;
+  onmessage: ((ev: never) => void) | null;
+  onclose: ((ev: never) => void) | null;
   onerror: ((ev: never) => void) | null;
 }
+
+/** The event fields the client reads. */
+interface SocketEvents {
+  message: { data: unknown };
+  close: { code: number };
+}
+
+const asHandler = <E>(fn: (ev: E) => void) => fn as unknown as (ev: never) => void;
 
 export type SocketFactory = (url: string) => SocketLike;
 
@@ -161,13 +171,13 @@ export function createRealtimeClient(opts: RealtimeOptions): RealtimeClient {
       setStatus("authenticating");
       handshakeTimer = timers().setTimeout(() => sock.close(4000, "handshake timeout"), handshakeMs);
     };
-    sock.onmessage = (ev) => {
+    sock.onmessage = asHandler<SocketEvents["message"]>((ev) => {
       if (socket === sock) dispatch(ev.data);
-    };
+    });
     sock.onerror = () => {
       // A close event always follows; reconnecting is decided there.
     };
-    sock.onclose = (ev) => {
+    sock.onclose = asHandler<SocketEvents["close"]>((ev) => {
       if (socket !== sock) return;
       socket = null;
       clearTimers();
@@ -178,7 +188,7 @@ export function createRealtimeClient(opts: RealtimeOptions): RealtimeClient {
       } else {
         scheduleReconnect();
       }
-    };
+    });
   }
 
   async function recoverAuth(rejected: string) {
