@@ -103,4 +103,3 @@ type Member struct {
 func ToMember(m usecase.Member) Member {
 	return Member{UserID: m.UserID, DisplayName: m.DisplayName, JoinedAt: m.JoinedAt.UTC()}
 }
-

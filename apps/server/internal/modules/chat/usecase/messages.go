@@ -11,11 +11,11 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat/domain"
 )
 
-// ListQuery selects a page of messages. Set at most one of AfterSeq and
-// BeforeSeq. With neither, the newest messages are returned.
+// ListQuery selects a page of messages. Set at most one of AfterSeq and a
+// non-zero BeforeSeq. With neither, the newest messages are returned.
 type ListQuery struct {
 	AfterSeq     *int64 // catch-up: messages with a larger seq, ascending
-	BeforeSeq    *int64 // history: messages with a smaller seq
+	BeforeSeq    int64  // history: messages with a smaller seq; 0 means the newest
 	Limit        int
 	ThreadRootID string // only replies to this message
 }
@@ -29,10 +29,10 @@ type Page struct {
 // ListMessages returns messages of a channel the caller may see (CHAT-08,
 // CHAT-09). Replies are included, each with its thread_root_id.
 func (s *Service) ListMessages(ctx context.Context, p app.Principal, channelID string, q ListQuery) (Page, error) {
-	if q.AfterSeq != nil && q.BeforeSeq != nil {
+	if q.AfterSeq != nil && q.BeforeSeq != 0 {
 		return Page{}, fmt.Errorf("use either after_seq or before_seq: %w", app.ErrInvalid)
 	}
-	if (q.AfterSeq != nil && *q.AfterSeq < 0) || (q.BeforeSeq != nil && *q.BeforeSeq < 0) {
+	if (q.AfterSeq != nil && *q.AfterSeq < 0) || q.BeforeSeq < 0 {
 		return Page{}, fmt.Errorf("seq must not be negative: %w", app.ErrInvalid)
 	}
 	if q.ThreadRootID != "" {
@@ -55,11 +55,7 @@ func (s *Service) ListMessages(ctx context.Context, p app.Principal, channelID s
 	if q.AfterSeq != nil {
 		items, err = s.repo.MessagesAfter(ctx, p.WorkspaceID, channelID, *q.AfterSeq, q.ThreadRootID, limit+1)
 	} else {
-		var before int64
-		if q.BeforeSeq != nil {
-			before = *q.BeforeSeq
-		}
-		items, err = s.repo.MessagesBefore(ctx, p.WorkspaceID, channelID, before, q.ThreadRootID, limit+1)
+		items, err = s.repo.MessagesBefore(ctx, p.WorkspaceID, channelID, q.BeforeSeq, q.ThreadRootID, limit+1)
 	}
 	if err != nil {
 		return Page{}, err

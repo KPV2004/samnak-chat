@@ -10,8 +10,8 @@ import (
 
 type listMessagesInput struct {
 	ID           string `path:"id"`
-	AfterSeq     *int64 `query:"after_seq" minimum:"0" doc:"Catch-up: messages with a larger seq, ascending"`
-	BeforeSeq    *int64 `query:"before_seq" minimum:"0" doc:"History: messages with a smaller seq; omit for the newest"`
+	AfterSeq     int64  `query:"after_seq" default:"-1" minimum:"-1" doc:"Catch-up: messages with a larger seq, ascending. -1 (the default) means not set"`
+	BeforeSeq    int64  `query:"before_seq" default:"0" minimum:"0" doc:"History: messages with a smaller seq. 0 (the default) means the newest messages"`
 	Limit        int    `query:"limit" default:"50" minimum:"1" maximum:"100"`
 	ThreadRootID string `query:"thread_root_id" doc:"Only the replies to this message"`
 }
@@ -28,9 +28,11 @@ func (h *Handler) listMessages(ctx context.Context, in *listMessagesInput) (*lis
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
-	page, err := h.uc.ListMessages(ctx, p, in.ID, usecase.ListQuery{
-		AfterSeq: in.AfterSeq, BeforeSeq: in.BeforeSeq, Limit: in.Limit, ThreadRootID: in.ThreadRootID,
-	})
+	q := usecase.ListQuery{BeforeSeq: in.BeforeSeq, Limit: in.Limit, ThreadRootID: in.ThreadRootID}
+	if in.AfterSeq >= 0 {
+		q.AfterSeq = &in.AfterSeq
+	}
+	page, err := h.uc.ListMessages(ctx, p, in.ID, q)
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
