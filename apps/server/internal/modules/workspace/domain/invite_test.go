@@ -42,7 +42,8 @@ func TestNewTokenIsRandomAndHashed(t *testing.T) {
 	if a == b || len(a) < 43 {
 		t.Fatalf("tokens %q %q", a, b)
 	}
-	if domain.HashToken(a) == a || domain.HashToken(a) != domain.HashToken(a) || domain.HashToken(a) == domain.HashToken(b) {
+	h1, h2 := domain.HashToken(a), domain.HashToken(a)
+	if h1 == a || h1 != h2 || h1 == domain.HashToken(b) {
 		t.Fatal("HashToken must be a deterministic one-way digest")
 	}
 }

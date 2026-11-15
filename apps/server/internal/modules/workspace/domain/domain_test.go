@@ -133,4 +133,3 @@ func TestCanManage(t *testing.T) {
 		}
 	}
 }
-
