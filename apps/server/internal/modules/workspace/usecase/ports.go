@@ -43,6 +43,18 @@ type Repository interface {
 	CountActiveOwners(ctx context.Context, workspaceID string) (int, error)
 	UpdateMember(ctx context.Context, m domain.Member) error
 	DeleteMember(ctx context.Context, workspaceID, userID string) error
+
+	InsertInvite(ctx context.Context, inv domain.Invite, tokenHash string) error
+	// ListPendingInvites returns invites that are not revoked, used or
+	// expired at now, newest first.
+	ListPendingInvites(ctx context.Context, workspaceID string, now time.Time) ([]domain.Invite, error)
+	// RevokeInvite fails with ErrNotFound unless the invite belongs to the
+	// workspace and is still unused and unrevoked.
+	RevokeInvite(ctx context.Context, workspaceID, inviteID string, now time.Time) error
+	// InviteByTokenHash finds an invite in any workspace and locks its row
+	// until the transaction ends. The token is the proof of access here.
+	InviteByTokenHash(ctx context.Context, tokenHash string) (domain.Invite, error)
+	MarkInviteUsed(ctx context.Context, workspaceID, inviteID, userID string, now time.Time) error
 }
 
 // User is what the use cases show about someone, read from the auth module.

@@ -57,6 +57,7 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 		Summary: "Remove a member (owner or admin)",
 		Tags:    []string{tag}, Security: httpx.BearerAuth, Middlewares: member,
 	}, h.removeMember)
+	h.registerInvites(api, user, member)
 }
 
 // Workspace is a workspace with the caller's role.

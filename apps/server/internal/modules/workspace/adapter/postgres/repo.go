@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -282,6 +283,140 @@ func (r *Repo) DeleteMember(ctx context.Context, workspaceID, userID string) err
 	}
 	if n == 0 {
 		return fmt.Errorf("member: %w", app.ErrNotFound)
+	}
+	return nil
+}
+
+func toInvite(row gen.WorkspaceInvite) domain.Invite {
+	inv := domain.Invite{
+		ID: row.ID.String(), WorkspaceID: row.WorkspaceID.String(), Role: app.Role(row.Role), CreatedBy: row.CreatedBy.String(),
+		ExpiresAt: row.ExpiresAt.UTC(), CreatedAt: row.CreatedAt.UTC(),
+	}
+	if row.Email != nil {
+		inv.Email = *row.Email
+	}
+	if row.RevokedAt != nil {
+		t := row.RevokedAt.UTC()
+		inv.RevokedAt = &t
+	}
+	if row.UsedAt != nil {
+		t := row.UsedAt.UTC()
+		inv.UsedAt = &t
+	}
+	return inv
+}
+
+func (r *Repo) InsertInvite(ctx context.Context, inv domain.Invite, tokenHash string) error {
+	q, err := r.q(ctx)
+	if err != nil {
+		return err
+	}
+	iid, err := id(inv.ID)
+	if err != nil {
+		return err
+	}
+	wid, err := id(inv.WorkspaceID)
+	if err != nil {
+		return err
+	}
+	by, err := id(inv.CreatedBy)
+	if err != nil {
+		return err
+	}
+	var email *string
+	if inv.Email != "" {
+		email = &inv.Email
+	}
+	return wrap(q.InsertInvite(ctx, gen.InsertInviteParams{
+		ID: iid, WorkspaceID: wid, Email: email, TokenHash: tokenHash, Role: string(inv.Role), CreatedBy: by,
+		ExpiresAt: inv.ExpiresAt.UTC(), CreatedAt: inv.CreatedAt.UTC(),
+	}), "insert invite")
+}
+
+func (r *Repo) ListPendingInvites(ctx context.Context, workspaceID string, now time.Time) ([]domain.Invite, error) {
+	q, err := r.q(ctx)
+	if err != nil {
+		return nil, err
+	}
+	wid, err := id(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.ListPendingInvites(ctx, gen.ListPendingInvitesParams{WorkspaceID: wid, ExpiresAt: now.UTC()})
+	if err != nil {
+		return nil, wrap(err, "list invites")
+	}
+	out := make([]domain.Invite, len(rows))
+	for i, row := range rows {
+		out[i] = toInvite(gen.WorkspaceInvite{
+			ID: row.ID, WorkspaceID: row.WorkspaceID, Email: row.Email, Role: row.Role, CreatedBy: row.CreatedBy,
+			ExpiresAt: row.ExpiresAt, CreatedAt: row.CreatedAt, RevokedAt: row.RevokedAt, UsedAt: row.UsedAt,
+		})
+	}
+	return out, nil
+}
+
+func (r *Repo) RevokeInvite(ctx context.Context, workspaceID, inviteID string, now time.Time) error {
+	q, err := r.q(ctx)
+	if err != nil {
+		return err
+	}
+	wid, err := id(workspaceID)
+	if err != nil {
+		return err
+	}
+	iid, err := id(inviteID)
+	if err != nil {
+		return err
+	}
+	n, err := q.RevokeInvite(ctx, gen.RevokeInviteParams{WorkspaceID: wid, ID: iid, RevokedAt: &now})
+	if err != nil {
+		return wrap(err, "revoke invite")
+	}
+	if n == 0 {
+		return fmt.Errorf("invite: %w", app.ErrNotFound)
+	}
+	return nil
+}
+
+func (r *Repo) InviteByTokenHash(ctx context.Context, tokenHash string) (domain.Invite, error) {
+	q, err := r.q(ctx)
+	if err != nil {
+		return domain.Invite{}, err
+	}
+	row, err := q.GetInviteByTokenHashForUpdate(ctx, tokenHash)
+	if err != nil {
+		return domain.Invite{}, wrap(err, "invite")
+	}
+	return toInvite(gen.WorkspaceInvite{
+		ID: row.ID, WorkspaceID: row.WorkspaceID, Email: row.Email, Role: row.Role, CreatedBy: row.CreatedBy,
+		ExpiresAt: row.ExpiresAt, CreatedAt: row.CreatedAt, RevokedAt: row.RevokedAt, UsedAt: row.UsedAt,
+	}), nil
+}
+
+func (r *Repo) MarkInviteUsed(ctx context.Context, workspaceID, inviteID, userID string, now time.Time) error {
+	q, err := r.q(ctx)
+	if err != nil {
+		return err
+	}
+	wid, err := id(workspaceID)
+	if err != nil {
+		return err
+	}
+	iid, err := id(inviteID)
+	if err != nil {
+		return err
+	}
+	uid, err := id(userID)
+	if err != nil {
+		return err
+	}
+	n, err := q.MarkInviteUsed(ctx, gen.MarkInviteUsedParams{WorkspaceID: wid, ID: iid, UsedAt: &now, UsedBy: &uid})
+	if err != nil {
+		return wrap(err, "mark invite used")
+	}
+	if n == 0 {
+		return fmt.Errorf("invite: %w", app.ErrNotFound)
 	}
 	return nil
 }
