@@ -58,6 +58,8 @@ export interface ChatStore {
   send(channelId: string, body: string, options?: SendOptions): { clientMsgId: string; done: Promise<void> };
   /** Sends a failed message again with the same `client_msg_id`. */
   retry(channelId: string, clientMsgId: string): Promise<void>;
+  /** Applies a message a REST call returned (an edit, a delete) as if its event had arrived. */
+  applyMessage(message: Message): void;
   /** Drops a message that was not sent. */
   discard(channelId: string, clientMsgId: string): void;
   markRead(channelId: string): Promise<void>;
@@ -409,6 +411,13 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
       if (!ch || !failed || !drafts.has(clientMsgId)) return Promise.resolve();
       setChannel(channelId, mapMessage(ch, clientMsgId, (m) => ({ ...m, status: "pending" })));
       return post(clientMsgId);
+    },
+
+    applyMessage(message) {
+      void onMessage(
+        { workspace_id: opts.getWorkspaceId?.() ?? "", channel_id: message.channel_id, message },
+        false,
+      );
     },
 
     discard(channelId, clientMsgId) {

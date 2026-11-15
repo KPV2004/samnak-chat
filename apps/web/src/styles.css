@@ -573,3 +573,130 @@ fieldset {
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--line);
 }
+
+.chat-message-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5rem;
+}
+
+.chat-message-head time {
+  font-size: 0.8125rem;
+}
+
+.chat-actions {
+  position: absolute;
+  top: -0.75rem;
+  right: 0.5rem;
+  display: none;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: var(--bg);
+}
+
+.chat-message:hover .chat-actions,
+.chat-message:focus-within .chat-actions {
+  display: flex;
+}
+
+@media (hover: none) {
+  .chat-actions {
+    position: static;
+    display: flex;
+    margin-top: 0.25rem;
+    border: 0;
+    padding: 0;
+    background: none;
+  }
+}
+
+.chat-actions button,
+.chat-confirm button,
+.chat-replies,
+.chat-reactions button,
+.chat-emoji-picker button {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.chat-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.chat-replies {
+  margin-top: 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--accent);
+}
+
+.chat-reactions,
+.chat-emoji-picker,
+.chat-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-reactions button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg));
+}
+
+.chat-attachments li {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.chat-card {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.375rem;
+  background: var(--surface);
+}
+
+.chat-edit textarea {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+
+.chat-edit .actions {
+  margin-top: 0.25rem;
+}
+
+.chat-body code {
+  padding: 0.0625rem 0.25rem;
+  border-radius: 0.25rem;
+  background: var(--surface);
+  font-size: 0.9em;
+}
+
+.mention {
+  padding: 0 0.125rem;
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg));
+  color: var(--accent);
+}
+
+.mention.me {
+  background: color-mix(in srgb, var(--danger) 16%, var(--bg));
+  color: var(--danger);
+}

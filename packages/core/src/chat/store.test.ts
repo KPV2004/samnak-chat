@@ -492,6 +492,44 @@ describe("updates from the server", () => {
   });
 });
 
+describe("applying a REST result", () => {
+  beforeEach(async () => {
+    await t.store.loadChannels();
+    t.created(t.server.add("c1", "bob", "hello"));
+    await settle();
+  });
+
+  it("shows an edit at once, and the echo of the same edit changes nothing", async () => {
+    const m = t.server.messagesOf("c1")[0]!;
+    const edited = { ...m, body: "hello!", edited_at: "2026-01-01T01:00:00Z" };
+    t.store.applyMessage(edited);
+    await settle();
+    expect(t.store.getState().channels.c1!.messages[0]).toMatchObject({ body: "hello!", status: "sent" });
+    t.emit("message.updated", { channel_id: "c1", message: edited });
+    await settle();
+    expect(t.store.getState().channels.c1!.messages).toHaveLength(1);
+    expect(t.store.getState().channels.c1!.messages[0]!.body).toBe("hello!");
+  });
+
+  it("is not undone by an older copy of the message", async () => {
+    const m = t.server.messagesOf("c1")[0]!;
+    t.store.applyMessage({ ...m, body: "newer", edited_at: "2026-01-01T02:00:00Z" });
+    t.emit("message.updated", { channel_id: "c1", message: { ...m, body: "older", edited_at: "2026-01-01T01:00:00Z" } });
+    await settle();
+    expect(t.store.getState().channels.c1!.messages[0]!.body).toBe("newer");
+  });
+
+  it("can put a message back to what it was, e.g. when a reaction failed", async () => {
+    const m = t.server.messagesOf("c1")[0]!;
+    t.store.applyMessage({ ...m, reactions: [{ emoji: "👍", count: 1, me: true }] });
+    await settle();
+    expect(t.store.getState().channels.c1!.messages[0]!.reactions).toHaveLength(1);
+    t.store.applyMessage(m);
+    await settle();
+    expect(t.store.getState().channels.c1!.messages[0]!.reactions).toEqual([]);
+  });
+});
+
 describe("read state", () => {
   beforeEach(async () => {
     await t.store.loadChannels();
