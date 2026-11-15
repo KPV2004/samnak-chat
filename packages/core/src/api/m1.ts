@@ -27,7 +27,8 @@ export type CreateWorkspaceInput = Schemas["CreateInputBody"];
 export type MemberPatch = Schemas["UpdateMemberInputBody"];
 export type CreateInviteInput = Schemas["CreateInviteInputBody"];
 
-export type MemberPage = Schemas["ListMembersOutputBody"];
+// Not `Schemas["ListMembersOutputBody"]`: Huma numbers equal names across modules, so that one is chat's.
+export type MemberPage = Exclude<paths["/workspace/members"]["get"], undefined>["responses"][200]["content"]["application/json"];
 export type ListMembersParams = NonNullable<paths["/workspace/members"]["get"]["parameters"]["query"]>;
 
 type Method = "get" | "post" | "patch" | "delete";
