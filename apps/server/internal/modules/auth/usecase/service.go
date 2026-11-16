@@ -34,15 +34,18 @@ type Service struct {
 	tx      app.TxManager
 	limiter LoginLimiter
 	tokens  AccessTokens
+	events  Events
 	now     func() time.Time
 }
 
-// Deps are what a Service needs. Now defaults to time.Now.
+// Deps are what a Service needs. Now defaults to time.Now and Events defaults
+// to a no-op, so a test that does not care about events needs neither.
 type Deps struct {
 	Repo    Repository
 	Tx      app.TxManager
 	Limiter LoginLimiter
 	Tokens  AccessTokens
+	Events  Events
 	Now     func() time.Time
 }
 
@@ -51,8 +54,17 @@ func NewService(d Deps) *Service {
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{repo: d.Repo, tx: d.Tx, limiter: d.Limiter, tokens: d.Tokens, now: now}
+	events := d.Events
+	if events == nil {
+		events = noopEvents{}
+	}
+	return &Service{repo: d.Repo, tx: d.Tx, limiter: d.Limiter, tokens: d.Tokens, events: events, now: now}
 }
+
+// noopEvents is used when Deps.Events is nil, so a service always has one.
+type noopEvents struct{}
+
+func (noopEvents) DeviceRevoked(context.Context, string, string) {}
 
 // Session is a token pair with the user it belongs to.
 type Session struct {

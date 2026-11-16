@@ -87,6 +87,10 @@ func (m *Module) Provide(s *app.Services) {
 // shared by every server; otherwise they are counted in memory. WithLoginLimiter
 // overrides both.
 func (m *Module) Init(d *app.Deps) error {
+	logger := d.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	pool, _ := d.Platform["db"].(*pgxpool.Pool)
 	secret, _ := d.Platform["jwt_secret"].(string)
 	if secret == "" {
@@ -112,10 +116,11 @@ func (m *Module) Init(d *app.Deps) error {
 		repo = postgres.NewRepository(pool)
 	}
 	m.svc = usecase.NewService(usecase.Deps{
-		Repo: repo, Tx: d.Tx, Limiter: limiter, Tokens: jwt.New([]byte(secret)), Now: now,
+		Repo: repo, Tx: d.Tx, Limiter: limiter, Tokens: jwt.New([]byte(secret)),
+		Events: busEvents{bus: d.Bus, log: logger}, Now: now,
 	})
 	m.services = d.Services
-	m.logger = d.Logger
+	m.logger = logger
 	return nil
 }
 
@@ -124,6 +129,23 @@ func (m *Module) Routes(api huma.API) {
 }
 
 func (m *Module) Subscribe(app.EventBus) {}
+
+// busEvents publishes auth events on the bus after a transaction committed.
+// The bus never fails the publisher, so an error is only logged.
+type busEvents struct {
+	bus app.Publisher
+	log *slog.Logger
+}
+
+func (b busEvents) DeviceRevoked(ctx context.Context, userID, deviceID string) {
+	if b.bus == nil {
+		return
+	}
+	evt := DeviceRevoked{UserID: userID, DeviceID: deviceID}
+	if err := b.bus.Publish(ctx, evt); err != nil {
+		b.log.ErrorContext(ctx, "auth: publish failed", "event", evt.EventName(), "error", err)
+	}
+}
 
 type authenticator struct{ m *Module }
 
