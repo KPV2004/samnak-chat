@@ -43,8 +43,10 @@ func TestLoadModules(t *testing.T) {
 }
 
 func TestLoadModulesUnsetUsesDefaults(t *testing.T) {
-	setEnv(t, "")
-	os.Unsetenv("MODULES_ENABLED")
+	setEnv(t, "") // t.Setenv restores MODULES_ENABLED after the test
+	if err := os.Unsetenv("MODULES_ENABLED"); err != nil {
+		t.Fatal(err)
+	}
 	cfg, err := Load()
 	if err != nil {
 		t.Fatal(err)

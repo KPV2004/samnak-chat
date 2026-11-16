@@ -9,7 +9,10 @@ import (
 
 func TestLoadSettingsMigratesDefaultModulesWhenUnset(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://x")
-	os.Unsetenv("MODULES_ENABLED")
+	t.Setenv("MODULES_ENABLED", "") // restored after the test
+	if err := os.Unsetenv("MODULES_ENABLED"); err != nil {
+		t.Fatal(err)
+	}
 	got, err := loadSettings()
 	if err != nil {
 		t.Fatal(err)

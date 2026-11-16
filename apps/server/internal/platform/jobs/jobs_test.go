@@ -198,10 +198,11 @@ func TestNewDoesNotConnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	var q app.Jobs = jobs.New(pool, testLogger())
+	q := jobs.New(pool, testLogger())
 	if q == nil {
 		t.Fatal("New returned nil")
 	}
+	var _ app.Jobs = q
 }
 
 func TestMigrateCreatesRiverTables(t *testing.T) {
