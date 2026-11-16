@@ -492,16 +492,21 @@ Planner notes from checkpoint D:
 - Accepted deviations: River migrations run through `rivermigrate` from `cmd/migrate` (not a copied goose file); enqueuing a kind with no handler on this server is rejected by River, so the no-worker sweep handles jobs left by another module set; a reserved `platform.noop` worker lets the queue start when no module has a handler; chat's thread-participant query is hand-written in `adapter/postgres/extras.go`; bell styles live in `apps/web/src/notify/notify.css`.
 - Open: the bell panel lists read and unread together (read dimmed); `?unread=true` exists if we want an unread filter.
 
-## [ ] M3-05 M3 acceptance test (wave 2)
+## [x] M3-05 M3 acceptance test (wave 2)
 **SRS:** 16.3 M3, NOTI-05, PLT-09 · **Size:** M · **Depends on:** checkpoint D
 
 **Acceptance criteria**
-- [ ] `internal/acceptance` gains an M3 test with the real registry including notify and jobs: a mention reaches the mentioned user as `notification.created` within 1 s; `GET /notify/unread-count` after reconnect is still correct; read-all on one device sends `notification.read` to the other
-- [ ] The same suite with notify disabled: sending, mentions and DMs work, no notification rows exist, `/notify/*` is 404
-- [ ] A job enqueued in a rolled-back transaction never runs; a job of a kind with no handler is cancelled
-- [ ] `go test -race ./internal/acceptance/` passes; CI green
+- [x] `internal/acceptance` gains an M3 test with the real registry including notify and jobs: a mention reaches the mentioned user as `notification.created` within 1 s; `GET /notify/unread-count` after reconnect is still correct; read-all on one device sends `notification.read` to the other
+- [x] The same suite with notify disabled: sending, mentions and DMs work, no notification rows exist, `/notify/*` is 404
+- [x] A job enqueued in a rolled-back transaction never runs; a job of a kind with no handler is cancelled
+- [x] `go test -race ./internal/acceptance/` passes; CI green
 
 **Files:** `internal/acceptance/`
+
+Planner notes from M3-05 review:
+- The DeepSeek Flash worker stopped on its free quota mid-task; Claude Sonnet 5.5 finished it, reviewing the half-done code. It found and fixed a flaky design (a second job queue next to the server's would have been swept as "no handler") and a typed-nil `Deps.Jobs`.
+- 16 subtests across `TestSRSM2Acceptance`, `TestSRSM3Acceptance`, `TestSRSM3NotifyDisabled` and `TestSRSM3Jobs` pass under `-race`; the worker ran the suite 3 times. Mention → `notification.created` took about 150 µs. A mutation check (notify enabled in the notify-off test) failed all three subtests, so the assertions bite.
+- Fixed on review: one errcheck finding that would have failed CI lint.
 
 ## Checkpoint M3: SRS 16.3 acceptance (planner)
 - [x] Mentioned in a browser → the bell count rises at once
