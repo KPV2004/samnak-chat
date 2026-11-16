@@ -2,6 +2,7 @@
 // plan's "Event payloads" (chat/adapter/realtime). Every event of a workspace
 // carries `workspace_id`; `presence.changed` is the exception.
 import type { Channel, Message } from "../api/m2";
+import type { NotificationItem } from "../api/m3";
 
 export interface ReadyData {
   user_id: string;
@@ -31,7 +32,10 @@ export interface ServerEventMap {
     Pick<Channel, "type" | "name" | "topic" | "last_seq" | "member_count" | "dm_user_ids" | "archived_at" | "created_at">;
   "presence.changed": { user_id: string; online: boolean };
   typing: InChannel & { user_id: string };
-  "notification.created": InWorkspace & Record<string, unknown>;
+  /** Sent to the user's own devices after notify stored the row (NOTI-03). */
+  "notification.created": InWorkspace & { notification: NotificationItem; unread_count: number };
+  /** Sent to the user's own devices, so the bell on the others clears (NOTI-04). */
+  "notification.read": InWorkspace & { ids: string[]; all: boolean; unread_count: number };
   /** The hub's answer to a bad client frame; the connection stays open. */
   error: { type: string; code: string; message: string };
 }
@@ -54,5 +58,6 @@ export const serverEventTypes: ReadonlySet<string> = new Set<ServerEventType>([
   "presence.changed",
   "typing",
   "notification.created",
+  "notification.read",
   "error",
 ]);
