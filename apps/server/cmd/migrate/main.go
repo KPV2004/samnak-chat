@@ -10,12 +10,14 @@ import (
 	"log"
 	"os"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/config"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database/migrations"
 )
 
@@ -74,12 +76,22 @@ func run(ctx context.Context) error {
 	if err := db.PingContext(ctx); err != nil {
 		return fmt.Errorf("ping: %w", err)
 	}
-	return migrate(ctx, db, moduleMigrations, cfg.Modules)
+	// River's migrator needs a pgx pool; goose above works on database/sql.
+	pool, err := database.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	return migrate(ctx, db, pool, moduleMigrations, cfg.Modules)
 }
 
-// migrate runs the platform set, then the set of every enabled module.
-func migrate(ctx context.Context, db *sql.DB, sets map[string]embed.FS, enabled []string) error {
+// migrate runs the platform set (goose plus River's own tables), then the set
+// of every enabled module.
+func migrate(ctx context.Context, db *sql.DB, pool *pgxpool.Pool, sets map[string]embed.FS, enabled []string) error {
 	if err := migrations.Run(ctx, db, "platform", migrations.Platform); err != nil {
+		return err
+	}
+	if err := migrations.River(ctx, pool); err != nil {
 		return err
 	}
 	for _, m := range selectOwners(sets, enabled) {

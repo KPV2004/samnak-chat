@@ -76,6 +76,27 @@ func TestQuerierWithoutTxReturnsPool(t *testing.T) {
 	}
 }
 
+func TestTxFromContext(t *testing.T) {
+	pool := startPostgres(t)
+	tm := database.NewTxManager(pool)
+	if tx, ok := database.TxFromContext(context.Background()); ok || tx != nil {
+		t.Fatalf("TxFromContext outside Do = %v, %v; want nil, false", tx, ok)
+	}
+	err := tm.Do(context.Background(), func(ctx context.Context) error {
+		tx, ok := database.TxFromContext(ctx)
+		if !ok || tx == nil {
+			t.Fatal("TxFromContext inside Do = nil, false; want the transaction")
+		}
+		if q := database.Querier(ctx, pool); q != any(tx) {
+			t.Fatalf("Querier = %T, want %T", q, tx)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestTxCommit(t *testing.T) {
 	pool := startPostgres(t)
 	tm := database.NewTxManager(pool)
