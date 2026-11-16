@@ -81,6 +81,10 @@ type Repository interface {
 	Members(ctx context.Context, workspaceID, channelID string) ([]Member, error)
 	// FilterMembers returns the userIDs that are members of the channel.
 	FilterMembers(ctx context.Context, workspaceID, channelID string, userIDs []string) ([]string, error)
+	// ThreadParticipantIDs returns the users who follow a thread: the author
+	// of the root message and everyone who replied under it (NOTI-06). It
+	// does not filter to channel members; the caller does.
+	ThreadParticipantIDs(ctx context.Context, workspaceID, channelID, rootMessageID string) ([]string, error)
 	// AdvanceRead moves the user's read position forward to seq, capped at
 	// the channel's last_seq. advanced is false when nothing changed.
 	AdvanceRead(ctx context.Context, workspaceID, channelID, userID string, seq int64) (lastRead int64, advanced bool, err error)
