@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ func setEnv(t *testing.T, modules string) {
 }
 
 func TestLoadModules(t *testing.T) {
-	core := []string{"auth", "workspace", "chat", "notify"}
+	core := []string{"auth", "workspace", "chat"}
 	tests := []struct {
 		name string
 		in   string
@@ -38,6 +39,19 @@ func TestLoadModules(t *testing.T) {
 				t.Fatalf("Modules = %v, want %v", cfg.Modules, tt.want)
 			}
 		})
+	}
+}
+
+func TestLoadModulesUnsetUsesDefaults(t *testing.T) {
+	setEnv(t, "")
+	os.Unsetenv("MODULES_ENABLED")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"auth", "workspace", "chat", "notify"}
+	if !reflect.DeepEqual(cfg.Modules, want) {
+		t.Fatalf("Modules = %v, want %v", cfg.Modules, want)
 	}
 }
 

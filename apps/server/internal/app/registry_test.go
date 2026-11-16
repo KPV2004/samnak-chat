@@ -332,3 +332,21 @@ func keys[V any](m map[string]V) []string {
 	}
 	return out
 }
+
+func TestNotificationRulesCollectsAndCopies(t *testing.T) {
+	r := NewNotificationRules()
+	rule := func(context.Context, Event) ([]Notification, error) { return nil, nil }
+	r.On("chat.message_created", rule)
+	r.On("chat.message_created", rule)
+	r.On("task.assigned", rule)
+
+	got := r.Rules()
+	if len(got["chat.message_created"]) != 2 || len(got["task.assigned"]) != 1 {
+		t.Fatalf("Rules() = %v", got)
+	}
+	got["chat.message_created"] = nil
+	delete(got, "task.assigned")
+	if again := r.Rules(); len(again["chat.message_created"]) != 2 || len(again["task.assigned"]) != 1 {
+		t.Fatal("Rules() must return a copy")
+	}
+}

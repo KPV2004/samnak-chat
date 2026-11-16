@@ -288,18 +288,17 @@ func newDeps(logger *slog.Logger, in infra) *app.Deps {
 		Realtime:      in.Realtime,
 		Storage:       in.Storage,
 		Bus:           eventbus.New(logger),
-		Notifications: app.NoopNotificationRegistry{},
+		Notifications: app.NewNotificationRules(),
 		Tx:            in.Tx,
 		Platform:      in.Platform,
 	}
 }
 
-// skipUnbuiltCoreModules drops core modules this binary does not contain yet.
-// config.Modules always lists the core modules, but auth, workspace, chat and
-// notify arrive in M1 and M2; until then they would make every start fail with
-// "unknown module". Names that are not core modules are never dropped, so a
-// typo in MODULES_ENABLED still stops the server. Remove this function when
-// the core modules are registered.
+// skipUnbuiltCoreModules drops core and default modules this binary does not
+// contain yet. config.Modules lists them even before their code exists (notify
+// arrives in M3); without this, every start would fail with "unknown module".
+// Other names are never dropped, so a typo in MODULES_ENABLED still stops the
+// server. Remove this function when every core and default module is built.
 func skipUnbuiltCoreModules(logger *slog.Logger, names []string, available []app.Module) []string {
 	have := map[string]bool{}
 	for _, m := range available {
@@ -307,7 +306,7 @@ func skipUnbuiltCoreModules(logger *slog.Logger, names []string, available []app
 	}
 	out := make([]string, 0, len(names))
 	for _, n := range names {
-		if slices.Contains(app.CoreModules, n) && !have[n] {
+		if (slices.Contains(app.CoreModules, n) || slices.Contains(app.DefaultModules, n)) && !have[n] {
 			logger.Warn("core module not built yet, skipping", "module", n)
 			continue
 		}

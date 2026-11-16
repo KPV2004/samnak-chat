@@ -24,4 +24,8 @@ type Module interface {
 }
 
 // Core modules are always enabled regardless of MODULES_ENABLED.
-var CoreModules = []string{"auth", "workspace", "chat", "notify"}
+var CoreModules = []string{"auth", "workspace", "chat"}
+
+// DefaultModules are enabled when MODULES_ENABLED is not set at all. notify is
+// optional so it can be switched off (NOTI-05), but on unless asked otherwise.
+var DefaultModules = []string{"notify"}

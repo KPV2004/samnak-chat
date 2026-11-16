@@ -19,7 +19,8 @@ type Config struct {
 	S3AccessKey string
 	S3SecretKey string
 	JWTSecret   string
-	// Modules is app.CoreModules followed by MODULES_ENABLED, without duplicates.
+	// Modules is app.CoreModules followed by MODULES_ENABLED, without
+	// duplicates; app.DefaultModules stand in when MODULES_ENABLED is unset.
 	Modules []string
 }
 
@@ -34,7 +35,7 @@ func Load() (Config, error) {
 		S3AccessKey: os.Getenv("S3_ACCESS_KEY"),
 		S3SecretKey: os.Getenv("S3_SECRET_KEY"),
 		JWTSecret:   os.Getenv("JWT_SECRET"),
-		Modules:     parseModules(os.Getenv("MODULES_ENABLED")),
+		Modules:     ParseModules(os.LookupEnv("MODULES_ENABLED")),
 	}
 	for _, r := range []struct{ key, val string }{
 		{"DATABASE_URL", cfg.DatabaseURL},
@@ -54,10 +55,14 @@ func getenv(key, def string) string {
 	return def
 }
 
-// parseModules returns the core modules followed by the comma-separated
-// list, trimmed, lower-cased and de-duplicated.
-func parseModules(list string) []string {
+// ParseModules returns the core modules followed by the comma-separated
+// list, trimmed, lower-cased and de-duplicated. When the variable is not set
+// at all, app.DefaultModules are used; set but empty means core modules only.
+func ParseModules(list string, set bool) []string {
 	mods := slices.Clone(app.CoreModules)
+	if !set {
+		list = strings.Join(app.DefaultModules, ",")
+	}
 	for _, name := range strings.Split(list, ",") {
 		name = strings.ToLower(strings.TrimSpace(name))
 		if name != "" && !slices.Contains(mods, name) {

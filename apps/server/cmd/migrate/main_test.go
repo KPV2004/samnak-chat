@@ -2,20 +2,20 @@ package main
 
 import (
 	"embed"
+	"os"
 	"reflect"
 	"testing"
 )
 
-func TestParseModules(t *testing.T) {
-	cases := map[string][]string{
-		"":                   nil,
-		"chat":               {"chat"},
-		" chat, helpdesk ,,": {"chat", "helpdesk"},
+func TestLoadSettingsMigratesDefaultModulesWhenUnset(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	os.Unsetenv("MODULES_ENABLED")
+	got, err := loadSettings()
+	if err != nil {
+		t.Fatal(err)
 	}
-	for in, want := range cases {
-		if got := parseModules(in); !reflect.DeepEqual(got, want) {
-			t.Errorf("parseModules(%q) = %v, want %v", in, got, want)
-		}
+	if want := []string{"auth", "workspace", "chat", "notify"}; !reflect.DeepEqual(got.Modules, want) {
+		t.Fatalf("Modules = %v, want %v", got.Modules, want)
 	}
 }
 

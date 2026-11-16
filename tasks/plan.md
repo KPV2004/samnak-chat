@@ -209,6 +209,71 @@ Rules:
 | 3 | M2-07 AUTH-08, acceptance test | 1 worker |
 | Checkpoint M2 | SRS 16.3 M2 acceptance | Planner |
 
+## M3: notifications and the job queue (SRS NOTI-01..06, PLT-09)
+
+### Contracts the planner fixed before M3
+
+- `app.Notification` gains `Key`: notify keeps at most one notification per `(user_id, key)`, so a redelivered event adds nothing. chat uses `chat.message:{message_id}`.
+- `app.NotificationRules` (`internal/app/notification.go`) collects rules. `cmd/server` always passes one as `Deps.Notifications`; modules call `On` in `Init`. notify reads them through `app.NotificationRuleSource` in `Subscribe`, after every `Init` ran, and subscribes one bus handler per event name. With notify disabled nobody reads the rules, so chat runs exactly as before (NOTI-05).
+- notify is no longer a core module. `app.DefaultModules = ["notify"]` is used when `MODULES_ENABLED` is unset; `MODULES_ENABLED=` (set, empty) means core only. `config.ParseModules` is shared by `cmd/server` and `cmd/migrate`, and `.env.example` sets `MODULES_ENABLED=notify`. This is the switch the SRS 16.3 M3 check ("turn notify off, chat still works") needs.
+- `app.Jobs` (`internal/app/jobs.go`): `Handle(kind, handler, opts)` and `Every(interval, kind, args)` in `Init`, `Enqueue(ctx, kind, args, opts)` at run time; inside `TxManager.Do` the insert joins the transaction (PLT-09). `Deps.Jobs` is set by the server and may be nil in tests and `server openapi`.
+
+### Job queue (`internal/platform/jobs`, River)
+
+- One River client per server on the shared pgx pool, started after `reg.Start` and stopped on shutdown after HTTP drains (NFR-11). River's own migrations run from `cmd/migrate` as part of the platform set.
+- Kinds are dynamic strings, so one generic args type carries `{kind, json}`; the worker dispatches to the handler registered for that kind.
+- Retries: River's backoff, `MaxAttempts` default 5 (NOTI-08), timeout default 1 min.
+- No worker: at start and every minute, jobs in `available`, `scheduled` or `retryable` whose kind has no `Handle` on this server are set to `cancelled` (PLT-09, architecture section 7). All instances run the same module set.
+- `Every` uses River periodic jobs with a leader, so one instance enqueues.
+- Joining the transaction needs the `pgx.Tx` that `database.TxManager` keeps in the context; `platform/database` exports `TxFromContext`.
+
+### notify module (`internal/modules/notify`)
+
+Table `notify_notifications (id uuid v7, workspace_id, user_id, kind, title, body, link, data jsonb, key, read_at, created_at)`, unique `(user_id, key)` where key is not empty, index `(user_id, workspace_id, created_at desc)` and a partial index for unread.
+
+Flow per event: run each rule (a rule that errors or panics is logged and skipped; it never affects the publisher or other rules) → drop notifications without `UserID`, `WorkspaceID` or `Kind` → insert with `ON CONFLICT (user_id, key) DO NOTHING` in one transaction (NOTI-02) → after commit, `Realtime.SendToUsers` a `notification.created` for each row actually inserted (NOTI-03). Offline users simply find it in the list; push is P3.
+
+API (prefix `/notify`, all `RequireMember`, scoped to the `X-Workspace-ID` workspace and the caller):
+
+| Method and path | Body or query | Response |
+| --- | --- | --- |
+| `GET /notify/notifications` | `?unread=true`, `?before=<id>` (cursor, newest first), `?limit` ≤ 50 (default 20) | `{items: Notification[], has_more}` |
+| `GET /notify/unread-count` | | `{count}` |
+| `POST /notify/notifications/{id}/read` | | 204 (idempotent; another user's id is 404) |
+| `POST /notify/read-all` | | 204 |
+
+`Notification {id, kind, title, body, link, data, read_at, created_at}`.
+
+WebSocket (server → client), both only to the user's own devices:
+
+| Type | `data` |
+| --- | --- |
+| `notification.created` | `{workspace_id, notification: Notification, unread_count}` |
+| `notification.read` | `{workspace_id, ids: string[], all: bool, unread_count}` (so other devices clear the bell) |
+
+Job: `notify.prune` every 24 h deletes read notifications older than 90 days.
+
+### chat notification rules (NOTI-06)
+
+chat registers one rule on `chat.message_created`. For each recipient, at most one notification per message, by priority mention > DM > thread:
+
+- `chat.mention`: users in `mentions`, and every channel member for `<!channel>`.
+- `chat.dm`: the other members of a DM.
+- `chat.thread_reply`: for a reply, the root's author and everyone who already replied in the thread (the "followed thread").
+- Never the sender, never a user who is no longer a channel member.
+- `Title` is the sender's display name and the channel (`#name` or "DM"), `Body` a plain-text excerpt of at most 140 characters with `<@id>` rendered as `@name`. `Link` is `/chat/{channel_id}`; `Data` carries `channel_id, message_id, seq, thread_root_id`. `Key` is `chat.message:{message_id}`.
+- The web renders known kinds from `data` with its own i18n and falls back to `title`/`body`.
+
+### M3 waves
+
+| Wave | Tasks | Run as |
+| --- | --- | --- |
+| 0 | M3-00 contracts (this section) | Planner |
+| 1 | M3-01 platform/jobs, M3-02 notify module, M3-03 chat rules, M3-04 web bell | 4 parallel workers (disjoint files) |
+| Checkpoint D | Planner merges, registers notify in `cmd/server` and `cmd/migrate`, regenerates OpenAPI and web types | Planner |
+| 2 | M3-05 M3 acceptance test | 1 worker |
+| Checkpoint M3 | SRS 16.3 M3 acceptance, two browsers | Planner |
+
 ## Later milestones (to be broken down at each checkpoint)
 
 | Milestone | Scope | SRS IDs |

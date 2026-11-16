@@ -9,15 +9,13 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"slices"
-	"strings"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/config"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database/migrations"
 )
 
@@ -41,19 +39,9 @@ func loadSettings() (settings, error) {
 	if url == "" {
 		return settings{}, errors.New("DATABASE_URL is required")
 	}
-	// Core modules are always on, so their migrations always run.
-	mods := append(slices.Clone(app.CoreModules), parseModules(os.Getenv("MODULES_ENABLED"))...)
+	// The same module list as the server, so their migrations run.
+	mods := config.ParseModules(os.LookupEnv("MODULES_ENABLED"))
 	return settings{DatabaseURL: url, Modules: mods}, nil
-}
-
-func parseModules(s string) []string {
-	var out []string
-	for _, m := range strings.Split(s, ",") {
-		if m = strings.TrimSpace(m); m != "" {
-			out = append(out, m)
-		}
-	}
-	return out
 }
 
 // selectOwners returns the enabled modules that have a migration set.
