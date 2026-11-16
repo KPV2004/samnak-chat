@@ -27,6 +27,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/eventbus"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/httpx"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/jobs"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/realtime"
 	redisclient "github.com/KPV2004/samnak-chat/apps/server/internal/platform/redis"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/storage"
@@ -143,9 +144,11 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 		_ = hub.Close(closeCtx)
 	}()
 
+	queue := jobs.New(pool, logger)
 	handler, err := newHandler(logger, cfg.Modules, available, infra{
 		Services: services,
 		Tx:       database.NewTxManager(pool),
+		Jobs:     queue,
 		Realtime: hub,
 		Storage:  store,
 		Mount:    hub.Mount,
@@ -155,6 +158,19 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 	if err != nil {
 		return err
 	}
+
+	// Modules registered their handlers in Init, so the queue starts after
+	// reg.Start. It stops after serve returns, once HTTP has drained (NFR-11).
+	if err := queue.Start(ctx); err != nil {
+		return fmt.Errorf("start jobs: %w", err)
+	}
+	defer func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := queue.Stop(stopCtx); err != nil {
+			logger.Error("jobs: stop", "error", err)
+		}
+	}()
 
 	ln, err := net.Listen("tcp", cfg.HTTPAddr)
 	if err != nil {
@@ -171,8 +187,10 @@ type infra struct {
 	Realtime app.Realtime
 	Storage  app.ObjectStorage
 	// Mount adds non-Huma routes to the root router, such as GET /api/v1/ws.
-	Mount    func(chi.Router)
-	Tx       app.TxManager
+	Mount func(chi.Router)
+	Tx    app.TxManager
+	// Jobs is the background queue; nil in tests and the openapi command.
+	Jobs     app.Jobs
 	Platform map[string]any
 	Checks   []httpx.Check
 }
@@ -290,6 +308,7 @@ func newDeps(logger *slog.Logger, in infra) *app.Deps {
 		Bus:           eventbus.New(logger),
 		Notifications: app.NewNotificationRules(),
 		Tx:            in.Tx,
+		Jobs:          in.Jobs,
 		Platform:      in.Platform,
 	}
 }
