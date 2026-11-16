@@ -40,3 +40,25 @@ func ToNotifications(ns []domain.Notification) []Notification {
 	}
 	return out
 }
+
+// Names of the frames notify sends to a user's own devices (NOTI-03).
+const (
+	EventCreated = "notification.created"
+	EventRead    = "notification.read"
+)
+
+// CreatedEvent is the `data` of notification.created.
+type CreatedEvent struct {
+	WorkspaceID  string       `json:"workspace_id"`
+	Notification Notification `json:"notification"`
+	UnreadCount  int64        `json:"unread_count"`
+}
+
+// ReadEvent is the `data` of notification.read, so the user's other devices
+// clear the bell. all is true for "mark all as read".
+type ReadEvent struct {
+	WorkspaceID string   `json:"workspace_id"`
+	IDs         []string `json:"ids" nullable:"false"`
+	All         bool     `json:"all"`
+	UnreadCount int64    `json:"unread_count"`
+}

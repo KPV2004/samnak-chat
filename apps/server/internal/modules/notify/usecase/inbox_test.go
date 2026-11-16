@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -189,6 +190,11 @@ func TestReadAll(t *testing.T) {
 	}
 	if !reads[0].All || reads[0].Unread != 0 || len(reads[0].IDs) != 2 {
 		t.Fatalf("read event = %+v", reads[0])
+	}
+	for _, id := range ids {
+		if !slices.Contains(reads[0].IDs, id) {
+			t.Fatalf("read event ids = %v, want both %v", reads[0].IDs, ids)
+		}
 	}
 	if count, err := svc.UnreadCount(ctx, p); err != nil || count != 0 {
 		t.Fatalf("unread = %d %v, want 0", count, err)
