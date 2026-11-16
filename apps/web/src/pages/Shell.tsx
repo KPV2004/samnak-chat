@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation } from "react-router";
 import { LanguageSelect } from "../components/LanguageSelect";
+import { NotificationBell } from "../notify/NotificationBell";
 import { ChatProvider } from "../state/chat";
 import { useT } from "../i18n/useT";
 import { useLocale } from "../state/locale";
@@ -58,6 +59,7 @@ export function Shell() {
           </label>
         )}
         <Link to="/workspaces/new">{t("workspace.new")}</Link>
+        <NotificationBell />
         <LanguageSelect />
         <button
           type="button"

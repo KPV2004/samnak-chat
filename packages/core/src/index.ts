@@ -35,3 +35,7 @@ export type {
   SendStatus,
 } from "./chat/store";
 export { uuidv7 } from "./chat/uuid";
+export { createM3Api } from "./api/m3";
+export type * from "./api/m3";
+export { createNotificationStore } from "./notify/store";
+export type { NotificationState, NotificationStore, NotificationStoreOptions } from "./notify/store";
