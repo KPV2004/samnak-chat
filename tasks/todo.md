@@ -380,7 +380,7 @@ The hub already authenticates the `auth` frame with the access token and closes 
 Planner notes from M2-07 review:
 - Worker: DeepSeek V4.1 Flash (OpenCode). Accepted deviations: `Hub.DisconnectUser` in `platform/realtime` (logout of every device publishes an event with an empty `device_id`, and `cmd/server` closes all of the user's sockets through a type assertion, since `app.Realtime` only knows devices); publishing goes through a `usecase.Events` port; `Logout` reads active devices first so a replay publishes nothing.
 - Added on review: refresh reuse (AUTH-03) also publishes `auth.device_revoked`, so a stolen-token detection closes the device's open sockets.
-- Still manual: two-browser check that the web client goes to login on close code 4401.
+- Two-browser check (2026-11-16, Playwright Chromium against the dev stack): revoking a device from another browser closes its socket with 4401 and the web client lands on /login while the revoker stays signed in; "sign out every device" does the same for the other browser and the own one.
 
 ## Checkpoint C: after M2 wave 1 (planner)
 - [x] Branches merged; chat registered; `cmd/server` creates the hub and storage, mounts `/api/v1/ws`, fills `Deps.Realtime` and `Deps.Storage`, closes the hub on shutdown
