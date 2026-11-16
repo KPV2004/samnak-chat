@@ -369,13 +369,20 @@ func TestSRSM2Acceptance(t *testing.T) {
 	})
 
 	t.Run("a token of a device revoked by refresh reuse is rejected", func(t *testing.T) {
+		one.disconnectEvents()
 		tablet := c.login(bob, "Tablet")
+		tabletConn := one.connect(t, tablet.access)
 		c.want(c.do("POST", "/auth/refresh", call{body: map[string]any{"refresh_token": tablet.refresh}}), 200)
 
-		// Replaying the spent token revokes the whole device (AUTH-03).
+		// Replaying the spent token revokes the whole device (AUTH-03). That is
+		// a revocation like any other, so its socket closes at once (AUTH-08).
 		if r := c.do("POST", "/auth/refresh", call{body: map[string]any{"refresh_token": tablet.refresh}}); r.Status != 401 {
 			t.Fatalf("reused refresh token: status = %d: %v", r.Status, r.Body)
 		}
+		if code := expectClose(t, tabletConn, 5*time.Second); code != codeUnauthorized {
+			t.Fatalf("close code = %d, want 4401", code)
+		}
+		one.wantEvents(t, auth.DeviceRevoked{UserID: bob.id, DeviceID: tablet.deviceID})
 		for _, tc := range []struct{ name, path string }{
 			{"auth", "/auth/me"},
 			{"chat", "/chat/channels"},

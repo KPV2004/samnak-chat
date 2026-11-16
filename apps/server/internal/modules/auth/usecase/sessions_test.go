@@ -38,18 +38,30 @@ func (t tx) Do(ctx context.Context, fn func(context.Context) error) error {
 	return fn(ctx)
 }
 
-// repo implements the methods Logout and RevokeDevice use. Any other method
-// panics, which keeps a test from silently depending on one.
+// repo implements the methods Logout, RevokeDevice and the reuse path of
+// Refresh use. Any other method panics, which keeps a test from silently
+// depending on one.
 type repo struct {
 	usecase.Repository
 	active      []domain.Device
 	activeErr   error
+	device      domain.Device
+	deviceErr   error // ActiveDevice, e.g. app.ErrNotFound once revoked
+	token       domain.RefreshToken
 	revokeErr   error // RevokeDevice
 	revokeCalls int
 }
 
 func (r *repo) ActiveDevices(context.Context, string) ([]domain.Device, error) {
 	return r.active, r.activeErr
+}
+
+func (r *repo) ActiveDevice(context.Context, string) (domain.Device, error) {
+	return r.device, r.deviceErr
+}
+
+func (r *repo) RefreshTokenForUpdate(context.Context, []byte) (domain.RefreshToken, error) {
+	return r.token, nil
 }
 
 func (r *repo) RevokeUserRefreshTokens(context.Context, string, time.Time) error { return nil }
@@ -189,5 +201,56 @@ func TestRevokeDeviceRejectsAMalformedID(t *testing.T) {
 	}
 	if r.revokeCalls != 0 || len(rec.calls) != 0 {
 		t.Fatalf("malformed id reached the repository (%d calls) or published %v", r.revokeCalls, rec.calls)
+	}
+}
+
+// spentToken is a refresh token that was already used.
+func spentToken() domain.RefreshToken {
+	at := time.Unix(1_600_000_000, 0).UTC()
+	return domain.RefreshToken{ID: "rt-1", DeviceID: phoneID, RevokedAt: &at}
+}
+
+// Revoking a device because its refresh token was reused is a revocation like
+// any other, so the sockets of that device must close (AUTH-08). The user is
+// not on the token row, so the service reads it from the device.
+func TestRefreshReusePublishesDeviceRevoked(t *testing.T) {
+	rec := &recorder{}
+	r := &repo{
+		token:  spentToken(),
+		device: domain.Device{ID: phoneID, UserID: aliceID},
+	}
+	svc := newService(r, tx{}, rec)
+
+	if _, err := svc.Refresh(context.Background(), "spent"); !errors.Is(err, app.ErrUnauthorized) {
+		t.Fatalf("err = %v, want unauthorized", err)
+	}
+	if want := (revokedCall{userID: aliceID, deviceID: phoneID}); len(rec.calls) != 1 || rec.calls[0] != want {
+		t.Fatalf("published %v, want %v", rec.calls, want)
+	}
+}
+
+func TestRefreshReuseOfAnAlreadyRevokedDevicePublishesNothing(t *testing.T) {
+	rec := &recorder{}
+	r := &repo{token: spentToken(), deviceErr: app.ErrNotFound}
+	svc := newService(r, tx{}, rec)
+
+	if _, err := svc.Refresh(context.Background(), "spent"); !errors.Is(err, app.ErrUnauthorized) {
+		t.Fatalf("err = %v, want unauthorized", err)
+	}
+	if len(rec.calls) != 0 {
+		t.Fatalf("published %v for a device that was already revoked", rec.calls)
+	}
+}
+
+func TestRefreshReuseFailurePublishesNothing(t *testing.T) {
+	rec := &recorder{}
+	boom := io.ErrUnexpectedEOF
+	svc := newService(&repo{token: spentToken(), deviceErr: boom}, tx{}, rec)
+
+	if _, err := svc.Refresh(context.Background(), "spent"); err == nil {
+		t.Fatal("want an error")
+	}
+	if len(rec.calls) != 0 {
+		t.Fatalf("published %v after a failure", rec.calls)
 	}
 }

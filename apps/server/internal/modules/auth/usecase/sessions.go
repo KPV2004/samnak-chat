@@ -23,6 +23,10 @@ func (s *Service) Refresh(ctx context.Context, token string) (Session, error) {
 	var (
 		out    Session
 		reused bool
+		// revokedByReuse names the device a reused token closed. It stays empty
+		// when the device was already revoked, so a second replay announces
+		// nothing (AUTH-08).
+		revokedUserID, revokedDeviceID string
 	)
 	err := s.tx.Do(ctx, func(ctx context.Context) error {
 		now := s.now()
@@ -35,10 +39,23 @@ func (s *Service) Refresh(ctx context.Context, token string) (Session, error) {
 		}
 		if rt.RevokedAt != nil {
 			reused = true
+			// The device holds the user the token row does not, and tells us
+			// whether this reuse still has something to revoke.
+			d, err := s.repo.ActiveDevice(ctx, rt.DeviceID)
+			if notFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
 			if err := s.repo.RevokeDeviceRefreshTokens(ctx, rt.DeviceID, now); err != nil {
 				return err
 			}
-			return s.repo.RevokeDeviceByID(ctx, rt.DeviceID, now)
+			if err := s.repo.RevokeDeviceByID(ctx, rt.DeviceID, now); err != nil {
+				return err
+			}
+			revokedUserID, revokedDeviceID = d.UserID, d.ID
+			return nil
 		}
 		if !now.Before(rt.ExpiresAt) {
 			return errBadRefresh
@@ -65,6 +82,9 @@ func (s *Service) Refresh(ctx context.Context, token string) (Session, error) {
 	})
 	if err != nil {
 		return Session{}, err
+	}
+	if revokedDeviceID != "" {
+		s.events.DeviceRevoked(ctx, revokedUserID, revokedDeviceID)
 	}
 	if reused {
 		return Session{}, errBadRefresh
