@@ -31,10 +31,12 @@ type usersMsg struct {
 	Frame  json.RawMessage `json:"e"`
 }
 
-// controlMsg is published on rt:control.
+// controlMsg is published on rt:control. A message names one device or one
+// user; exactly one of the two is set.
 type controlMsg struct {
 	Origin   string `json:"o"`
-	DeviceID string `json:"d"`
+	DeviceID string `json:"d,omitempty"`
+	UserID   string `json:"u,omitempty"`
 }
 
 // fanout connects a hub to Redis pub/sub. Each instance delivers to its own
@@ -90,7 +92,12 @@ func (f *fanout) loop(ch <-chan *goredis.Message) {
 				continue
 			}
 			if m.Origin != f.hub.id {
-				f.hub.disconnectDevice(m.DeviceID)
+				switch {
+				case m.DeviceID != "":
+					f.hub.disconnectDevice(m.DeviceID)
+				case m.UserID != "":
+					f.hub.disconnectUser(m.UserID)
+				}
 			}
 		}
 	}
@@ -109,6 +116,17 @@ func (f *fanout) publishUsers(ctx context.Context, userIDs []string, frame []byt
 
 func (f *fanout) publishDisconnect(ctx context.Context, deviceID string) error {
 	payload, err := json.Marshal(controlMsg{Origin: f.hub.id, DeviceID: deviceID})
+	if err != nil {
+		return fmt.Errorf("realtime: marshal rt:control: %w", err)
+	}
+	if err := f.rdb.Publish(ctx, channelControl, payload).Err(); err != nil {
+		return fmt.Errorf("realtime: publish rt:control: %w", err)
+	}
+	return nil
+}
+
+func (f *fanout) publishDisconnectUser(ctx context.Context, userID string) error {
+	payload, err := json.Marshal(controlMsg{Origin: f.hub.id, UserID: userID})
 	if err != nil {
 		return fmt.Errorf("realtime: marshal rt:control: %w", err)
 	}

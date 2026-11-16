@@ -139,6 +139,48 @@ func TestDisconnectDeviceReachesOtherHubs(t *testing.T) {
 	ping(t, cb) // another user on that instance is untouched
 }
 
+// TestDisconnectUserReachesOtherHubs covers AUTH-08 for a revoke of every
+// device: the event carries only a user, and the hub on another instance must
+// close all of that user's connections.
+func TestDisconnectUserReachesOtherHubs(t *testing.T) {
+	rdb := startRedis(t)
+	auth, a1, _, _ := uniqueAuth(t)
+	hub1, _ := newHubWith(t, auth, rdb)
+	_, srv2 := newHubWith(t, auth, rdb)
+	ca1 := login(t, srv2, "a1")
+	ca2 := login(t, srv2, "a2")
+	cb := login(t, srv2, "b")
+
+	if err := hub1.DisconnectUser(context.Background(), a1.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if got := expectClosed(t, ca1, 5*time.Second); got != codeUnauthorized {
+		t.Fatalf("device 1 close code = %d, want 4401", got)
+	}
+	if got := expectClosed(t, ca2, 5*time.Second); got != codeUnauthorized {
+		t.Fatalf("device 2 close code = %d, want 4401", got)
+	}
+	ping(t, cb) // another user on that instance is untouched
+}
+
+func TestDisconnectUserClosesEveryDeviceOnTheSameHub(t *testing.T) {
+	hub, srv := newHub(t, testAuth())
+	c1 := login(t, srv, "tok-alice")  // alice on device 1
+	c2 := login(t, srv, "tok-alice2") // alice on device 2
+	other := login(t, srv, "tok-bob")
+
+	if err := hub.DisconnectUser(context.Background(), alice.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if got := expectClosed(t, c1, 5*time.Second); got != codeUnauthorized {
+		t.Fatalf("first connection close code = %d, want 4401", got)
+	}
+	if got := expectClosed(t, c2, 5*time.Second); got != codeUnauthorized {
+		t.Fatalf("second connection close code = %d, want 4401", got)
+	}
+	ping(t, other)
+}
+
 func TestPresenceKeyAndOnline(t *testing.T) {
 	rdb := startRedis(t)
 	auth, a1, _, b := uniqueAuth(t)
