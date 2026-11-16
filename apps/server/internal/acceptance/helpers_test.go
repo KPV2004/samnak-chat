@@ -32,19 +32,26 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database/migrations"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/eventbus"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/httpx"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/jobs"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/realtime"
 	redisclient "github.com/KPV2004/samnak-chat/apps/server/internal/platform/redis"
 )
 
 const testSecret = "acceptance-secret-acceptance-secret"
 
-// moduleNames is what cmd/server enables for M2.
+// moduleNames is what cmd/server enables for M2: MODULES_ENABLED= (set, empty),
+// which means core modules only.
 var moduleNames = []string{"auth", "workspace", "chat"}
+
+// notifyModuleNames is MODULES_ENABLED unset: the core modules plus the default
+// notify module, as cmd/server starts them.
+var notifyModuleNames = []string{"auth", "workspace", "chat", "notify"}
 
 var (
 	pgURL    string
@@ -113,24 +120,40 @@ func startContainers() []func() {
 	return cleanup
 }
 
-// migrate applies the platform and module migrations, as cmd/migrate does.
+// migrate applies the platform, River and module migrations, as cmd/migrate
+// does. The notify set and River's tables are needed by the M3 instances, which
+// run the optional notify module and the job queue.
 func migrate(url string) error {
+	ctx := context.Background()
 	db, err := sql.Open("pgx", url)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = db.Close() }()
+	pool, err := database.Open(ctx, url)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	if err := migrations.Run(ctx, db, "platform", migrations.Platform); err != nil {
+		return fmt.Errorf("platform migrations: %w", err)
+	}
+	// River's migrator needs a pgx pool; goose works on database/sql.
+	if err := migrations.River(ctx, pool); err != nil {
+		return fmt.Errorf("river migrations: %w", err)
+	}
 	sets := []struct {
 		owner string
 		fsys  fs.FS
 	}{
-		{"platform", migrations.Platform},
 		{"auth", auth.Migrations},
 		{"workspace", workspace.Migrations},
 		{"chat", chat.Migrations},
+		{"notify", notify.Migrations},
 	}
 	for _, s := range sets {
-		if err := migrations.Run(context.Background(), db, s.owner, s.fsys); err != nil {
+		if err := migrations.Run(ctx, db, s.owner, s.fsys); err != nil {
 			return fmt.Errorf("%s migrations: %w", s.owner, err)
 		}
 	}
@@ -172,28 +195,82 @@ type instance struct {
 	hub    *realtime.Hub
 	bus    *eventbus.Bus
 	events chan app.Event
+	// jobs and tx are what modules get as Deps.Jobs and Deps.Tx; nil jobs
+	// means the instance runs without a queue.
+	jobs *jobs.Queue
+	tx   app.TxManager
+}
+
+// instanceConfig selects the parts of cmd/server a test needs. The zero value
+// is the M2 server: core modules, no rule registry and no job queue.
+type instanceConfig struct {
+	// modules is the equivalent of MODULES_ENABLED; nil means moduleNames.
+	modules []string
+	// notifications is Deps.Notifications. cmd/server always passes
+	// app.NewNotificationRules(); nil keeps M2's noop registry.
+	notifications app.NotificationRegistry
+	// jobs builds Deps.Jobs from platform/jobs and starts it after the
+	// modules, as cmd/server does.
+	jobs bool
+	// jobHandlers registers extra job kinds before the queue starts, which is
+	// when handlers must be known. It stands in for a module's Init.
+	jobHandlers func(*jobs.Queue)
+	// sweepInterval shortens the no-worker sweep. Zero keeps the default.
+	sweepInterval time.Duration
 }
 
 func newInstance(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client) *instance {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return newInstanceWith(t, pool, rdb, instanceConfig{notifications: app.NoopNotificationRegistry{}})
+}
+
+// newInstanceWith boots the modules cmd/migrate has migrated and cmd/server
+// would enable. The job queue is built before Init (which registers handlers)
+// and started after every module has started, the same order as cmd/server.
+func newInstanceWith(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client, cfg instanceConfig) *instance {
+	t.Helper()
+	logger := testLogger()
 	services := app.NewServices()
 	// A long idle timeout keeps the test from being closed as idle.
 	hub := realtime.NewHub(logger, services, rdb, realtime.WithIdleTimeout(10*time.Minute))
+
+	modulesEnabled := cfg.modules
+	if modulesEnabled == nil {
+		modulesEnabled = moduleNames
+	}
+	rules := cfg.notifications
+	if rules == nil {
+		rules = app.NoopNotificationRegistry{}
+	}
+
+	var queue *jobs.Queue
+	if cfg.jobs {
+		queue = jobs.New(pool, logger)
+		if cfg.sweepInterval > 0 {
+			queue.SetSweepInterval(cfg.sweepInterval)
+		}
+	}
+	tx := database.NewTxManager(pool)
 
 	bus := eventbus.New(logger)
 	deps := &app.Deps{
 		Logger:        logger,
 		Services:      services,
 		Bus:           bus,
-		Notifications: app.NoopNotificationRegistry{},
-		Tx:            database.NewTxManager(pool),
+		Notifications: rules,
+		Tx:            tx,
 		Realtime:      hub,
 		Platform:      map[string]any{"db": pool, "redis": rdb, "jwt_secret": testSecret},
 	}
+	// A nil *Queue in the interface would defeat modules' Deps.Jobs == nil check.
+	if queue != nil {
+		deps.Jobs = queue
+	}
 
-	reg := app.NewRegistry(auth.New(), workspace.New(), chat.New())
-	mods, err := reg.Enable(moduleNames)
+	// Every module is available, as in cmd/server's modules slice; the
+	// enabled list is what MODULES_ENABLED selects.
+	reg := app.NewRegistry(auth.New(), workspace.New(), chat.New(), notify.New())
+	mods, err := reg.Enable(modulesEnabled)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,13 +279,30 @@ func newInstance(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client) *instanc
 	var startErr error
 	r.Route("/api/v1", func(v1 chi.Router) {
 		api := httpx.NewAPI(v1, "acceptance")
-		httpx.RegisterMeta(api, "samnak-chat", "acceptance", moduleNames)
+		httpx.RegisterMeta(api, "samnak-chat", "acceptance", modulesEnabled)
 		startErr = reg.Start(mods, deps, api)
 	})
 	if startErr != nil {
 		t.Fatal(startErr)
 	}
 	hub.Mount(r)
+
+	if queue != nil {
+		if cfg.jobHandlers != nil {
+			cfg.jobHandlers(queue)
+		}
+		if err := queue.Start(context.Background()); err != nil {
+			t.Fatalf("start jobs: %v", err)
+		}
+		// Stops after the HTTP server closes, like cmd/server.
+		t.Cleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			if err := queue.Stop(ctx); err != nil {
+				t.Errorf("jobs stop: %v", err)
+			}
+		})
+	}
 
 	// This is the wiring cmd/server does for AUTH-08: a revoked device's
 	// sockets close on this instance, or on every instance through Redis.
@@ -237,7 +331,12 @@ func newInstance(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client) *instanc
 			t.Errorf("hub close: %v", err)
 		}
 	})
-	return &instance{t: t, url: srv.URL, hub: hub, bus: bus, events: events}
+	return &instance{t: t, url: srv.URL, hub: hub, bus: bus, events: events, jobs: queue, tx: tx}
+}
+
+// testLogger discards logs unless a test asks for them.
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 // disconnectEvents drains the auth.device_revoked events seen so far.
@@ -412,26 +511,9 @@ func (r reply) errCode() string {
 
 func (c client) do(method, path string, in call) reply {
 	c.t.Helper()
-	var body io.Reader
-	if in.body != nil {
-		b, err := json.Marshal(in.body)
-		if err != nil {
-			c.t.Fatal(err)
-		}
-		body = bytes.NewReader(b)
-	}
-	req, err := http.NewRequest(method, c.url+"/api/v1"+path, body)
-	if err != nil {
-		c.t.Fatal(err)
-	}
-	if in.body != nil {
+	req, body := c.request(method, path, in)
+	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
-	}
-	if in.token != "" {
-		req.Header.Set("Authorization", "Bearer "+in.token)
-	}
-	if in.workspace != "" {
-		req.Header.Set("X-Workspace-ID", in.workspace)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -449,6 +531,47 @@ func (c client) do(method, path string, in call) reply {
 		}
 	}
 	return r
+}
+
+// status calls the API and returns only the status code, for endpoints whose
+// 404 body is chi's plain text rather than JSON.
+func (c client) status(method, path string, in call) int {
+	c.t.Helper()
+	req, body := c.request(method, path, in)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	_, _ = io.Copy(io.Discard, res.Body)
+	return res.StatusCode
+}
+
+// request builds an API call. A non-nil body must already be JSON.
+func (c client) request(method, path string, in call) (*http.Request, io.Reader) {
+	c.t.Helper()
+	var body io.Reader
+	if in.body != nil {
+		b, err := json.Marshal(in.body)
+		if err != nil {
+			c.t.Fatal(err)
+		}
+		body = bytes.NewReader(b)
+	}
+	req, err := http.NewRequest(method, c.url+"/api/v1"+path, body)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	if in.token != "" {
+		req.Header.Set("Authorization", "Bearer "+in.token)
+	}
+	if in.workspace != "" {
+		req.Header.Set("X-Workspace-ID", in.workspace)
+	}
+	return req, body
 }
 
 func (c client) want(r reply, status int) reply {
