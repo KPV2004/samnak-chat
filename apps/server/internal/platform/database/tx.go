@@ -56,9 +56,17 @@ func (m *TxManager) Do(ctx context.Context, fn func(ctx context.Context) error) 
 	return nil
 }
 
+// TxFromContext returns the transaction that TxManager.Do put in ctx, if any.
+// Platform code uses it to join an existing transaction, for example to insert
+// a job with the data it depends on (PLT-09).
+func TxFromContext(ctx context.Context) (pgx.Tx, bool) {
+	tx, ok := ctx.Value(txKey{}).(pgx.Tx)
+	return tx, ok
+}
+
 // Querier returns the transaction in ctx, or the pool when there is none.
 func Querier(ctx context.Context, pool *pgxpool.Pool) DBTX {
-	if tx, ok := ctx.Value(txKey{}).(pgx.Tx); ok {
+	if tx, ok := TxFromContext(ctx); ok {
 		return tx
 	}
 	return pool
