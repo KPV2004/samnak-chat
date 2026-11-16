@@ -407,9 +407,11 @@ Planner notes from checkpoint C2:
 - The two-browser manual check of the web UI is still open because this session had no browser attached; code-level behaviour is covered by component tests and the API live run. Checkpoint M2 covers it.
 
 ## Checkpoint M2: SRS 16.3 acceptance (planner)
-- [ ] Two users in two browsers see each other's messages within 1 second
-- [ ] After a network drop and reconnect, messages are complete and in order
-- [ ] Re-sending the same message creates no duplicate
+- [x] Two users in two browsers see each other's messages within 1 second
+- [x] After a network drop and reconnect, messages are complete and in order
+- [x] Re-sending the same message creates no duplicate
+
+Checked at checkpoint D (2026-11-16) with Playwright Chromium, two users in two browsers against the dev stack: delivery in 53 ms; the receiver went offline with its socket closed, missed 3 messages, came back and showed all 3 in order with no duplicate. The server side is also covered by `internal/acceptance`.
 
 # M3: notifications and the job queue
 
@@ -420,68 +422,75 @@ Plan: `tasks/plan.md` section "M3". Contracts are fixed in M3-00; workers do not
 - [x] `app.Jobs`, `app.JobHandler`, `app.JobOptions`, `app.EnqueueOptions`; `Deps.Jobs`
 - [x] notify moves from `app.CoreModules` to `app.DefaultModules`; `config.ParseModules` is shared by `cmd/server` and `cmd/migrate`; `.env.example` sets `MODULES_ENABLED=notify`
 
-## [ ] M3-01 platform/jobs: River queue (wave 1)
+## [x] M3-01 platform/jobs: River queue (wave 1)
 **SRS:** PLT-09, NFR-11 · **Architecture:** sections 7, 10; ADR 0006 · **Size:** M · **Depends on:** M3-00
 
 Implement `app.Jobs` on River in `internal/platform/jobs`, as described in the plan ("Job queue").
 
 **Acceptance criteria**
-- [ ] `jobs.New(pool, logger)` returns a value implementing `app.Jobs` without I/O; `Start(ctx)` starts the River client and the no-worker sweeper; `Stop(ctx)` waits for running jobs. `Handle` or `Every` after `Start` returns/logs an error instead of being silently ignored
-- [ ] Enqueue inside `TxManager.Do` joins the transaction: rolled back → no job; committed → the handler runs with the same JSON args. Outside a transaction it inserts directly
-- [ ] A handler error is retried up to `MaxAttempts` (default 5); a panic counts as an error
-- [ ] Jobs whose kind has no handler are `cancelled` at start and within one sweep interval (configurable in tests)
-- [ ] `Every` runs on one instance only (two clients on one database, one enqueue per interval)
-- [ ] River migrations run as part of the platform migration set in `cmd/migrate`; `cmd/server` builds `jobs.New` into `Deps.Jobs`, starts it after `reg.Start` and stops it after HTTP drains
-- [ ] Tests use testcontainers postgres and skip clearly without Docker; `go build ./... && go vet ./... && go test ./...` and `go test -race ./internal/platform/jobs/` pass
+- [x] `jobs.New(pool, logger)` returns a value implementing `app.Jobs` without I/O; `Start(ctx)` starts the River client and the no-worker sweeper; `Stop(ctx)` waits for running jobs. `Handle` or `Every` after `Start` returns/logs an error instead of being silently ignored
+- [x] Enqueue inside `TxManager.Do` joins the transaction: rolled back → no job; committed → the handler runs with the same JSON args. Outside a transaction it inserts directly
+- [x] A handler error is retried up to `MaxAttempts` (default 5); a panic counts as an error
+- [x] Jobs whose kind has no handler are `cancelled` at start and within one sweep interval (configurable in tests)
+- [x] `Every` runs on one instance only (two clients on one database, one enqueue per interval)
+- [x] River migrations run as part of the platform migration set in `cmd/migrate`; `cmd/server` builds `jobs.New` into `Deps.Jobs`, starts it after `reg.Start` and stops it after HTTP drains
+- [x] Tests use testcontainers postgres and skip clearly without Docker; `go build ./... && go vet ./... && go test ./...` and `go test -race ./internal/platform/jobs/` pass
 
 **Files:** `internal/platform/jobs/` (new files), `internal/platform/database/tx.go` (export `TxFromContext`) and its test, `internal/platform/database/migrations/` (River set), `cmd/migrate/`, `cmd/server/main.go`, `go.mod`, `go.sum`
 
-## [ ] M3-02 notify module (wave 1)
+## [x] M3-02 notify module (wave 1)
 **SRS:** NOTI-01..05 · **Architecture:** section 6.2 · **Size:** L (split into commits: storage, rules dispatch, API, realtime, prune) · **Depends on:** M3-00
 
 Build `internal/modules/notify` as in the plan ("notify module"), following the chat module's layout (`domain`, `usecase`, `adapter/postgres` with sqlc, `adapter/http`, `migrations`, `module.go`, `api.go`, `events.go`).
 
 **Acceptance criteria**
-- [ ] Migration creates `notify_notifications` with the unique `(user_id, key)` rule; repository tests run on testcontainers postgres
-- [ ] In `Subscribe`, notify reads `Deps.Notifications` as `app.NotificationRuleSource` and subscribes one handler per event name; rules run, invalid notifications are dropped, rows are stored in one transaction before delivery, a repeated key stores nothing and sends nothing
-- [ ] A rule that errors or panics is logged and the other rules still run
-- [ ] After commit, each inserted row goes out as `notification.created` with `unread_count`, only to that user; `Deps.Realtime == nil` is tolerated
-- [ ] The four endpoints in the plan work, scoped to caller and workspace; marking another user's notification is 404; read and read-all send `notification.read` to the user's devices
-- [ ] `notify.prune` registered with `Jobs.Every` (guarded when `Deps.Jobs` is nil) deletes read rows older than 90 days
-- [ ] Unit tests for the use cases with fakes; handler tests with `humatest`; `go build ./... && go vet ./... && go test ./...` pass
+- [x] Migration creates `notify_notifications` with the unique `(user_id, key)` rule; repository tests run on testcontainers postgres
+- [x] In `Subscribe`, notify reads `Deps.Notifications` as `app.NotificationRuleSource` and subscribes one handler per event name; rules run, invalid notifications are dropped, rows are stored in one transaction before delivery, a repeated key stores nothing and sends nothing
+- [x] A rule that errors or panics is logged and the other rules still run
+- [x] After commit, each inserted row goes out as `notification.created` with `unread_count`, only to that user; `Deps.Realtime == nil` is tolerated
+- [x] The four endpoints in the plan work, scoped to caller and workspace; marking another user's notification is 404; read and read-all send `notification.read` to the user's devices
+- [x] `notify.prune` registered with `Jobs.Every` (guarded when `Deps.Jobs` is nil) deletes read rows older than 90 days
+- [x] Unit tests for the use cases with fakes; handler tests with `humatest`; `go build ./... && go vet ./... && go test ./...` pass
 
 **Files:** `internal/modules/notify/` (new). Do not edit `cmd/server` or `cmd/migrate`; the planner registers the module at checkpoint D.
 
-## [ ] M3-03 chat: notification rules (wave 1)
+## [x] M3-03 chat: notification rules (wave 1)
 **SRS:** NOTI-06, NOTI-01 · **Size:** M · **Depends on:** M3-00
 
 Register chat's rule on `chat.message_created` with `Deps.Notifications.On` in chat's `Init`, as in the plan ("chat notification rules").
 
 **Acceptance criteria**
-- [ ] Mention, `<!channel>`, DM and thread reply each produce the right kind for the right users; one notification per user per message by priority mention > DM > thread; never the sender or a non-member
-- [ ] Title, body (plain text, ≤ 140 characters, `<@id>` as `@name`), link, data and `Key = chat.message:{id}` as in the plan
-- [ ] The rule reads only chat's own tables (thread participants, channel members, names chat already resolves)
-- [ ] With `app.NoopNotificationRegistry` chat behaves exactly as before (existing tests unchanged and passing)
-- [ ] Use case tests for every case above; `go build ./... && go vet ./... && go test ./...` pass
+- [x] Mention, `<!channel>`, DM and thread reply each produce the right kind for the right users; one notification per user per message by priority mention > DM > thread; never the sender or a non-member
+- [x] Title, body (plain text, ≤ 140 characters, `<@id>` as `@name`), link, data and `Key = chat.message:{id}` as in the plan
+- [x] The rule reads only chat's own tables (thread participants, channel members, names chat already resolves)
+- [x] With `app.NoopNotificationRegistry` chat behaves exactly as before (existing tests unchanged and passing)
+- [x] Use case tests for every case above; `go build ./... && go vet ./... && go test ./...` pass
 
 **Files:** `internal/modules/chat/` (`module.go`, `usecase/`, `adapter/postgres/` queries if a thread-participant query is needed)
 
-## [ ] M3-04 web: notification bell (wave 1)
+## [x] M3-04 web: notification bell (wave 1)
 **SRS:** NOTI-03, NOTI-04, NOTI-06 · **Size:** M · **Depends on:** M3-00 (API in the plan; types are hand-written until checkpoint D regenerates `schema.d.ts`)
 
 **Acceptance criteria**
-- [ ] `packages/core`: notify API client (list, unread count, read, read-all), `notification.created` and `notification.read` in the realtime event map, and a notification store that loads the count on connect/`ready`, applies both events, and refetches the count after reconnect
-- [ ] `apps/web`: a bell in the shell header with the unread count (hidden at 0, `99+` cap, accessible label), a panel listing notifications newest first with "load more", click marks read and navigates to `link`, "mark all as read"
-- [ ] Known kinds (`chat.mention`, `chat.dm`, `chat.thread_reply`) render with Thai and English strings from `data`; unknown kinds use `title` and `body`
-- [ ] The bell is hidden when `/meta` does not list notify
-- [ ] Core store tests and web component tests; `npm run build`, `npm test`, `npm run lint` pass
+- [x] `packages/core`: notify API client (list, unread count, read, read-all), `notification.created` and `notification.read` in the realtime event map, and a notification store that loads the count on connect/`ready`, applies both events, and refetches the count after reconnect
+- [x] `apps/web`: a bell in the shell header with the unread count (hidden at 0, `99+` cap, accessible label), a panel listing notifications newest first with "load more", click marks read and navigates to `link`, "mark all as read"
+- [x] Known kinds (`chat.mention`, `chat.dm`, `chat.thread_reply`) render with Thai and English strings from `data`; unknown kinds use `title` and `body`
+- [x] The bell is hidden when `/meta` does not list notify
+- [x] Core store tests and web component tests; `npm run build`, `npm test`, `npm run lint` pass
 
 **Files:** `packages/core/src/` (new `notify/` folder, `api/`, `realtime/events.ts`, `index.ts`), `apps/web/src/` (new `notify/` folder, `pages/Shell.tsx`, `i18n/`)
 
 ## Checkpoint D: after M3 wave 1 (planner)
-- [ ] Branches merged; notify registered in `cmd/server` and `cmd/migrate`; OpenAPI and `schema.d.ts` regenerated
-- [ ] All checks pass; CI green
-- [ ] Live run: mention over WebSocket raises the bell; reload keeps the count; `MODULES_ENABLED=` (notify off) and chat still works, `/notify/*` 404
+- [x] Branches merged; notify registered in `cmd/server` and `cmd/migrate`; OpenAPI and `schema.d.ts` regenerated
+- [x] All checks pass; CI green
+- [x] Live run: mention over WebSocket raises the bell; reload keeps the count; `MODULES_ENABLED=` (notify off) and chat still works, `/notify/*` 404
+
+Planner notes from checkpoint D:
+- Workers: DeepSeek V4.1 Flash (OpenCode), four in parallel; branches merged without conflicts.
+- Two-browser run (Playwright Chromium): a mention raised the other user's bell 0 → 1 in 42 ms, the count survived a reload, the panel read "กล่าวถึงคุณ · Somchai ใน #general", and "mark all as read" on one device cleared the bell on the user's other device. With `MODULES_ENABLED=` the server listed auth, chat and workspace only, chat delivered in 55 ms with reconnect catch-up, the bell was gone and `/notify/unread-count` answered 404.
+- Changed on review: notify stores on `context.WithoutCancel`, since the bus runs handlers on the publisher's request context (NOTI-02); chat's rule adds `sender_name` and `channel_name` to `data` so the web renders who and where in the reader's language; notify's Huma outputs are `NotificationsOutputBody` and `UnreadCountOutputBody` so workspace's `ListOutputBody` keeps its name; `packages/core` M3 types now come from the generated schema.
+- Accepted deviations: River migrations run through `rivermigrate` from `cmd/migrate` (not a copied goose file); enqueuing a kind with no handler on this server is rejected by River, so the no-worker sweep handles jobs left by another module set; a reserved `platform.noop` worker lets the queue start when no module has a handler; chat's thread-participant query is hand-written in `adapter/postgres/extras.go`; bell styles live in `apps/web/src/notify/notify.css`.
+- Open: the bell panel lists read and unread together (read dimmed); `?unread=true` exists if we want an unread filter.
 
 ## [ ] M3-05 M3 acceptance test (wave 2)
 **SRS:** 16.3 M3, NOTI-05, PLT-09 · **Size:** M · **Depends on:** checkpoint D
@@ -495,6 +504,8 @@ Register chat's rule on `chat.message_created` with `Deps.Notifications.On` in c
 **Files:** `internal/acceptance/`
 
 ## Checkpoint M3: SRS 16.3 acceptance (planner)
-- [ ] Mentioned in a browser → the bell count rises at once
-- [ ] Reloading the page keeps the right count
-- [ ] With notify turned off, chat works normally
+- [x] Mentioned in a browser → the bell count rises at once
+- [x] Reloading the page keeps the right count
+- [x] With notify turned off, chat works normally
+
+All three checked in two browsers at checkpoint D (see its notes); M3-05 adds the same outcomes to `internal/acceptance`.
