@@ -23,7 +23,12 @@ type Handler struct {
 	log *slog.Logger
 }
 
-func New(uc *usecase.Service, log *slog.Logger) *Handler { return &Handler{uc: uc, log: log} }
+func New(uc *usecase.Service, log *slog.Logger) *Handler {
+	if log == nil {
+		log = slog.Default()
+	}
+	return &Handler{uc: uc, log: log}
+}
 
 // Register adds the endpoints to api, a group prefixed with "/notify". Every
 // operation requires a workspace member, and the use cases scope the answer to
