@@ -7,10 +7,10 @@ import { acme, renderApp, type Routes } from "../test-utils";
 const mention: NotificationItem = {
   id: "n1",
   kind: "chat.mention",
-  title: "Somchai in #general",
+  title: "server title",
   body: "hi @Mali",
   link: "/profile",
-  data: { channel_id: "c1", message_id: "m1", seq: 3 },
+  data: { channel_id: "c1", message_id: "m1", seq: 3, sender_name: "Somchai", channel_name: "general" },
   read_at: null,
   created_at: "2026-01-01T09:00:00Z",
 };
@@ -142,7 +142,9 @@ describe("the panel", () => {
     await waitFor(() => expect(within(panel).getAllByRole("listitem")).toHaveLength(2));
     const items = within(panel).getAllByRole("listitem");
     expect(items[0]).toHaveTextContent("Mentioned you");
+    // Chat kinds say who and where from data, in the reader's language.
     expect(items[0]).toHaveTextContent("Somchai in #general");
+    expect(items[0]).not.toHaveTextContent("server title");
     expect(items[0]).toHaveTextContent("hi @Mali");
     // An unknown kind shows what the source module wrote.
     expect(items[1]).toHaveTextContent("Prepare the report");

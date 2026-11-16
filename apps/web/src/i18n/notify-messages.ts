@@ -12,6 +12,8 @@ export const notifyEn = {
   "notify.kind.mention": "Mentioned you",
   "notify.kind.dm": "Direct message",
   "notify.kind.threadReply": "Replied in a thread",
+  "notify.where.channel": "{sender} in #{channel}",
+  "notify.where.dm": "{sender}, direct message",
 };
 
 export const notifyTh = {
@@ -26,4 +28,6 @@ export const notifyTh = {
   "notify.kind.mention": "กล่าวถึงคุณ",
   "notify.kind.dm": "ข้อความส่วนตัว",
   "notify.kind.threadReply": "ตอบกลับในเธรด",
+  "notify.where.channel": "{sender} ใน #{channel}",
+  "notify.where.dm": "{sender} ส่งข้อความส่วนตัว",
 };

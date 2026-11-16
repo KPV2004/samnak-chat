@@ -147,6 +147,7 @@ func TestNotifyMentionNotifiesOnlyTheMentionedMember(t *testing.T) {
 	}
 	wantData := map[string]any{
 		"channel_id": e.channel, "message_id": e.message, "seq": int64(7), "thread_root_id": "",
+		"sender_name": "Alice", "channel_name": "general",
 	}
 	for k, want := range wantData {
 		if have := n.Data[k]; have != want {
@@ -197,6 +198,9 @@ func TestNotifyDirectMessageNotifiesTheOtherMembers(t *testing.T) {
 		}
 		if n.Title != "Alice in DM" {
 			t.Errorf("title = %q", n.Title)
+		}
+		if n.Data["sender_name"] != "Alice" || n.Data["channel_name"] != "" {
+			t.Errorf("data names = %#v/%#v, want Alice and no channel name", n.Data["sender_name"], n.Data["channel_name"])
 		}
 		if n.Link != "/chat/"+e.channel {
 			t.Errorf("link = %q", n.Link)

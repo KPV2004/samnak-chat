@@ -83,14 +83,14 @@ type listInput struct {
 	Limit  int    `query:"limit" default:"20" minimum:"1" maximum:"50" doc:"Page size"`
 }
 
-type listOutput struct {
+type notificationsOutput struct {
 	Body struct {
 		Items   []wire.Notification `json:"items" nullable:"false"`
 		HasMore bool                `json:"has_more" doc:"There are older notifications behind the cursor"`
 	}
 }
 
-func (h *Handler) list(ctx context.Context, in *listInput) (*listOutput, error) {
+func (h *Handler) list(ctx context.Context, in *listInput) (*notificationsOutput, error) {
 	p, err := principal(ctx)
 	if err != nil {
 		return nil, h.fail(ctx, err)
@@ -99,19 +99,19 @@ func (h *Handler) list(ctx context.Context, in *listInput) (*listOutput, error) 
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
-	out := &listOutput{}
+	out := &notificationsOutput{}
 	out.Body.Items = wire.ToNotifications(page.Items)
 	out.Body.HasMore = page.HasMore
 	return out, nil
 }
 
-type countOutput struct {
+type unreadCountOutput struct {
 	Body struct {
 		Count int64 `json:"count"`
 	}
 }
 
-func (h *Handler) unreadCount(ctx context.Context, _ *struct{}) (*countOutput, error) {
+func (h *Handler) unreadCount(ctx context.Context, _ *struct{}) (*unreadCountOutput, error) {
 	p, err := principal(ctx)
 	if err != nil {
 		return nil, h.fail(ctx, err)
@@ -120,7 +120,7 @@ func (h *Handler) unreadCount(ctx context.Context, _ *struct{}) (*countOutput, e
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
-	out := &countOutput{}
+	out := &unreadCountOutput{}
 	out.Body.Count = n
 	return out, nil
 }

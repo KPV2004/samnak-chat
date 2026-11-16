@@ -105,7 +105,8 @@ func (s *Service) NotifyMessageCreated(ctx context.Context, in NotifyInput) ([]a
 	}
 
 	names := s.dir.Names(ctx, notifiedNamesBody(m.Body, in.SenderID))
-	title := notifyTitle(ch, notifyName(names, in.SenderID))
+	sender := notifyName(names, in.SenderID)
+	title := notifyTitle(ch, sender)
 	body := notifyExcerpt(m.Body, names, notifyBodyRunes)
 	link := "/chat/" + ch.ID
 	key := "chat.message:" + in.MessageID
@@ -119,17 +120,25 @@ func (s *Service) NotifyMessageCreated(ctx context.Context, in NotifyInput) ([]a
 	for i, id := range recipients {
 		out[i] = app.Notification{
 			WorkspaceID: in.WorkspaceID, UserID: id, Kind: kinds[id],
-			Title: title, Body: body, Link: link, Data: notifyData(ch.ID, in), Key: key,
+			Title: title, Body: body, Link: link, Data: notifyData(ch, sender, in), Key: key,
 		}
 	}
 	return out, nil
 }
 
-// notifyData is the payload the web renders known kinds from. Each
-// notification gets its own map so a consumer cannot affect the others.
-func notifyData(channelID string, in NotifyInput) map[string]any {
+// notifyData is the payload the web renders known kinds from, in the
+// reader's language: sender_name and channel_name ("" for a DM) fill its
+// sentence. Each notification gets its own map so a consumer cannot affect
+// the others.
+func notifyData(ch domain.Channel, sender string, in NotifyInput) map[string]any {
+	channelName := ch.Name
+	if ch.Type == domain.TypeDirect {
+		channelName = ""
+	}
 	return map[string]any{
-		"channel_id":     channelID,
+		"sender_name":    sender,
+		"channel_name":   channelName,
+		"channel_id":     ch.ID,
 		"message_id":     in.MessageID,
 		"seq":            in.Seq,
 		"thread_root_id": in.ThreadRootID,

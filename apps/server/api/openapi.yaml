@@ -560,6 +560,57 @@ components:
         - version
         - modules
       type: object
+    Notification:
+      additionalProperties: false
+      properties:
+        body:
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        data:
+          additionalProperties: {}
+          description: Kind-specific fields for clients that know the kind
+          type: object
+        id:
+          type: string
+        kind:
+          description: <module>.<name>, e.g. chat.mention
+          type: string
+        link:
+          description: Web path to open, e.g. /chat/{channel_id}
+          type: string
+        read_at:
+          format: date-time
+          type:
+            - string
+            - "null"
+        title:
+          type: string
+      required:
+        - id
+        - kind
+        - title
+        - body
+        - link
+        - data
+        - read_at
+        - created_at
+      type: object
+    NotificationsOutputBody:
+      additionalProperties: false
+      properties:
+        has_more:
+          description: There are older notifications behind the cursor
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/Notification"
+          type: array
+      required:
+        - items
+        - has_more
+      type: object
     OpenDMInputBody:
       additionalProperties: false
       properties:
@@ -697,6 +748,15 @@ components:
         - expires_in
         - device_id
         - user
+      type: object
+    UnreadCountOutputBody:
+      additionalProperties: false
+      properties:
+        count:
+          format: int64
+          type: integer
+      required:
+        - count
       type: object
     UpdateChannelInputBody:
       additionalProperties: false
@@ -1735,6 +1795,115 @@ paths:
       summary: Server name, version and enabled modules
       tags:
         - platform
+  /notify/notifications:
+    get:
+      operationId: notify-list-notifications
+      parameters:
+        - description: Only unread notifications
+          explode: false
+          in: query
+          name: unread
+          schema:
+            default: false
+            description: Only unread notifications
+            type: boolean
+        - description: "Cursor: the ID of the last notification of the previous page"
+          explode: false
+          in: query
+          name: before
+          schema:
+            description: "Cursor: the ID of the last notification of the previous page"
+            type: string
+        - description: Page size
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 20
+            description: Page size
+            format: int64
+            maximum: 50
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationsOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List my notifications, newest first, unread or all
+      tags:
+        - notify
+  /notify/notifications/{id}/read:
+    post:
+      operationId: notify-mark-read
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Mark one notification read; repeating it changes nothing
+      tags:
+        - notify
+  /notify/read-all:
+    post:
+      operationId: notify-read-all
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Mark every notification in this workspace read
+      tags:
+        - notify
+  /notify/unread-count:
+    get:
+      operationId: notify-unread-count
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCountOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: The number of unread notifications in this workspace
+      tags:
+        - notify
   /workspace:
     get:
       operationId: workspace-list

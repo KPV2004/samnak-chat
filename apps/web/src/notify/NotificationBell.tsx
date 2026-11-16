@@ -5,7 +5,7 @@ import { useNavigate } from "react-router";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { formatMessageTime } from "../lib/format";
 import { useSession } from "../state/session";
-import { notificationLabel, notificationLink } from "./notificationText";
+import { notificationLabel, notificationLink, notificationTitle } from "./notificationText";
 import { useNotificationStore } from "./useNotificationStore";
 import "./notify.css";
 
@@ -114,7 +114,7 @@ function NotificationRow({
       <button type="button" className="notify-open" onClick={() => onOpen(notification)}>
         <span className="notify-line">
           {label && <span className="notify-kind">{label}</span>}
-          <span className="notify-title">{notification.title}</span>
+          <span className="notify-title">{notificationTitle(notification, t)}</span>
           <time className="notify-time" dateTime={notification.created_at}>
             {formatMessageTime(notification.created_at, locale)}
           </time>

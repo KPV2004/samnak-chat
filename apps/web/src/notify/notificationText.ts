@@ -7,9 +7,8 @@ import type { T } from "../i18n/useT";
  * comes from a module the web does not render, so it keeps the source module's
  * `title` and `body` (NOTI-06 fallback).
  *
- * The server's `data` carries ids (`channel_id`, `message_id`, `seq`,
- * `thread_root_id`), not display names, so the localised label names the kind
- * and `title` still says who and where.
+ * Chat's `data` carries `sender_name` and `channel_name` ("" for a DM), so
+ * the web says who and where in the reader's language too.
  */
 const knownKinds: Record<string, MessageKey> = {
   "chat.mention": "notify.kind.mention",
@@ -28,4 +27,14 @@ export function notificationLink(notification: NotificationItem): string {
   if (notification.link) return notification.link;
   const channel = notification.data?.channel_id;
   return typeof channel === "string" && channel ? `/chat/${channel}` : "";
+}
+
+/** Who and where in the reader's language for chat kinds; else the server's `title`. */
+export function notificationTitle(notification: NotificationItem, t: T): string {
+  const sender = notification.data?.sender_name;
+  if (!knownKinds[notification.kind] || typeof sender !== "string" || !sender) return notification.title;
+  const channel = notification.data?.channel_name;
+  return typeof channel === "string" && channel
+    ? t("notify.where.channel", { sender, channel })
+    : t("notify.where.dm", { sender });
 }

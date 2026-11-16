@@ -373,6 +373,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notify/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my notifications, newest first, unread or all */
+        get: operations["notify-list-notifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notify/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark one notification read; repeating it changes nothing */
+        post: operations["notify-mark-read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notify/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark every notification in this workspace read */
+        post: operations["notify-read-all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notify/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The number of unread notifications in this workspace */
+        get: operations["notify-unread-count"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspace": {
         parameters: {
             query?: never;
@@ -714,6 +782,28 @@ export interface components {
             /** @example 0.0.0-dev */
             version: string;
         };
+        Notification: {
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Kind-specific fields for clients that know the kind */
+            data: {
+                [key: string]: unknown;
+            };
+            id: string;
+            /** @description <module>.<name>, e.g. chat.mention */
+            kind: string;
+            /** @description Web path to open, e.g. /chat/{channel_id} */
+            link: string;
+            /** Format: date-time */
+            read_at: string | null;
+            title: string;
+        };
+        NotificationsOutputBody: {
+            /** @description There are older notifications behind the cursor */
+            has_more: boolean;
+            items: components["schemas"]["Notification"][];
+        };
         OpenDMInputBody: {
             /** @description The other people; the caller is added */
             user_ids: string[] | null;
@@ -775,6 +865,10 @@ export interface components {
             /** @description Opaque, single use: every refresh returns a new one */
             refresh_token: string;
             user: components["schemas"]["UserBody"];
+        };
+        UnreadCountOutputBody: {
+            /** Format: int64 */
+            count: number;
         };
         UpdateChannelInputBody: {
             /** @description true archives the channel, false restores it */
@@ -1891,6 +1985,127 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetaBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "notify-list-notifications": {
+        parameters: {
+            query?: {
+                /** @description Only unread notifications */
+                unread?: boolean;
+                /** @description Cursor: the ID of the last notification of the previous page */
+                before?: string;
+                /** @description Page size */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "notify-mark-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "notify-read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "notify-unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCountOutputBody"];
                 };
             };
             /** @description Error */

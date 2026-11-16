@@ -15,6 +15,7 @@ import (
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/config"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
@@ -26,6 +27,7 @@ import (
 var moduleMigrations = map[string]embed.FS{
 	"auth":      auth.Migrations,
 	"chat":      chat.Migrations,
+	"notify":    notify.Migrations,
 	"workspace": workspace.Migrations,
 }
 

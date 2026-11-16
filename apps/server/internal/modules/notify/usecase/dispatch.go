@@ -25,6 +25,10 @@ func (s *Service) Dispatch(ctx context.Context, evt app.Event) error {
 		return nil
 	}
 
+	// The bus runs handlers on the publisher's request context. The message
+	// is already committed, so a client that hangs up must not cancel storing
+	// its notifications (NOTI-02).
+	ctx = context.WithoutCancel(ctx)
 	at := s.clock()
 	var fresh []domain.Notification
 	for i, rule := range rules {

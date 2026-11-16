@@ -1,33 +1,15 @@
-// M3 (notify) types and calls. The notify endpoints are not in the server's
-// OpenAPI document until checkpoint D, so these types are hand-written, the way
-// M2 started; `npm run gen:api` then replaces them like the rest.
+// M3 (notify) types come from the server's OpenAPI document (npm run gen:api);
+// this file re-exports them under stable names and holds the calls, the way
+// m2.ts does.
 import type { ApiClient } from "./client";
+import type { components } from "./schema";
+
+type Schemas = components["schemas"];
 
 /** One row of `GET /notify/notifications`, newest first. */
-export interface NotificationItem {
-  id: string;
-  /** "<module>.<name>", e.g. "chat.mention". */
-  kind: string;
-  /** Filled by the source module: the sender and where it happened. */
-  title: string;
-  /** A plain-text excerpt. */
-  body: string;
-  /** Web path to open, e.g. "/chat/{channel_id}". */
-  link: string;
-  /** The source module's details, e.g. chat's `channel_id`, `message_id`, `seq`. */
-  data: Record<string, unknown>;
-  read_at: string | null;
-  created_at: string;
-}
-
-export interface NotificationPage {
-  items: NotificationItem[];
-  has_more: boolean;
-}
-
-export interface UnreadNotificationCount {
-  count: number;
-}
+export type NotificationItem = Schemas["Notification"];
+export type NotificationPage = Schemas["NotificationsOutputBody"];
+export type UnreadNotificationCount = Schemas["UnreadCountOutputBody"];
 
 export interface ListNotificationsParams {
   /** Only the unread ones. */
