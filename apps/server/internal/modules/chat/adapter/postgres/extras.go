@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat/adapter/postgres/gen"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat/domain"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat/usecase"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 )
 
 // hydrateOne fills the files and reactions of one message.
@@ -255,4 +257,53 @@ func (r *Repo) MemberWorkspace(ctx context.Context, channelID, userID string) (s
 		return "", wrap(err, "get member")
 	}
 	return wid.String(), nil
+}
+
+// threadParticipantSQL lists who follows a thread: the author of the root
+// message and everyone who replied under it. It is hand-written rather than
+// sqlc because it is additive and chat's only cross-row list of users; the
+// workspace and channel keep it inside one workspace and one channel.
+//
+// Deleted replies still count: their authors took part in the thread. The
+// caller drops users who are no longer members of the channel.
+const threadParticipantSQL = `
+SELECT DISTINCT m.sender_id::text
+FROM chat_messages m
+WHERE m.workspace_id = $1 AND m.channel_id = $2
+  AND (m.id = $3 OR m.thread_root_id = $3)
+ORDER BY m.sender_id::text`
+
+func (r *Repo) ThreadParticipantIDs(ctx context.Context, workspaceID, channelID, rootMessageID string) ([]string, error) {
+	if r.pool == nil {
+		return nil, errors.New("chat: database is not configured")
+	}
+	wid, err := id(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	cid, err := id(channelID)
+	if err != nil {
+		return nil, err
+	}
+	root, err := id(rootMessageID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := database.Querier(ctx, r.pool).Query(ctx, threadParticipantSQL, wid, cid, root)
+	if err != nil {
+		return nil, wrap(err, "list thread participants")
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var userID string
+		if err := rows.Scan(&userID); err != nil {
+			return nil, wrap(err, "read thread participant")
+		}
+		out = append(out, userID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrap(err, "list thread participants")
+	}
+	return out, nil
 }

@@ -73,10 +73,30 @@ func (m *Module) Init(d *app.Deps) error {
 	events := rtadapter.New(d.Realtime, m.log, publisher{bus: d.Bus, log: m.log}.messageCreated)
 	m.uc = usecase.New(d.Tx, postgres.New(pool), members{d.Services}, permissions{d.Services}, directory{d.Services}, events, d.Storage, m.log, time.Now)
 	m.services = d.Services
+	if d.Notifications != nil {
+		// notify reads the rules in Subscribe, after every Init ran. With a
+		// no-op registry this line does nothing and chat works as before
+		// (NOTI-01, NOTI-05).
+		d.Notifications.On(MessageCreated{}.EventName(), m.notifyMessageCreated)
+	}
 	if d.Realtime != nil {
 		d.Realtime.Handle("typing", rtadapter.TypingHandler(m.uc))
 	}
 	return nil
+}
+
+// notifyMessageCreated is chat's notification rule (NOTI-06). It turns a
+// committed message into one notification per recipient, at most; notify
+// decides how to store and deliver them.
+func (m *Module) notifyMessageCreated(ctx context.Context, evt app.Event) ([]app.Notification, error) {
+	e, ok := evt.(MessageCreated)
+	if !ok {
+		return nil, nil
+	}
+	return m.uc.NotifyMessageCreated(ctx, usecase.NotifyInput{
+		WorkspaceID: e.WorkspaceID, ChannelID: e.ChannelID, MessageID: e.MessageID, Seq: e.Seq, SenderID: e.SenderID,
+		ThreadRootID: e.ThreadRootID, Mentions: e.Mentions, MentionsChannel: e.MentionsChannel,
+	})
 }
 
 func (m *Module) Routes(api huma.API) {

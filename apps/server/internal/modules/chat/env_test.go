@@ -325,6 +325,12 @@ func newEnv(t *testing.T) *env { return newEnvWith(t, &fakeRealtime{}) }
 
 // newEnvWith is newEnv with a chosen Realtime; nil leaves Deps.Realtime unset.
 func newEnvWith(t *testing.T, rt *fakeRealtime) *env {
+	return newEnvWithRules(t, rt, app.NoopNotificationRegistry{})
+}
+
+// newEnvWithRules is newEnvWith with a chosen notification registry, so a test
+// can capture and run chat's rules.
+func newEnvWithRules(t *testing.T, rt *fakeRealtime, rules app.NotificationRegistry) *env {
 	t.Helper()
 	url := sharedDB(t)
 	pool, err := database.Open(context.Background(), url)
@@ -358,7 +364,7 @@ func newEnvWith(t *testing.T, rt *fakeRealtime) *env {
 	}
 	deps := &app.Deps{
 		Logger: logger, Services: svc, Bus: e.bus, Tx: database.NewTxManager(pool),
-		Notifications: app.NoopNotificationRegistry{}, Platform: map[string]any{"db": pool}, Storage: e.storage,
+		Notifications: rules, Platform: map[string]any{"db": pool}, Storage: e.storage,
 	}
 	if rt != nil {
 		deps.Realtime = rt
