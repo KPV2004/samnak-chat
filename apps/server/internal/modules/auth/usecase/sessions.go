@@ -23,6 +23,10 @@ func (s *Service) Refresh(ctx context.Context, token string) (Session, error) {
 	var (
 		out    Session
 		reused bool
+		// revokedByReuse names the device a reused token closed. It stays empty
+		// when the device was already revoked, so a second replay announces
+		// nothing (AUTH-08).
+		revokedUserID, revokedDeviceID string
 	)
 	err := s.tx.Do(ctx, func(ctx context.Context) error {
 		now := s.now()
@@ -35,10 +39,23 @@ func (s *Service) Refresh(ctx context.Context, token string) (Session, error) {
 		}
 		if rt.RevokedAt != nil {
 			reused = true
+			// The device holds the user the token row does not, and tells us
+			// whether this reuse still has something to revoke.
+			d, err := s.repo.ActiveDevice(ctx, rt.DeviceID)
+			if notFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
 			if err := s.repo.RevokeDeviceRefreshTokens(ctx, rt.DeviceID, now); err != nil {
 				return err
 			}
-			return s.repo.RevokeDeviceByID(ctx, rt.DeviceID, now)
+			if err := s.repo.RevokeDeviceByID(ctx, rt.DeviceID, now); err != nil {
+				return err
+			}
+			revokedUserID, revokedDeviceID = d.UserID, d.ID
+			return nil
 		}
 		if !now.Before(rt.ExpiresAt) {
 			return errBadRefresh
@@ -66,6 +83,9 @@ func (s *Service) Refresh(ctx context.Context, token string) (Session, error) {
 	if err != nil {
 		return Session{}, err
 	}
+	if revokedDeviceID != "" {
+		s.events.DeviceRevoked(ctx, revokedUserID, revokedDeviceID)
+	}
 	if reused {
 		return Session{}, errBadRefresh
 	}
@@ -73,20 +93,64 @@ func (s *Service) Refresh(ctx context.Context, token string) (Session, error) {
 }
 
 // Logout ends the caller's device, or every device of the user (AUTH-04).
+//
+// A replay or a logout of nothing changes no row and publishes nothing. A
+// logout that revoked something announces auth.device_revoked after the
+// transaction commits, with an empty device ID when every device went.
 func (s *Service) Logout(ctx context.Context, id app.Identity, allDevices bool) error {
-	return s.tx.Do(ctx, func(ctx context.Context) error {
+	var (
+		revoked  bool
+		deviceID string
+	)
+	err := s.tx.Do(ctx, func(ctx context.Context) error {
 		now := s.now()
+		// The list decides whether this logout changes anything: a device that
+		// is already revoked, or a user with no device left, publishes no event.
+		active, err := s.repo.ActiveDevices(ctx, id.UserID)
+		if err != nil {
+			return err
+		}
 		if allDevices {
+			if len(active) == 0 {
+				return nil
+			}
 			if err := s.repo.RevokeUserRefreshTokens(ctx, id.UserID, now); err != nil {
 				return err
 			}
-			return s.repo.RevokeUserDevices(ctx, id.UserID, now)
+			if err := s.repo.RevokeUserDevices(ctx, id.UserID, now); err != nil {
+				return err
+			}
+			revoked = true
+			return nil
+		}
+		if !activeDevice(active, id.DeviceID) {
+			return nil
 		}
 		if err := s.repo.RevokeDeviceRefreshTokens(ctx, id.DeviceID, now); err != nil {
 			return err
 		}
-		return s.repo.RevokeDeviceByID(ctx, id.DeviceID, now)
+		if err := s.repo.RevokeDeviceByID(ctx, id.DeviceID, now); err != nil {
+			return err
+		}
+		revoked, deviceID = true, id.DeviceID
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if revoked {
+		s.events.DeviceRevoked(ctx, id.UserID, deviceID)
+	}
+	return nil
+}
+
+func activeDevice(ds []domain.Device, id string) bool {
+	for _, d := range ds {
+		if d.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // Devices lists the user's devices that are still logged in (AUTH-05).
@@ -96,6 +160,8 @@ func (s *Service) Devices(ctx context.Context, userID string) ([]domain.Device, 
 
 // RevokeDevice logs one device out (AUTH-05). A device of another user, an
 // unknown one and one that is already revoked are all app.ErrNotFound.
+//
+// Only a revocation that changed the row publishes auth.device_revoked.
 func (s *Service) RevokeDevice(ctx context.Context, userID, deviceID string) error {
 	if _, err := uuid.Parse(deviceID); err != nil {
 		return errDeviceNotFound
@@ -113,5 +179,6 @@ func (s *Service) RevokeDevice(ctx context.Context, userID, deviceID string) err
 	if err != nil {
 		return fmt.Errorf("revoke device: %w", err)
 	}
+	s.events.DeviceRevoked(ctx, userID, deviceID)
 	return nil
 }

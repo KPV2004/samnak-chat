@@ -236,8 +236,45 @@ func newHandler(logger *slog.Logger, names []string, available []app.Module, in 
 	if startErr != nil {
 		return nil, fmt.Errorf("start modules: %w", startErr)
 	}
+	subscribeDeviceRevoked(logger, deps.Bus, deps.Realtime)
 	logger.Info("modules started", "modules", started)
 	return r, nil
+}
+
+// userDisconnector is the extra method a revoke of every device needs.
+// app.Realtime only knows devices, so the hub optionally implements this.
+type userDisconnector interface {
+	DisconnectUser(ctx context.Context, userID string) error
+}
+
+// subscribeDeviceRevoked closes the sockets of a device whose sessions were
+// revoked (AUTH-08), or of every device of the user when the event carries no
+// device ID. The bus never fails the publisher, so a failure only logs.
+func subscribeDeviceRevoked(logger *slog.Logger, bus app.EventBus, rt app.Realtime) {
+	if bus == nil || rt == nil {
+		return
+	}
+	bus.Subscribe(auth.DeviceRevoked{}.EventName(), func(ctx context.Context, evt app.Event) error {
+		e, ok := evt.(auth.DeviceRevoked)
+		if !ok {
+			return nil
+		}
+		if e.DeviceID != "" {
+			if err := rt.DisconnectDevice(ctx, e.DeviceID); err != nil {
+				logger.ErrorContext(ctx, "realtime: disconnect revoked device", "device_id", e.DeviceID, "error", err)
+			}
+			return nil
+		}
+		u, ok := rt.(userDisconnector)
+		if !ok {
+			logger.WarnContext(ctx, "realtime: hub cannot close every device of a user", "user_id", e.UserID)
+			return nil
+		}
+		if err := u.DisconnectUser(ctx, e.UserID); err != nil {
+			logger.ErrorContext(ctx, "realtime: disconnect revoked user", "user_id", e.UserID, "error", err)
+		}
+		return nil
+	})
 }
 
 func newDeps(logger *slog.Logger, in infra) *app.Deps {

@@ -159,6 +159,17 @@ func (h *Hub) DisconnectDevice(ctx context.Context, deviceID string) error {
 	return nil
 }
 
+// DisconnectUser closes every connection of the user on every instance. It is
+// what a revoke of all devices needs (AUTH-08); app.Realtime only knows
+// devices, so the composition root asserts this method on the hub.
+func (h *Hub) DisconnectUser(ctx context.Context, userID string) error {
+	h.disconnectUser(userID)
+	if h.bus != nil {
+		return h.bus.publishDisconnectUser(ctx, userID)
+	}
+	return nil
+}
+
 // deliver queues frame on each local connection of the users. The frame is
 // shared between connections and must not be modified.
 func (h *Hub) deliver(userIDs []string, frame []byte) {
@@ -176,6 +187,16 @@ func (h *Hub) disconnectDevice(deviceID string) {
 	defer h.mu.RUnlock()
 	for c := range h.byDevice[deviceID] {
 		c.kick(codeUnauthorized, "device logged out")
+	}
+}
+
+// disconnectUser closes every local connection of the user, whichever device
+// it came from.
+func (h *Hub) disconnectUser(userID string) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for c := range h.byUser[userID] {
+		c.kick(codeUnauthorized, "logged out")
 	}
 }
 

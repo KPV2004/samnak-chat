@@ -49,6 +49,14 @@ type Repository interface {
 	RevokeUserRefreshTokens(ctx context.Context, userID string, now time.Time) error
 }
 
+// Events announces session changes. Methods are called after the transaction
+// commits, and never for a change that did nothing.
+type Events interface {
+	// DeviceRevoked is called once when a device's sessions were revoked. An
+	// empty deviceID means every device of the user was revoked (AUTH-08).
+	DeviceRevoked(ctx context.Context, userID, deviceID string)
+}
+
 // LoginLimiter counts failed logins (AUTH-06). Keys are "email:<address>" and
 // "ip:<address>". The limit and window belong to the implementation.
 type LoginLimiter interface {

@@ -112,6 +112,7 @@ type env struct {
 	h        http.Handler
 	clock    *clock
 	services *app.Services
+	bus      *eventbus.Bus
 	pool     *pgxpool.Pool
 }
 
@@ -124,10 +125,11 @@ func newEnv(t *testing.T, opts ...auth.Option) *env {
 	r := chi.NewRouter()
 	api := httpx.NewAPI(r, "test")
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	bus := eventbus.New(logger)
 	deps := &app.Deps{
 		Logger:        logger,
 		Services:      app.NewServices(),
-		Bus:           eventbus.New(logger),
+		Bus:           bus,
 		Notifications: app.NoopNotificationRegistry{},
 		Tx:            database.NewTxManager(pool),
 		Platform:      map[string]any{"db": pool, "jwt_secret": testSecret},
@@ -140,7 +142,7 @@ func newEnv(t *testing.T, opts ...auth.Option) *env {
 	if err := reg.Start(mods, deps, api); err != nil {
 		t.Fatal(err)
 	}
-	return &env{t: t, h: r, clock: clk, services: deps.Services, pool: pool}
+	return &env{t: t, h: r, clock: clk, services: deps.Services, bus: bus, pool: pool}
 }
 
 var emailSeq atomic.Int64
