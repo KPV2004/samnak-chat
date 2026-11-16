@@ -92,7 +92,8 @@ func TestInsertDeduplicatesOnKey(t *testing.T) {
 	repo := postgres.New(testPool(t))
 	ctx := context.Background()
 	ws, user := newID(), newID()
-	at := time.Now()
+	// Postgres keeps microseconds; Linux clocks have nanoseconds.
+	at := time.Now().Truncate(time.Microsecond)
 
 	got, inserted, err := repo.Insert(ctx, notification(ws, user, "chat.message:m1", "chat.mention", at))
 	if err != nil || !inserted {
