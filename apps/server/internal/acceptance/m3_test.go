@@ -118,7 +118,7 @@ func TestSRSM3Acceptance(t *testing.T) {
 
 	t.Run("reconnecting finds the same unread count", func(t *testing.T) {
 		// The desktop drops its socket, as a reload does.
-		bobDesk.CloseNow()
+		_ = bobDesk.CloseNow()
 		// Clean up with the parent test: the socket is used by later subtests.
 		bobDesk = two.connect(parentT, bob.access)
 		if frames := drainToPong(t, bobDesk); len(frames) != 0 {
