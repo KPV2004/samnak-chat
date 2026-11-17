@@ -28,12 +28,13 @@ var Migrations = migrations.FS
 type Module struct {
 	services *app.Services
 	uc       *usecase.Service
+	ext      *usecase.Extensions
 	log      *slog.Logger
 }
 
 var _ app.Module = (*Module)(nil)
 
-func New() *Module { return &Module{} }
+func New() *Module { return &Module{ext: usecase.NewExtensions()} }
 
 func (*Module) Name() string { return "chat" }
 
@@ -43,6 +44,8 @@ func (*Module) Requires() []string { return nil }
 
 func (m *Module) Provide(s *app.Services) {
 	app.Provide[app.CardRegistry](s, newCardRegistry(m))
+	app.Provide[app.ChatExtensions](s, m.ext)
+	app.Provide[app.ChannelAccess](s, channelAccess{m})
 }
 
 // Init builds the use cases. It does no I/O: with no "db" in d.Platform (the
@@ -71,7 +74,7 @@ func (m *Module) Init(d *app.Deps) error {
 	}
 	pool, _ := d.Platform["db"].(*pgxpool.Pool)
 	events := rtadapter.New(d.Realtime, m.log, publisher{bus: d.Bus, log: m.log}.messageCreated)
-	m.uc = usecase.New(d.Tx, postgres.New(pool), members{d.Services}, permissions{d.Services}, directory{d.Services}, events, d.Storage, m.log, time.Now)
+	m.uc = usecase.New(d.Tx, postgres.New(pool), members{d.Services}, permissions{d.Services}, directory{d.Services}, events, d.Storage, m.log, time.Now).WithExtensions(m.ext)
 	m.services = d.Services
 	if d.Notifications != nil {
 		// notify reads the rules in Subscribe, after every Init ran. With a
@@ -100,7 +103,7 @@ func (m *Module) notifyMessageCreated(ctx context.Context, evt app.Event) ([]app
 }
 
 func (m *Module) Routes(api huma.API) {
-	httpadapter.New(m.uc, m.log).Register(api, m.services)
+	httpadapter.New(m.uc, m.ext, m.log).Register(api, m.services)
 }
 
 // Subscribe removes a member from every channel when the workspace removes
@@ -134,6 +137,21 @@ func (m members) IsActiveMember(ctx context.Context, workspaceID, userID string)
 		return false, err
 	}
 	return true, nil
+}
+
+func (m members) MemberRole(ctx context.Context, workspaceID, userID string) (app.Role, bool, error) {
+	r, ok := app.Lookup[app.MembershipResolver](m.s)
+	if !ok {
+		return "", false, errors.New("app.MembershipResolver is not provided")
+	}
+	role, err := r.Role(ctx, workspaceID, userID)
+	if err != nil {
+		if errors.Is(err, app.ErrForbidden) || errors.Is(err, app.ErrNotFound) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	return role, true, nil
 }
 
 // permissions adapts workspace.Authorizer; without it nothing is allowed.

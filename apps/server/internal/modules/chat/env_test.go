@@ -314,6 +314,7 @@ type env struct {
 	members *fakeMembers
 	rt      *fakeRealtime
 	cards   app.CardRegistry
+	svc     *app.Services
 	storage *fakeStorage
 	events  *eventLog
 	bus     *eventbus.Bus
@@ -378,6 +379,7 @@ func newEnvWithRules(t *testing.T, rt *fakeRealtime, rules app.NotificationRegis
 		t.Fatal(startErr)
 	}
 	e.h = r
+	e.svc = svc
 	e.cards, _ = app.Lookup[app.CardRegistry](svc)
 	return e
 }

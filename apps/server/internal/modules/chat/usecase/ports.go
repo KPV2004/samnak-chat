@@ -129,6 +129,9 @@ type Workspace interface {
 	// IsActiveMember reports whether the user is an active member of the
 	// workspace. A false answer is not an error.
 	IsActiveMember(ctx context.Context, workspaceID, userID string) (bool, error)
+	// MemberRole returns the user's role. active is false, with no error,
+	// when the user is not an active member.
+	MemberRole(ctx context.Context, workspaceID, userID string) (role app.Role, active bool, err error)
 }
 
 // Permissions is the shared permission check (WSP-07).
