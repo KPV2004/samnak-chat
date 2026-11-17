@@ -45,3 +45,7 @@ export { createExtensionsApi } from "./api/extensions";
 export type * from "./api/extensions";
 export { parseTaskCard } from "./task/card";
 export type { TaskCardPayload } from "./task/card";
+export { createApprovalApi } from "./api/m4-approval";
+export type * from "./api/m4-approval";
+export { newestCard, parseApprovalCard, requestVersion } from "./approval/card";
+export type { ApprovalCardPayload } from "./approval/card";

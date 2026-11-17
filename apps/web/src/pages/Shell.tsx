@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation } from "react-router";
+import { ApprovalNav } from "../approval/ApprovalNav";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { NotificationBell } from "../notify/NotificationBell";
 import { TaskNavLink } from "../task/TaskNavLink";
@@ -79,6 +80,7 @@ export function Shell() {
         <NavLink to="/invites">{t("nav.invites")}</NavLink>
         <NavLink to="/profile">{t("nav.profile")}</NavLink>
         <NavLink to="/devices">{t("nav.devices")}</NavLink>
+        <ApprovalNav />
       </nav>
       <main className={location.pathname.startsWith("/chat") ? "wide" : undefined}>
         <Outlet />
