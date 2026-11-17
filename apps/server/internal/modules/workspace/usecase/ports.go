@@ -55,6 +55,46 @@ type Repository interface {
 	// until the transaction ends. The token is the proof of access here.
 	InviteByTokenHash(ctx context.Context, tokenHash string) (domain.Invite, error)
 	MarkInviteUsed(ctx context.Context, workspaceID, inviteID, userID string, now time.Time) error
+
+	InsertGroup(ctx context.Context, g domain.Group) error
+	// ListGroups returns the workspace's groups ordered by name.
+	ListGroups(ctx context.Context, workspaceID string) ([]GroupView, error)
+	GetGroup(ctx context.Context, workspaceID, groupID string) (GroupView, error)
+	RenameGroup(ctx context.Context, workspaceID, groupID, name string) error
+	// DeleteGroup also deletes the group's memberships.
+	DeleteGroup(ctx context.Context, workspaceID, groupID string) error
+	// ListGroupMembers returns a group's members ordered by when they were
+	// added. The group must belong to the workspace, else ErrNotFound.
+	ListGroupMembers(ctx context.Context, workspaceID, groupID string) ([]GroupMember, error)
+	// ReplaceGroupMembers makes members the whole set of the group. Someone
+	// who stays a manager keeps the time they became one. It fails with
+	// ErrNotFound unless the group belongs to the workspace. Run it in a
+	// transaction.
+	ReplaceGroupMembers(ctx context.Context, workspaceID, groupID string, members []GroupMember, now time.Time) error
+	// ActiveMemberIDs returns those of ids that are active members of the
+	// workspace.
+	ActiveMemberIDs(ctx context.Context, workspaceID string, ids []string) ([]string, error)
+	// DeleteGroupMemberships removes the user from every group of the
+	// workspace. Removing nothing is not an error.
+	DeleteGroupMemberships(ctx context.Context, workspaceID, userID string) error
+	// ManagersOf returns the active managers of the groups the user is in,
+	// ordered by group name and then by manager_since, without the user and
+	// without duplicates.
+	ManagersOf(ctx context.Context, workspaceID, userID string) ([]string, error)
+}
+
+// GroupView is a group with its counts.
+type GroupView struct {
+	domain.Group
+	MemberCount int
+	// ManagerIDs is ordered by when each became manager.
+	ManagerIDs []string
+}
+
+// GroupMember is someone's place in a group.
+type GroupMember struct {
+	UserID    string
+	IsManager bool
 }
 
 // User is what the use cases show about someone, read from the auth module.

@@ -44,6 +44,7 @@ func (m *Module) Provide(s *app.Services) {
 	app.Provide[app.MembershipResolver](s, resolver{m})
 	app.Provide[Authorizer](s, m.policy)
 	app.Provide[ActionRegistry](s, m.policy)
+	app.Provide[GroupDirectory](s, groupDirectory{m})
 }
 
 // Init builds the use cases. It does no I/O: with no "db" in d.Platform (the
@@ -75,6 +76,17 @@ func (r resolver) Role(ctx context.Context, workspaceID, userID string) (app.Rol
 		return "", errors.New("workspace: module is not initialised")
 	}
 	return r.m.uc.ActiveRole(ctx, workspaceID, userID)
+}
+
+// groupDirectory is the GroupDirectory. Like resolver, it reads m.uc on every
+// call because Provide runs before Init.
+type groupDirectory struct{ m *Module }
+
+func (g groupDirectory) ManagersOf(ctx context.Context, workspaceID, userID string) ([]string, error) {
+	if g.m.uc == nil {
+		return nil, errors.New("workspace: module is not initialised")
+	}
+	return g.m.uc.ManagersOf(ctx, workspaceID, userID)
 }
 
 // directory adapts auth.Directory to usecase.Directory. It looks the service

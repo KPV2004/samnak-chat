@@ -169,7 +169,10 @@ func (s *Service) RemoveMember(ctx context.Context, p app.Principal, targetID st
 		if err := domain.CheckRemove(actorRole, target, owners); err != nil {
 			return err
 		}
-		return s.repo.DeleteMember(ctx, p.WorkspaceID, target.UserID)
+		if err := s.repo.DeleteMember(ctx, p.WorkspaceID, target.UserID); err != nil {
+			return err
+		}
+		return s.repo.DeleteGroupMemberships(ctx, p.WorkspaceID, target.UserID)
 	})
 	if err != nil {
 		return err
