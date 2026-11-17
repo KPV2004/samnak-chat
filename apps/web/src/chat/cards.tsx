@@ -1,12 +1,15 @@
 import type { Message } from "@samnak/core";
 import type { ComponentType } from "react";
 import { useT } from "../i18n/useT";
+import { TaskCard } from "../task/TaskCard";
 
 /**
  * Renderers for the card kinds this client knows, by `kind`. The business modules
  * (approvals, tickets) add theirs here; until then every card shows its fallback.
  */
-export const cardRenderers: Record<string, ComponentType<{ message: Message }>> = {};
+export const cardRenderers: Record<string, ComponentType<{ message: Message }>> = {
+  "task.item": TaskCard,
+};
 
 /** A card message: its own renderer when the kind is known, otherwise `fallback_text` (PLT-11). */
 export function CardBody({ message }: { message: Message }) {
