@@ -4,6 +4,126 @@
  */
 
 export interface paths {
+    "/approval/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a presigned download URL for a file of a request */
+        get: operations["approval-get-attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approval/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my requests or the requests waiting for me, newest first */
+        get: operations["approval-list-requests"];
+        put?: never;
+        /** Submit a leave or general request */
+        post: operations["approval-create-request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approval/requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a request with its history and files; only its requester and approver see it */
+        get: operations["approval-get-request"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approval/requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a pending request; only its approver */
+        post: operations["approval-approve-request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approval/requests/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a pending request; only its requester */
+        post: operations["approval-cancel-request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approval/requests/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a pending request with a reason; only its approver */
+        post: operations["approval-reject-request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approval/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Presign the upload of a file of at most 50 MB for a request */
+        post: operations["approval-request-upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/devices": {
         parameters: {
             query?: never;
@@ -183,6 +303,23 @@ export interface paths {
         patch: operations["chat-update-channel"];
         trace?: never;
     };
+    "/chat/channels/{id}/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a slash command in a channel I can read; the result is shown to me only */
+        post: operations["chat-run-command"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/channels/{id}/join": {
         parameters: {
             query?: never;
@@ -281,6 +418,23 @@ export interface paths {
         put?: never;
         /** Open a direct message; the same people always give the same channel */
         post: operations["chat-open-dm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/extensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the slash commands and message actions other modules added */
+        get: operations["chat-list-extensions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -441,6 +595,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/task/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the tasks of channels the caller can read */
+        get: operations["task-list-items"];
+        put?: never;
+        /** Create a task in a channel */
+        post: operations["task-create-item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/task/items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one task */
+        get: operations["task-get-item"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a task: creator, assignee, owner or admin */
+        patch: operations["task-update-item"];
+        trace?: never;
+    };
     "/workspace": {
         parameters: {
             query?: never;
@@ -453,6 +643,66 @@ export interface paths {
         put?: never;
         /** Create a workspace; the caller becomes its owner */
         post: operations["workspace-create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspace/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the groups of the workspace with member counts and manager IDs */
+        get: operations["workspace-list-groups"];
+        put?: never;
+        /**
+         * Create a group (owner or admin)
+         * @description Names are unique in the workspace, ignoring case: 409 when taken.
+         */
+        post: operations["workspace-create-group"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspace/groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a group and its memberships (owner or admin) */
+        delete: operations["workspace-delete-group"];
+        options?: never;
+        head?: never;
+        /** Rename a group (owner or admin) */
+        patch: operations["workspace-rename-group"];
+        trace?: never;
+    };
+    "/workspace/groups/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the members of a group */
+        get: operations["workspace-list-group-members"];
+        /**
+         * Replace the members of a group (owner or admin)
+         * @description The body is the whole new set, in one transaction. 400 when a user is not an active member of the workspace or is listed twice.
+         */
+        put: operations["workspace-set-group-members"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -581,6 +831,134 @@ export interface components {
              */
             message: string;
         };
+        ApprovalAttachment: {
+            /** Format: date-time */
+            created_at: string;
+            file_name: string;
+            /** @description Pass it to GET /approval/attachments/{id} for a download URL */
+            id: string;
+            mime_type: string;
+            /** Format: int64 */
+            size: number;
+        };
+        ApprovalAttachmentURLOutputBody: {
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Presigned download URL; opening it saves the file under its name */
+            url: string;
+        };
+        ApprovalCreateInputBody: {
+            /** @description Defaults to the first manager of one of your groups; 400 approver_required when there is none */
+            approver_id?: string;
+            /** @description Files from POST /approval/uploads that you uploaded; each can be used once */
+            attachment_ids?: string[] | null;
+            /** @description leave: {leave_type annual|sick|personal|other, start_date, end_date (YYYY-MM-DD, end not before start), half_day? morning|afternoon (one day only), reason (1-1000)}; general: {subject (1-200), details (up to 4000), amount? (decimal string like "1200.50"), currency? (default THB)} */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            type: "leave" | "general";
+        };
+        ApprovalHistoryEntry: {
+            /** @enum {string} */
+            action: "created" | "approved" | "rejected" | "cancelled";
+            actor_id: string;
+            /** Format: date-time */
+            at: string;
+            id: string;
+            reason: string;
+        };
+        ApprovalListOutputBody: {
+            items: components["schemas"]["ApprovalRequest"][];
+            /** @description Empty on the last page */
+            next_cursor: string;
+        };
+        ApprovalPresignedUpload: {
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Send exactly these headers; the URL is signed for them */
+            headers: {
+                [key: string]: string;
+            };
+            method: string;
+            /** @description Presigned URL; send the file bytes to it */
+            url: string;
+        };
+        ApprovalRejectInputBody: {
+            /** @description 1 to 1000 characters */
+            reason: string;
+        };
+        ApprovalRequest: {
+            approver_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When it was approved, rejected or cancelled
+             */
+            decided_at: string | null;
+            id: string;
+            /** @description The card in the requester-approver DM; null until it is posted */
+            message_id: string | null;
+            /** @description leave: {leave_type, start_date, end_date, half_day?, reason}; general: {subject, details, amount?, currency?} */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** @description Why the approver rejected it; empty otherwise */
+            reason: string;
+            requester_id: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "cancelled";
+            /** @enum {string} */
+            type: "leave" | "general";
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ApprovalRequestDetail: {
+            approver_id: string;
+            attachments: components["schemas"]["ApprovalAttachment"][];
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When it was approved, rejected or cancelled
+             */
+            decided_at: string | null;
+            /** @description Oldest first */
+            history: components["schemas"]["ApprovalHistoryEntry"][];
+            id: string;
+            /** @description The card in the requester-approver DM; null until it is posted */
+            message_id: string | null;
+            /** @description leave: {leave_type, start_date, end_date, half_day?, reason}; general: {subject, details, amount?, currency?} */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** @description Why the approver rejected it; empty otherwise */
+            reason: string;
+            requester_id: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "cancelled";
+            /** @enum {string} */
+            type: "leave" | "general";
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ApprovalUploadInputBody: {
+            file_name: string;
+            /** @example application/pdf */
+            mime_type: string;
+            /**
+             * Format: int64
+             * @description Bytes, at most 50 MB
+             */
+            size: number;
+        };
+        ApprovalUploadOutputBody: {
+            /** @description Pass it in attachment_ids when submitting the request */
+            attachment_id: string;
+            /** @description Upload with PUT before submitting; expires after 15 minutes */
+            upload: components["schemas"]["ApprovalPresignedUpload"];
+        };
         Attachment: {
             file_name: string;
             id: string;
@@ -629,6 +1007,14 @@ export interface components {
             joined_at: string;
             user_id: string;
         };
+        CommandInfo: {
+            description: string;
+            module: string;
+            /** @description Without the slash */
+            name: string;
+            /** @description For example /task <title> [@assignee] */
+            usage: string;
+        };
         CreateChannelInputBody: {
             /** @description Workspace members to add besides the caller */
             member_ids?: string[] | null;
@@ -654,6 +1040,23 @@ export interface components {
             /** @enum {string} */
             role: "admin" | "member" | "guest";
         };
+        CreateTaskRequest: {
+            /** @description An active member who can read the channel */
+            assignee_id?: string;
+            /** @description The channel the task belongs to; the caller must be able to read it */
+            channel_id: string;
+            description?: string;
+            /** Format: date-time */
+            due_at?: string;
+            /**
+             * @description Defaults to normal
+             * @enum {string}
+             */
+            priority?: "low" | "normal" | "high";
+            /** @description The message the task was created from */
+            source_message_id?: string;
+            title: string;
+        };
         DeviceBody: {
             /** @description True for the device that sent this request */
             current: boolean;
@@ -671,6 +1074,28 @@ export interface components {
         EditMessageInputBody: {
             body: string;
         };
+        ExtensionsOutputBody: {
+            commands: components["schemas"]["CommandInfo"][];
+            message_actions: components["schemas"]["MessageActionInfo"][];
+        };
+        Group: {
+            id: string;
+            /** @description In the order they became managers */
+            manager_ids: string[];
+            /** Format: int64 */
+            member_count: number;
+            name: string;
+        };
+        GroupMember: {
+            /** @description Empty when the auth module is unavailable */
+            display_name: string;
+            is_manager: boolean;
+            user_id: string;
+        };
+        GroupNameBody: {
+            /** @description 1 to 100 characters, unique in the workspace ignoring case */
+            name: string;
+        };
         Invite: {
             /** Format: date-time */
             created_at: string;
@@ -684,8 +1109,18 @@ export interface components {
             /** @description Shown once, when the invite is created */
             token?: string;
         };
+        Item: {
+            is_manager: boolean;
+            user_id: string;
+        };
         ListChannelsOutputBody: {
             items: components["schemas"]["Channel"][];
+        };
+        ListGroupMembersOutputBody: {
+            items: components["schemas"]["GroupMember"][];
+        };
+        ListGroupsOutputBody: {
+            items: components["schemas"]["Group"][];
         };
         ListInvitesOutputBody: {
             items: components["schemas"]["Invite"][];
@@ -768,6 +1203,11 @@ export interface components {
             seq: number;
             thread_root_id: string | null;
         };
+        MessageActionInfo: {
+            /** @description <module>.<name>; a client hides IDs it does not know */
+            id: string;
+            module: string;
+        };
         MetaBody: {
             /**
              * @description Enabled modules in startup order
@@ -839,6 +1279,18 @@ export interface components {
             email: string;
             password: string;
         };
+        RunCommandInputBody: {
+            /** @description The text after the command name; at most 4,000 characters */
+            args?: string;
+            /** @description The command, without the slash */
+            name: string;
+            /** @description Set when the command is typed in a thread */
+            thread_root_id?: string;
+        };
+        RunCommandOutputBody: {
+            /** @description Shown to the caller only; empty when the command posted something itself */
+            text: string;
+        };
         SendMessageInputBody: {
             /** @description Files from POST /chat/uploads that you uploaded to this channel; each can be used once */
             attachment_ids?: string[] | null;
@@ -851,6 +1303,36 @@ export interface components {
             client_msg_id: string;
             /** @description Reply under this top-level message */
             thread_root_id?: string;
+        };
+        SetGroupMembersInputBody: {
+            members: components["schemas"]["Item"][];
+        };
+        Task: {
+            assignee_id: string | null;
+            channel_id: string;
+            /** Format: date-time */
+            created_at: string;
+            creator_id: string;
+            description: string;
+            /** Format: date-time */
+            due_at: string | null;
+            id: string;
+            /** @description The task card's message; null until the card is posted */
+            message_id: string | null;
+            /** @enum {string} */
+            priority: "low" | "normal" | "high";
+            /** @description The message the task was created from, if any */
+            source_message_id: string | null;
+            /** @enum {string} */
+            status: "todo" | "doing" | "done";
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        TaskPage: {
+            items: components["schemas"]["Task"][];
+            /** @description Pass it as cursor for the next page; null on the last page */
+            next_cursor: string | null;
         };
         TokenPairBody: {
             /** @description JWT, send as Authorization: Bearer */
@@ -896,6 +1378,21 @@ export interface components {
             role?: "owner" | "admin" | "manager" | "member" | "guest";
             /** @enum {string} */
             status?: "active" | "deactivated";
+        };
+        UpdateTaskRequest: {
+            /** @description An active member who can read the channel; null clears it */
+            assignee_id?: string | null;
+            description?: string;
+            /**
+             * Format: date-time
+             * @description null clears it; a new date is announced again
+             */
+            due_at?: string | null;
+            /** @enum {string} */
+            priority?: "low" | "normal" | "high";
+            /** @enum {string} */
+            status?: "todo" | "doing" | "done";
+            title?: string;
         };
         UploadInputBody: {
             /** @description A channel the caller is in */
@@ -953,6 +1450,269 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "approval-get-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalAttachmentURLOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "approval-list-requests": {
+        parameters: {
+            query?: {
+                /** @description requester: my requests; approver: waiting for me. Both when omitted */
+                role?: "requester" | "approver";
+                /** @description Comma-separated: pending, approved, rejected, cancelled */
+                status?: string;
+                /** @description next_cursor of the previous page */
+                cursor?: string;
+                /** @description Page size */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "approval-create-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalCreateInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "approval-get-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "approval-approve-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "approval-cancel-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "approval-reject-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalRejectInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "approval-request-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalUploadInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalUploadOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     "auth-list-devices": {
         parameters: {
             query?: never;
@@ -1546,6 +2306,41 @@ export interface operations {
             };
         };
     };
+    "chat-run-command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunCommandInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunCommandOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     "chat-join-channel": {
         parameters: {
             query?: never;
@@ -1795,6 +2590,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Channel"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-list-extensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionsOutputBody"];
                 };
             };
             /** @description Error */
@@ -2119,6 +2943,148 @@ export interface operations {
             };
         };
     };
+    "task-list-items": {
+        parameters: {
+            query?: {
+                /** @description me keeps tasks assigned to the caller; any (the default) does not filter */
+                assignee?: "me" | "any";
+                /** @description me keeps tasks the caller created */
+                creator?: "me";
+                /** @description Comma-separated statuses: todo, doing, done */
+                status?: string;
+                channel_id?: string;
+                /** @description overdue: past due and not done. today: due this UTC day. week: due from the start of this UTC day for seven days */
+                due?: "overdue" | "today" | "week";
+                /** @description next_cursor of the previous page */
+                cursor?: string;
+                /** @description Page size */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "task-create-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "task-get-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "task-update-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     "workspace-list": {
         parameters: {
             query?: never;
@@ -2169,6 +3135,196 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Workspace"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "workspace-list-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListGroupsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "workspace-create-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupNameBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Group"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "workspace-delete-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "workspace-rename-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupNameBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Group"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "workspace-list-group-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListGroupMembersOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "workspace-set-group-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetGroupMembersInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

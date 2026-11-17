@@ -59,6 +59,304 @@ components:
         - code
         - message
       type: object
+    ApprovalAttachment:
+      additionalProperties: false
+      properties:
+        created_at:
+          format: date-time
+          type: string
+        file_name:
+          type: string
+        id:
+          description: Pass it to GET /approval/attachments/{id} for a download URL
+          type: string
+        mime_type:
+          type: string
+        size:
+          format: int64
+          type: integer
+      required:
+        - id
+        - file_name
+        - size
+        - mime_type
+        - created_at
+      type: object
+    ApprovalAttachmentURLOutputBody:
+      additionalProperties: false
+      properties:
+        expires_at:
+          format: date-time
+          type: string
+        url:
+          description: Presigned download URL; opening it saves the file under its name
+          type: string
+      required:
+        - url
+        - expires_at
+      type: object
+    ApprovalCreateInputBody:
+      additionalProperties: false
+      properties:
+        approver_id:
+          description: Defaults to the first manager of one of your groups; 400 approver_required when there is none
+          type: string
+        attachment_ids:
+          description: Files from POST /approval/uploads that you uploaded; each can be used once
+          items:
+            type: string
+          maxItems: 10
+          type:
+            - array
+            - "null"
+        payload:
+          additionalProperties: {}
+          description: "leave: {leave_type annual|sick|personal|other, start_date, end_date (YYYY-MM-DD, end not before start), half_day? morning|afternoon (one day only), reason (1-1000)}; general: {subject (1-200), details (up to 4000), amount? (decimal string like \"1200.50\"), currency? (default THB)}"
+          type: object
+        type:
+          enum:
+            - leave
+            - general
+          type: string
+      required:
+        - type
+        - payload
+      type: object
+    ApprovalHistoryEntry:
+      additionalProperties: false
+      properties:
+        action:
+          enum:
+            - created
+            - approved
+            - rejected
+            - cancelled
+          type: string
+        actor_id:
+          type: string
+        at:
+          format: date-time
+          type: string
+        id:
+          type: string
+        reason:
+          type: string
+      required:
+        - id
+        - actor_id
+        - action
+        - reason
+        - at
+      type: object
+    ApprovalListOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/ApprovalRequest"
+          type: array
+        next_cursor:
+          description: Empty on the last page
+          type: string
+      required:
+        - items
+        - next_cursor
+      type: object
+    ApprovalPresignedUpload:
+      additionalProperties: false
+      properties:
+        expires_at:
+          format: date-time
+          type: string
+        headers:
+          additionalProperties:
+            type: string
+          description: Send exactly these headers; the URL is signed for them
+          type: object
+        method:
+          type: string
+        url:
+          description: Presigned URL; send the file bytes to it
+          type: string
+      required:
+        - url
+        - method
+        - headers
+        - expires_at
+      type: object
+    ApprovalRejectInputBody:
+      additionalProperties: false
+      properties:
+        reason:
+          description: 1 to 1000 characters
+          type: string
+      required:
+        - reason
+      type: object
+    ApprovalRequest:
+      additionalProperties: false
+      properties:
+        approver_id:
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        decided_at:
+          description: When it was approved, rejected or cancelled
+          format: date-time
+          type:
+            - string
+            - "null"
+        id:
+          type: string
+        message_id:
+          description: The card in the requester-approver DM; null until it is posted
+          type:
+            - string
+            - "null"
+        payload:
+          additionalProperties: {}
+          description: "leave: {leave_type, start_date, end_date, half_day?, reason}; general: {subject, details, amount?, currency?}"
+          type: object
+        reason:
+          description: Why the approver rejected it; empty otherwise
+          type: string
+        requester_id:
+          type: string
+        status:
+          enum:
+            - pending
+            - approved
+            - rejected
+            - cancelled
+          type: string
+        type:
+          enum:
+            - leave
+            - general
+          type: string
+        updated_at:
+          format: date-time
+          type: string
+      required:
+        - id
+        - type
+        - status
+        - requester_id
+        - approver_id
+        - payload
+        - reason
+        - decided_at
+        - created_at
+        - updated_at
+        - message_id
+      type: object
+    ApprovalRequestDetail:
+      additionalProperties: false
+      properties:
+        approver_id:
+          type: string
+        attachments:
+          items:
+            $ref: "#/components/schemas/ApprovalAttachment"
+          type: array
+        created_at:
+          format: date-time
+          type: string
+        decided_at:
+          description: When it was approved, rejected or cancelled
+          format: date-time
+          type:
+            - string
+            - "null"
+        history:
+          description: Oldest first
+          items:
+            $ref: "#/components/schemas/ApprovalHistoryEntry"
+          type: array
+        id:
+          type: string
+        message_id:
+          description: The card in the requester-approver DM; null until it is posted
+          type:
+            - string
+            - "null"
+        payload:
+          additionalProperties: {}
+          description: "leave: {leave_type, start_date, end_date, half_day?, reason}; general: {subject, details, amount?, currency?}"
+          type: object
+        reason:
+          description: Why the approver rejected it; empty otherwise
+          type: string
+        requester_id:
+          type: string
+        status:
+          enum:
+            - pending
+            - approved
+            - rejected
+            - cancelled
+          type: string
+        type:
+          enum:
+            - leave
+            - general
+          type: string
+        updated_at:
+          format: date-time
+          type: string
+      required:
+        - history
+        - attachments
+        - id
+        - type
+        - status
+        - requester_id
+        - approver_id
+        - payload
+        - reason
+        - decided_at
+        - created_at
+        - updated_at
+        - message_id
+      type: object
+    ApprovalUploadInputBody:
+      additionalProperties: false
+      properties:
+        file_name:
+          maxLength: 1024
+          minLength: 1
+          type: string
+        mime_type:
+          examples:
+            - application/pdf
+          maxLength: 255
+          minLength: 3
+          type: string
+        size:
+          description: Bytes, at most 50 MB
+          format: int64
+          maximum: 52428800
+          minimum: 1
+          type: integer
+      required:
+        - file_name
+        - size
+        - mime_type
+      type: object
+    ApprovalUploadOutputBody:
+      additionalProperties: false
+      properties:
+        attachment_id:
+          description: Pass it in attachment_ids when submitting the request
+          type: string
+        upload:
+          $ref: "#/components/schemas/ApprovalPresignedUpload"
+          description: Upload with PUT before submitting; expires after 15 minutes
+      required:
+        - attachment_id
+        - upload
+      type: object
     Attachment:
       additionalProperties: false
       properties:
@@ -168,6 +466,25 @@ components:
         - display_name
         - joined_at
       type: object
+    CommandInfo:
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        module:
+          type: string
+        name:
+          description: Without the slash
+          type: string
+        usage:
+          description: For example /task <title> [@assignee]
+          type: string
+      required:
+        - name
+        - usage
+        - description
+        - module
+      type: object
     CreateChannelInputBody:
       additionalProperties: false
       properties:
@@ -224,6 +541,39 @@ components:
       required:
         - role
       type: object
+    CreateTaskRequest:
+      additionalProperties: false
+      properties:
+        assignee_id:
+          description: An active member who can read the channel
+          type: string
+        channel_id:
+          description: The channel the task belongs to; the caller must be able to read it
+          type: string
+        description:
+          maxLength: 4000
+          type: string
+        due_at:
+          format: date-time
+          type: string
+        priority:
+          description: Defaults to normal
+          enum:
+            - low
+            - normal
+            - high
+          type: string
+        source_message_id:
+          description: The message the task was created from
+          type: string
+        title:
+          maxLength: 200
+          minLength: 1
+          type: string
+      required:
+        - channel_id
+        - title
+      type: object
     DeviceBody:
       additionalProperties: false
       properties:
@@ -272,6 +622,66 @@ components:
       required:
         - body
       type: object
+    ExtensionsOutputBody:
+      additionalProperties: false
+      properties:
+        commands:
+          items:
+            $ref: "#/components/schemas/CommandInfo"
+          type: array
+        message_actions:
+          items:
+            $ref: "#/components/schemas/MessageActionInfo"
+          type: array
+      required:
+        - commands
+        - message_actions
+      type: object
+    Group:
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        manager_ids:
+          description: In the order they became managers
+          items:
+            type: string
+          type: array
+        member_count:
+          format: int64
+          type: integer
+        name:
+          type: string
+      required:
+        - id
+        - name
+        - member_count
+        - manager_ids
+      type: object
+    GroupMember:
+      additionalProperties: false
+      properties:
+        display_name:
+          description: Empty when the auth module is unavailable
+          type: string
+        is_manager:
+          type: boolean
+        user_id:
+          type: string
+      required:
+        - user_id
+        - display_name
+        - is_manager
+      type: object
+    GroupNameBody:
+      additionalProperties: false
+      properties:
+        name:
+          description: 1 to 100 characters, unique in the workspace ignoring case
+          type: string
+      required:
+        - name
+      type: object
     Invite:
       additionalProperties: false
       properties:
@@ -304,12 +714,43 @@ components:
         - expires_at
         - created_at
       type: object
+    Item:
+      additionalProperties: false
+      properties:
+        is_manager:
+          type: boolean
+        user_id:
+          type: string
+      required:
+        - user_id
+        - is_manager
+      type: object
     ListChannelsOutputBody:
       additionalProperties: false
       properties:
         items:
           items:
             $ref: "#/components/schemas/Channel"
+          type: array
+      required:
+        - items
+      type: object
+    ListGroupMembersOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/GroupMember"
+          type: array
+      required:
+        - items
+      type: object
+    ListGroupsOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/Group"
           type: array
       required:
         - items
@@ -536,6 +977,18 @@ components:
         - deleted_at
         - created_at
       type: object
+    MessageActionInfo:
+      additionalProperties: false
+      properties:
+        id:
+          description: <module>.<name>; a client hides IDs it does not know
+          type: string
+        module:
+          type: string
+      required:
+        - id
+        - module
+      type: object
     MetaBody:
       additionalProperties: false
       properties:
@@ -698,6 +1151,30 @@ components:
         - password
         - display_name
       type: object
+    RunCommandInputBody:
+      additionalProperties: false
+      properties:
+        args:
+          description: The text after the command name; at most 4,000 characters
+          type: string
+        name:
+          description: The command, without the slash
+          type: string
+        thread_root_id:
+          description: Set when the command is typed in a thread
+          type: string
+      required:
+        - name
+      type: object
+    RunCommandOutputBody:
+      additionalProperties: false
+      properties:
+        text:
+          description: Shown to the caller only; empty when the command posted something itself
+          type: string
+      required:
+        - text
+      type: object
     SendMessageInputBody:
       additionalProperties: false
       properties:
@@ -722,6 +1199,98 @@ components:
       required:
         - client_msg_id
         - body
+      type: object
+    SetGroupMembersInputBody:
+      additionalProperties: false
+      properties:
+        members:
+          items:
+            $ref: "#/components/schemas/Item"
+          maxItems: 1000
+          type: array
+      required:
+        - members
+      type: object
+    Task:
+      additionalProperties: false
+      properties:
+        assignee_id:
+          type:
+            - string
+            - "null"
+        channel_id:
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        creator_id:
+          type: string
+        description:
+          type: string
+        due_at:
+          format: date-time
+          type:
+            - string
+            - "null"
+        id:
+          type: string
+        message_id:
+          description: The task card's message; null until the card is posted
+          type:
+            - string
+            - "null"
+        priority:
+          enum:
+            - low
+            - normal
+            - high
+          type: string
+        source_message_id:
+          description: The message the task was created from, if any
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - todo
+            - doing
+            - done
+          type: string
+        title:
+          type: string
+        updated_at:
+          format: date-time
+          type: string
+      required:
+        - id
+        - channel_id
+        - message_id
+        - source_message_id
+        - title
+        - description
+        - creator_id
+        - assignee_id
+        - due_at
+        - priority
+        - status
+        - created_at
+        - updated_at
+      type: object
+    TaskPage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/Task"
+          type: array
+        next_cursor:
+          description: Pass it as cursor for the next page; null on the last page
+          type:
+            - string
+            - "null"
+      required:
+        - items
+        - next_cursor
       type: object
     TokenPairBody:
       additionalProperties: false
@@ -807,6 +1376,40 @@ components:
           enum:
             - active
             - deactivated
+          type: string
+      type: object
+    UpdateTaskRequest:
+      additionalProperties: false
+      properties:
+        assignee_id:
+          description: An active member who can read the channel; null clears it
+          type:
+            - string
+            - "null"
+        description:
+          maxLength: 4000
+          type: string
+        due_at:
+          description: null clears it; a new date is announced again
+          format: date-time
+          type:
+            - string
+            - "null"
+        priority:
+          enum:
+            - low
+            - normal
+            - high
+          type: string
+        status:
+          enum:
+            - todo
+            - doing
+            - done
+          type: string
+        title:
+          maxLength: 200
+          minLength: 1
           type: string
       type: object
     UploadInputBody:
@@ -925,6 +1528,257 @@ info:
   version: 0.0.0-dev
 openapi: 3.1.0
 paths:
+  /approval/attachments/{id}:
+    get:
+      operationId: approval-get-attachment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalAttachmentURLOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Get a presigned download URL for a file of a request
+      tags:
+        - approval
+  /approval/requests:
+    get:
+      operationId: approval-list-requests
+      parameters:
+        - description: "requester: my requests; approver: waiting for me. Both when omitted"
+          explode: false
+          in: query
+          name: role
+          schema:
+            description: "requester: my requests; approver: waiting for me. Both when omitted"
+            enum:
+              - requester
+              - approver
+            type: string
+        - description: "Comma-separated: pending, approved, rejected, cancelled"
+          explode: false
+          in: query
+          name: status
+          schema:
+            description: "Comma-separated: pending, approved, rejected, cancelled"
+            type: string
+        - description: next_cursor of the previous page
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: next_cursor of the previous page
+            type: string
+        - description: Page size
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 20
+            description: Page size
+            format: int64
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalListOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List my requests or the requests waiting for me, newest first
+      tags:
+        - approval
+    post:
+      operationId: approval-create-request
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalCreateInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequestDetail"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Submit a leave or general request
+      tags:
+        - approval
+  /approval/requests/{id}:
+    get:
+      operationId: approval-get-request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequestDetail"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Get a request with its history and files; only its requester and approver see it
+      tags:
+        - approval
+  /approval/requests/{id}/approve:
+    post:
+      operationId: approval-approve-request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequestDetail"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Approve a pending request; only its approver
+      tags:
+        - approval
+  /approval/requests/{id}/cancel:
+    post:
+      operationId: approval-cancel-request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequestDetail"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Cancel a pending request; only its requester
+      tags:
+        - approval
+  /approval/requests/{id}/reject:
+    post:
+      operationId: approval-reject-request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalRejectInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequestDetail"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Reject a pending request with a reason; only its approver
+      tags:
+        - approval
+  /approval/uploads:
+    post:
+      operationId: approval-request-upload
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalUploadInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalUploadOutputBody"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Presign the upload of a file of at most 50 MB for a request
+      tags:
+        - approval
   /auth/devices:
     get:
       operationId: auth-list-devices
@@ -1383,6 +2237,39 @@ paths:
       summary: Rename, set the topic of, or archive a channel
       tags:
         - chat
+  /chat/channels/{id}/commands:
+    post:
+      operationId: chat-run-command
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunCommandInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunCommandOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Run a slash command in a channel I can read; the result is shown to me only
+      tags:
+        - chat
   /chat/channels/{id}/join:
     post:
       operationId: chat-join-channel
@@ -1633,6 +2520,27 @@ paths:
       security:
         - bearer: []
       summary: Open a direct message; the same people always give the same channel
+      tags:
+        - chat
+  /chat/extensions:
+    get:
+      operationId: chat-list-extensions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtensionsOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List the slash commands and message actions other modules added
       tags:
         - chat
   /chat/messages/{id}:
@@ -1904,6 +2812,173 @@ paths:
       summary: The number of unread notifications in this workspace
       tags:
         - notify
+  /task/items:
+    get:
+      operationId: task-list-items
+      parameters:
+        - description: me keeps tasks assigned to the caller; any (the default) does not filter
+          explode: false
+          in: query
+          name: assignee
+          schema:
+            description: me keeps tasks assigned to the caller; any (the default) does not filter
+            enum:
+              - me
+              - any
+            type: string
+        - description: me keeps tasks the caller created
+          explode: false
+          in: query
+          name: creator
+          schema:
+            description: me keeps tasks the caller created
+            enum:
+              - me
+            type: string
+        - description: "Comma-separated statuses: todo, doing, done"
+          explode: false
+          in: query
+          name: status
+          schema:
+            description: "Comma-separated statuses: todo, doing, done"
+            type: string
+        - explode: false
+          in: query
+          name: channel_id
+          schema:
+            type: string
+        - description: "overdue: past due and not done. today: due this UTC day. week: due from the start of this UTC day for seven days"
+          explode: false
+          in: query
+          name: due
+          schema:
+            description: "overdue: past due and not done. today: due this UTC day. week: due from the start of this UTC day for seven days"
+            enum:
+              - overdue
+              - today
+              - week
+            type: string
+        - description: next_cursor of the previous page
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: next_cursor of the previous page
+            type: string
+        - description: Page size
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            description: Page size
+            format: int64
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskPage"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List the tasks of channels the caller can read
+      tags:
+        - task
+    post:
+      operationId: task-create-item
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Create a task in a channel
+      tags:
+        - task
+  /task/items/{id}:
+    get:
+      operationId: task-get-item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Get one task
+      tags:
+        - task
+    patch:
+      operationId: task-update-item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: "Edit a task: creator, assignee, owner or admin"
+      tags:
+        - task
   /workspace:
     get:
       operationId: workspace-list
@@ -1949,6 +3024,165 @@ paths:
       security:
         - bearer: []
       summary: Create a workspace; the caller becomes its owner
+      tags:
+        - workspace
+  /workspace/groups:
+    get:
+      operationId: workspace-list-groups
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListGroupsOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List the groups of the workspace with member counts and manager IDs
+      tags:
+        - workspace
+    post:
+      description: "Names are unique in the workspace, ignoring case: 409 when taken."
+      operationId: workspace-create-group
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupNameBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Create a group (owner or admin)
+      tags:
+        - workspace
+  /workspace/groups/{id}:
+    delete:
+      operationId: workspace-delete-group
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Delete a group and its memberships (owner or admin)
+      tags:
+        - workspace
+    patch:
+      operationId: workspace-rename-group
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupNameBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Rename a group (owner or admin)
+      tags:
+        - workspace
+  /workspace/groups/{id}/members:
+    get:
+      operationId: workspace-list-group-members
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListGroupMembersOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List the members of a group
+      tags:
+        - workspace
+    put:
+      description: The body is the whole new set, in one transaction. 400 when a user is not an active member of the workspace or is listed twice.
+      operationId: workspace-set-group-members
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetGroupMembersInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Replace the members of a group (owner or admin)
       tags:
         - workspace
   /workspace/invites:

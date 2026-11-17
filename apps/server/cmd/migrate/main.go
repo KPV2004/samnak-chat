@@ -13,9 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/approval"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/task"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/config"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
@@ -28,6 +30,8 @@ var moduleMigrations = map[string]embed.FS{
 	"auth":      auth.Migrations,
 	"chat":      chat.Migrations,
 	"notify":    notify.Migrations,
+	"task":      task.Migrations,
+	"approval":  approval.Migrations,
 	"workspace": workspace.Migrations,
 }
 

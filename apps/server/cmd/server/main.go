@@ -20,9 +20,11 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/approval"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/task"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/config"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
@@ -50,6 +52,8 @@ var modules = []app.Module{
 	workspace.New(),
 	chat.New(),
 	notify.New(),
+	task.New(),
+	approval.New(),
 }
 
 func main() {
