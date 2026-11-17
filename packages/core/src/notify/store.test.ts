@@ -90,6 +90,15 @@ describe("count", () => {
   });
 });
 
+describe("count without a workspace", () => {
+  it("does not ask the API before a workspace is on screen, though the socket is ready", async () => {
+    t = setup({ workspaceId: null, seed: [{}] });
+    await settle();
+    expect(t.server.requests).not.toContain("GET /unread-count");
+    expect(t.store.getState().unreadCount).toBe(0);
+  });
+});
+
 describe("live events", () => {
   it("adds a notification it is sent and takes the server's count", async () => {
     const n = t.server.add();

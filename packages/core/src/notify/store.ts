@@ -76,6 +76,8 @@ export function createNotificationStore(opts: NotificationStoreOptions): Notific
 
   function loadCount(): Promise<void> {
     if (counting) return counting;
+    // The socket can be ready before a workspace is on screen; the count waits for it.
+    if (opts.getWorkspaceId && opts.getWorkspaceId() == null) return Promise.resolve();
     const asked = epoch;
     counting = (async () => {
       try {
