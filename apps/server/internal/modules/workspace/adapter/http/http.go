@@ -222,6 +222,8 @@ func (h *Handler) fail(ctx context.Context, err error) error {
 		status = http.StatusNotFound
 	case errors.Is(err, app.ErrConflict):
 		status = http.StatusConflict
+	case httpx.ClientAborted(ctx, err):
+		return huma.NewError(httpx.StatusClientClosedRequest, "client closed request")
 	default:
 		h.log.ErrorContext(ctx, "workspace: request failed", "request_id", httpx.RequestID(ctx), "error", err)
 		return huma.NewError(http.StatusInternalServerError, "internal error")

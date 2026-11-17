@@ -329,6 +329,8 @@ func (h *Handlers) fail(ctx context.Context, err error) error {
 		return huma.Error409Conflict(err.Error())
 	case errors.Is(err, app.ErrRateLimited):
 		return huma.NewError(http.StatusTooManyRequests, err.Error())
+	case httpx.ClientAborted(ctx, err):
+		return huma.NewError(httpx.StatusClientClosedRequest, "client closed request")
 	}
 	h.logger.ErrorContext(ctx, "auth request failed", "request_id", httpx.RequestID(ctx), "error", err)
 	return huma.Error500InternalServerError("internal error")

@@ -60,8 +60,9 @@ func principal(ctx context.Context) (app.Principal, error) {
 	return p, nil
 }
 
-// fail maps contract errors to their status. Anything else is logged and
-// answered as a plain 500 so internals never reach the client.
+// fail maps contract errors to their status. A client that hung up is not a
+// server fault and is not logged. Anything else is logged and answered as a
+// plain 500 so internals never reach the client.
 func (h *Handler) fail(ctx context.Context, err error) error {
 	var status int
 	switch {
@@ -75,6 +76,8 @@ func (h *Handler) fail(ctx context.Context, err error) error {
 		status = http.StatusNotFound
 	case errors.Is(err, app.ErrConflict):
 		status = http.StatusConflict
+	case httpx.ClientAborted(ctx, err):
+		return huma.NewError(httpx.StatusClientClosedRequest, "client closed request")
 	default:
 		h.log.ErrorContext(ctx, "task: request failed", "request_id", httpx.RequestID(ctx), "error", err)
 		return huma.NewError(http.StatusInternalServerError, "internal error")

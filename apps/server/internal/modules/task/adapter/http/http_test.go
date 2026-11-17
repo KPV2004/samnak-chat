@@ -1,6 +1,7 @@
 package httpadapter_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -136,12 +137,19 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
+	return newEnvWith(t, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+// newEnvWith is newEnv with the events the use cases publish and the logger
+// the handlers write to, so a test can change the first and watch the second.
+func newEnvWith(t *testing.T, events usecase.Events, log *slog.Logger) *env {
+	t.Helper()
 	repo := &memRepo{tasks: map[string]domain.Task{}}
 	uc := usecase.New(usecase.Deps{
-		Tx: noopTx{}, Repo: repo,
+		Tx: noopTx{}, Repo: repo, Events: events,
 		Channels: readers{ch + "/" + alice: true, ch + "/" + bob: true, ch + "/" + admin: true, ch + "/" + carol: true, ch2 + "/" + admin: true},
 		Members:  activeMembers{alice: true, bob: true, carol: true, admin: true},
-		Log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Log:      log,
 	})
 	services := app.NewServices()
 	app.Provide[app.Authenticator](services, fakeAuth{
@@ -153,8 +161,21 @@ func newEnv(t *testing.T) *env {
 		ws + "/" + alice: app.RoleMember, ws + "/" + bob: app.RoleMember, ws + "/" + carol: app.RoleMember, ws + "/" + admin: app.RoleAdmin,
 	})
 	_, api := humatest.New(t)
-	httpadapter.New(uc, nil).Register(api, services)
+	httpadapter.New(uc, log).Register(api, services)
 	return &env{t: t, api: api, repo: repo}
+}
+
+// abortingEvents fails the status write the way the outbox does once the
+// request's context has ended: the INSERT is cancelled with the request.
+type abortingEvents struct{}
+
+func (abortingEvents) Created(context.Context, domain.Task) error          { return nil }
+func (abortingEvents) Assigned(context.Context, domain.Task, string) error { return nil }
+func (abortingEvents) Updated(context.Context, domain.Task) error          { return nil }
+func (abortingEvents) DueSoon(context.Context, usecase.Due) error          { return nil }
+func (abortingEvents) Overdue(context.Context, usecase.Due) error          { return nil }
+func (abortingEvents) StatusChanged(ctx context.Context, _ domain.Task, _ domain.Status, _ string) error {
+	return fmt.Errorf("eventbus: write %q to the outbox: %w", "task.status_changed", ctx.Err())
 }
 
 func headers(token string) []any {
@@ -455,6 +476,29 @@ func TestUpdateErrors(t *testing.T) {
 		if r := e.do(http.MethodPatch, "/items/"+c.id, c.token, c.body); r.Code != c.code {
 			t.Errorf("%s: %d %s, want %d", c.name, r.Code, r.Body, c.code)
 		}
+	}
+}
+
+// TestClientAbortIsNotAServerError is the bug found in browser testing: a
+// client that hangs up during PATCH cancels the outbox write, which used to be
+// answered 500 and logged at ERROR. An abort is the client's doing, not ours.
+func TestClientAbortIsNotAServerError(t *testing.T) {
+	var logs bytes.Buffer
+	e := newEnvWith(t, abortingEvents{}, slog.New(slog.NewTextHandler(&logs, nil)))
+	task := e.create("alice", map[string]any{"channel_id": ch, "title": "Draft the agenda"})
+
+	gone, hangUp := context.WithCancel(context.Background())
+	hangUp()
+	resp := e.api.PatchCtx(gone, "/items/"+task.ID, append(headers("alice"), map[string]any{"status": "doing"})...)
+	// 499 is nginx's "client closed request"; the client is gone, so nothing reads it.
+	if resp.Code != 499 {
+		t.Fatalf("status = %d, want 499 for an aborted request: %s", resp.Code, resp.Body)
+	}
+	if got := (result{Code: resp.Code, Body: resp.Body.Bytes()}).errorCode(t); got != "client_closed_request" {
+		t.Fatalf("error code = %q, want client_closed_request", got)
+	}
+	if strings.Contains(logs.String(), "level=ERROR") {
+		t.Fatalf("an aborted request was logged as an error: %s", logs.String())
 	}
 }
 

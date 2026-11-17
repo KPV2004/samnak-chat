@@ -66,6 +66,50 @@ func TestWriteError(t *testing.T) {
 	}
 }
 
+// TestClientAbortedIsNotAServerError: a client that hangs up cancels its own
+// request, and the cancellation surfaces as an error. That is not a 500.
+func TestClientAbortedIsNotAServerError(t *testing.T) {
+	gone, hangUp := context.WithCancel(context.Background())
+	hangUp()
+	cancelled := fmt.Errorf("eventbus: write %q to the outbox: %w", "task.status_changed", context.Canceled)
+
+	// Only a cancellation that ended the request counts. The same error on a
+	// live request is a fault, and another error after the client left is too.
+	cases := []struct {
+		name    string
+		ctx     context.Context
+		err     error
+		aborted bool
+	}{
+		{"the client hung up", gone, cancelled, true},
+		{"cancelled while the request is live", context.Background(), cancelled, false},
+		{"another error after the client left", gone, errors.New("disk full"), false},
+		{"a deadline after the client left", gone, context.DeadlineExceeded, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := httpx.ClientAborted(c.ctx, c.err); got != c.aborted {
+				t.Fatalf("ClientAborted = %v, want %v", got, c.aborted)
+			}
+		})
+	}
+
+	t.Run("WriteError answers 499 and hides the detail", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		httpx.WriteError(rec, httptest.NewRequest("GET", "/", nil).WithContext(gone), cancelled)
+		if rec.Code != httpx.StatusClientClosedRequest {
+			t.Fatalf("status = %d, want 499", rec.Code)
+		}
+		var b errBody
+		if err := json.Unmarshal(rec.Body.Bytes(), &b); err != nil {
+			t.Fatal(err)
+		}
+		if b.Error.Code != "client_closed_request" || strings.Contains(rec.Body.String(), "outbox") {
+			t.Fatalf("body = %s", rec.Body.String())
+		}
+	})
+}
+
 func TestWriteJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 	httpx.WriteJSON(rec, http.StatusCreated, map[string]int{"a": 1})

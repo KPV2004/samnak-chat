@@ -70,8 +70,27 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+// StatusClientClosedRequest is nginx's 499: the client closed the connection
+// before the answer was ready. Nobody is left to read the answer; the status
+// is for the access log, which then shows an abort as what it is.
+const StatusClientClosedRequest = 499
+
+// codeClientClosedRequest is the error code of a 499. It is not one of the
+// codes the API contract lists for the statuses above; nobody reads it, so it
+// only keeps a 499 from being labelled "internal".
+const codeClientClosedRequest = "client_closed_request"
+
+// ClientAborted reports whether err is the request's own context ending, which
+// is what a client hanging up mid-request produces (the outbox write or a query
+// is cancelled with it). That is not a server fault, so it must not be logged
+// as an error or answered as a 500. A cancellation while the request context is
+// still live is an internal fault and stays one.
+func ClientAborted(ctx context.Context, err error) bool {
+	return errors.Is(err, context.Canceled) && errors.Is(ctx.Err(), context.Canceled)
+}
+
 // WriteError maps err to the error JSON. Unknown errors become 500 "internal"
-// without detail.
+// without detail, and a client abort becomes StatusClientClosedRequest.
 func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	status, code := http.StatusInternalServerError, "internal"
 	msg := "internal error"
@@ -88,10 +107,12 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 		status, code = http.StatusConflict, "conflict"
 	case errors.Is(err, app.ErrRateLimited):
 		status, code = http.StatusTooManyRequests, "rate_limited"
+	case ClientAborted(r.Context(), err):
+		status, code, msg = StatusClientClosedRequest, codeClientClosedRequest, "client closed request"
 	}
 	if status == http.StatusInternalServerError {
 		slog.Default().ErrorContext(r.Context(), "request failed", "request_id", RequestID(r.Context()), "error", err)
-	} else {
+	} else if status != StatusClientClosedRequest {
 		msg = err.Error()
 	}
 	WriteJSON(w, status, map[string]any{"error": map[string]string{"code": code, "message": msg}})

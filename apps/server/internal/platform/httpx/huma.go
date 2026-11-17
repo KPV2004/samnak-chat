@@ -67,6 +67,8 @@ func errorCode(status int) string {
 		return "conflict"
 	case http.StatusTooManyRequests:
 		return "rate_limited"
+	case StatusClientClosedRequest:
+		return codeClientClosedRequest
 	default:
 		return "internal"
 	}
