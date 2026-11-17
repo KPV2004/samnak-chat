@@ -39,3 +39,7 @@ export { createM3Api } from "./api/m3";
 export type * from "./api/m3";
 export { createNotificationStore } from "./notify/store";
 export type { NotificationState, NotificationStore, NotificationStoreOptions } from "./notify/store";
+export { createApprovalApi } from "./api/m4-approval";
+export type * from "./api/m4-approval";
+export { newestCard, parseApprovalCard, requestVersion } from "./approval/card";
+export type { ApprovalCardPayload } from "./approval/card";
