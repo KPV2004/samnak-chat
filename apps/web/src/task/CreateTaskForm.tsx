@@ -8,6 +8,7 @@ import type { MessageKey } from "../i18n/messages";
 import { errorKey } from "../lib/errors";
 import { useChat } from "../state/chat";
 import { useTaskApi } from "./api";
+import "./task.css";
 
 const maxTitle = 200;
 const priorities: TaskPriority[] = ["low", "normal", "high"];

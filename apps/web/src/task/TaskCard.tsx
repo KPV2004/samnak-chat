@@ -9,6 +9,7 @@ import { formatDateTime } from "../lib/format";
 import { useChat } from "../state/chat";
 import { useTaskApi } from "./api";
 import { useModuleEnabled } from "./modules";
+import "./task.css";
 
 const statuses: TaskStatus[] = ["todo", "doing", "done"];
 
@@ -39,6 +40,8 @@ export function TaskCard({ message }: { message: Message }) {
     );
   }
 
+  const taskId = card.task_id;
+
   /**
    * Puts the task's current state into the card, unless the card already holds a
    * newer version (a later `card.updated` that arrived first).
@@ -55,11 +58,11 @@ export function TaskCard({ message }: { message: Message }) {
     setSaving(true);
     setFailed(null);
     try {
-      applyTask(await api.updateTask(card!.task_id, { status }));
+      applyTask(await api.updateTask(taskId, { status }));
     } catch (err) {
       setFailed(errorKey(err));
       // The server refused: show what it has, not what the card had.
-      await api.getTask(card!.task_id).then(applyTask, () => undefined);
+      await api.getTask(taskId).then(applyTask, () => undefined);
     } finally {
       setSaving(false);
     }
