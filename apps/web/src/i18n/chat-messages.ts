@@ -78,6 +78,7 @@ export const chatEn = {
   "chat.counter": "{n} / 4,000",
   "chat.tooLong": "A message can have at most 4,000 characters.",
   "chat.mention.list": "Mention someone",
+  "chat.command.list": "Commands",
   "chat.mention.channel": "Notify everyone in this channel",
 
   "chat.typing.one": "{a} is typing…",
@@ -169,6 +170,7 @@ export const chatTh: Record<keyof typeof chatEn, string> = {
   "chat.counter": "{n} / 4,000",
   "chat.tooLong": "ข้อความยาวได้ไม่เกิน 4,000 ตัวอักษร",
   "chat.mention.list": "กล่าวถึงใครสักคน",
+  "chat.command.list": "คำสั่ง",
   "chat.mention.channel": "แจ้งทุกคนในช่องนี้",
 
   "chat.typing.one": "{a} กำลังพิมพ์…",

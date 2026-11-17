@@ -5,6 +5,8 @@ import { useCurrentLocale, useT } from "../i18n/useT";
 import { formatDateTime, formatMessageTime } from "../lib/format";
 import { useChat } from "../state/chat";
 import { canManage, useWorkspaces } from "../state/queries";
+import { useChatExtensions } from "../task/api";
+import { CreateTaskForm } from "../task/CreateTaskForm";
 import { CardBody } from "./cards";
 import { EditForm } from "./EditForm";
 import { Markdown } from "./markdown";
@@ -29,7 +31,10 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
   const [failed, setFailed] = useState(false);
+  const { messageActions } = useChatExtensions();
+  const canCreateTask = messageActions.some((a) => a.id === "task.create_from_message");
 
   const me = chat?.userId ?? "";
   const mine = m.sender_id === me;
@@ -156,6 +161,11 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
               {t("chat.reply")}
             </button>
           )}
+          {canCreateTask && m.kind === "text" && m.body !== "" && (
+            <button type="button" aria-expanded={creatingTask} onClick={() => setCreatingTask((open) => !open)}>
+              {t("task.createFromMessage")}
+            </button>
+          )}
           {mine && (
             <button type="button" onClick={() => setEditing(true)}>
               {t("chat.edit")}
@@ -168,6 +178,8 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
           )}
         </div>
       )}
+
+      {creatingTask && <CreateTaskForm message={m} channelId={channelId} onDone={() => setCreatingTask(false)} />}
 
       {picking && (
         <ul className="chat-emoji-picker">
