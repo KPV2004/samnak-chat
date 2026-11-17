@@ -1,7 +1,10 @@
+import type { ChatCommand } from "@samnak/core";
 import { useQuery } from "@tanstack/react-query";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { useT } from "../i18n/useT";
+import { errorKey } from "../lib/errors";
 import { useChat } from "../state/chat";
+import { useChatExtensions, useExtensionsApi } from "../task/api";
 import { MentionList } from "./MentionList";
 import { insertMention, mentionAt, type MentionOption } from "./mentions";
 import { useNameOf } from "./names";
@@ -18,15 +21,25 @@ interface Props {
   label?: string;
 }
 
+/** What a slash command said back (shown to the sender only), or why it failed. */
+interface Note {
+  text: string;
+  failed: boolean;
+}
+
 export function Composer({ channelId, threadRootId, label }: Props) {
   const t = useT();
   const chat = useChat();
   const store = chat?.store;
   const nameOf = useNameOf();
+  const { commands } = useChatExtensions();
+  const extensions = useExtensionsApi();
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [note, setNote] = useState<Note | null>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
   const nextCaret = useRef<number | null>(null);
   const lastTyping = useRef(0);
@@ -34,7 +47,7 @@ export function Composer({ channelId, threadRootId, label }: Props) {
 
   const length = [...text].length;
   const tooLong = length > maxLength;
-  const canSend = text.trim() !== "" && !tooLong && store !== undefined;
+  const canSend = text.trim() !== "" && !tooLong && store !== undefined && !running;
 
   const members = useQuery({
     queryKey: ["chat-channel-members", channelId],
@@ -43,8 +56,15 @@ export function Composer({ channelId, threadRootId, label }: Props) {
     queryFn: async () => (await chat!.api.listChannelMembers(channelId)).items,
   });
 
+  // A command being typed: a slash and letters, with no space yet.
+  const slash = !dismissed && /^\/\S*$/.test(text) ? text.slice(1).toLowerCase() : null;
   const mention = dismissed ? null : mentionAt(text, caret);
   const options: MentionOption[] = [];
+  if (slash !== null) {
+    for (const c of commands) {
+      if (c.name.startsWith(slash)) options.push({ token: `/${c.name} `, label: c.usage, detail: c.description });
+    }
+  }
   if (mention) {
     const q = mention.query.toLowerCase();
     if ("channel".startsWith(q)) {
@@ -71,6 +91,12 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   }, [text]);
 
   function pick(option: MentionOption) {
+    if (slash !== null) {
+      nextCaret.current = option.token.length;
+      setText(option.token);
+      boxRef.current?.focus();
+      return;
+    }
     if (!mention) return;
     const next = insertMention(text, caret, mention, option.token);
     nextCaret.current = next.caret;
@@ -78,12 +104,33 @@ export function Composer({ channelId, threadRootId, label }: Props) {
     boxRef.current?.focus();
   }
 
-  function submit() {
+  async function submit() {
     if (!canSend) return;
-    store.send(channelId, text, threadRootId ? { thread_root_id: threadRootId } : {});
-    setText("");
-    setCaret(0);
-    boxRef.current?.focus();
+    const command = commandIn(text, commands);
+    if (!command) {
+      store.send(channelId, text, threadRootId ? { thread_root_id: threadRootId } : {});
+      setText("");
+      setCaret(0);
+      boxRef.current?.focus();
+      return;
+    }
+    const sent = text;
+    setRunning(true);
+    setNote(null);
+    try {
+      const result = await extensions.runCommand(channelId, {
+        name: command.name,
+        args: command.args,
+        thread_root_id: threadRootId,
+      });
+      // Clears the box unless the sender has typed something else meanwhile.
+      setText((current) => (current === sent ? "" : current));
+      if (result.text) setNote({ text: result.text, failed: false });
+    } catch (err) {
+      setNote({ text: t(errorKey(err)), failed: true });
+    } finally {
+      setRunning(false);
+    }
   }
 
   function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -107,7 +154,9 @@ export function Composer({ channelId, threadRootId, label }: Props) {
         setActive((current + step + shown.length) % shown.length);
         return;
       }
-      if (e.key === "Enter" || e.key === "Tab") {
+      // A command already typed in full sends on Enter instead of being picked again.
+      const complete = slash !== null && shown[current]!.token.trim() === text.trim();
+      if (e.key === "Tab" || (e.key === "Enter" && !complete)) {
         e.preventDefault();
         pick(shown[current]!);
         return;
@@ -121,7 +170,7 @@ export function Composer({ channelId, threadRootId, label }: Props) {
     // Enter while an IME (Thai, Japanese) is composing confirms the word, it does not send.
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      submit();
+      void submit();
     }
   }
 
@@ -131,7 +180,7 @@ export function Composer({ channelId, threadRootId, label }: Props) {
       className="chat-composer"
       onSubmit={(e) => {
         e.preventDefault();
-        submit();
+        void submit();
       }}
     >
       <label className="visually-hidden" htmlFor={`${uid}-box`}>
@@ -139,7 +188,13 @@ export function Composer({ channelId, threadRootId, label }: Props) {
       </label>
       <div className="chat-composer-box">
         {open && (
-          <MentionList id={listId} label={t("chat.mention.list")} options={shown} active={current} onPick={pick} />
+          <MentionList
+            id={listId}
+            label={slash !== null ? t("chat.command.list") : t("chat.mention.list")}
+            options={shown}
+            active={current}
+            onPick={pick}
+          />
         )}
         <textarea
           id={`${uid}-box`}
@@ -169,6 +224,18 @@ export function Composer({ channelId, threadRootId, label }: Props) {
       <p className="form-error" role="alert">
         {tooLong ? t("chat.tooLong") : null}
       </p>
+      {note && (
+        <p className={note.failed ? "form-error" : "muted"} role={note.failed ? "alert" : "status"}>
+          {note.text}
+        </p>
+      )}
     </form>
   );
+}
+
+/** The command a message starts with, when the server registered it: `/name args`. */
+function commandIn(text: string, commands: ChatCommand[]): { name: string; args: string } | null {
+  const match = /^\/(\S+)\s*([\s\S]*)$/.exec(text.trim());
+  if (!match || !commands.some((c) => c.name === match[1])) return null;
+  return { name: match[1]!, args: match[2]!.trim() };
 }
