@@ -185,3 +185,14 @@ func ValidateUploadSize(size int64) error {
 	}
 	return nil
 }
+
+// Summary is the leave range or the subject, for cards and notifications. It
+// is empty when the stored payload cannot be read, which does not happen for
+// rows this module wrote.
+func (r Request) Summary() string {
+	p, err := ParsePayload(r.Type, r.Payload)
+	if err != nil {
+		return ""
+	}
+	return p.Summary
+}
