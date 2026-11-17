@@ -21,10 +21,13 @@ const tag = "chat"
 // Handler serves the chat endpoints.
 type Handler struct {
 	uc  *usecase.Service
+	ext *usecase.Extensions
 	log *slog.Logger
 }
 
-func New(uc *usecase.Service, log *slog.Logger) *Handler { return &Handler{uc: uc, log: log} }
+func New(uc *usecase.Service, ext *usecase.Extensions, log *slog.Logger) *Handler {
+	return &Handler{uc: uc, ext: ext, log: log}
+}
 
 // Register adds the endpoints to api, a group prefixed with "/chat". Every
 // operation requires a workspace member.
@@ -53,6 +56,8 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	huma.Register(api, op("chat-get-attachment", http.MethodGet, "/attachments/{id}", "Get a presigned download URL for a file", 0), h.attachmentURL)
 	huma.Register(api, op("chat-add-reaction", http.MethodPost, "/messages/{id}/reactions", "React to a message with an emoji; repeating it changes nothing", http.StatusNoContent), h.addReaction)
 	huma.Register(api, op("chat-remove-reaction", http.MethodDelete, "/messages/{id}/reactions/{emoji}", "Remove my reaction; removing one that is not there changes nothing", http.StatusNoContent), h.removeReaction)
+	huma.Register(api, op("chat-list-extensions", http.MethodGet, "/extensions", "List the slash commands and message actions other modules added", 0), h.listExtensions)
+	huma.Register(api, op("chat-run-command", http.MethodPost, "/channels/{id}/commands", "Run a slash command in a channel I can read; the result is shown to me only", 0), h.runCommand)
 	huma.Register(api, op("chat-mark-read", http.MethodPost, "/channels/{id}/read", "Move my read position forward", http.StatusNoContent), h.markRead)
 }
 
