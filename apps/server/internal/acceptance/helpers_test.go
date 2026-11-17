@@ -30,9 +30,11 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/approval"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/task"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database/migrations"
@@ -151,6 +153,8 @@ func migrate(url string) error {
 		{"workspace", workspace.Migrations},
 		{"chat", chat.Migrations},
 		{"notify", notify.Migrations},
+		{"task", task.Migrations},
+		{"approval", approval.Migrations},
 	}
 	for _, s := range sets {
 		if err := migrations.Run(ctx, db, s.owner, s.fsys); err != nil {
@@ -217,6 +221,11 @@ type instanceConfig struct {
 	jobHandlers func(*jobs.Queue)
 	// sweepInterval shortens the no-worker sweep. Zero keeps the default.
 	sweepInterval time.Duration
+	// outbox makes the bus cmd/server builds: a write in a transaction is
+	// stored with it and delivered by a relay after the commit (PLT-10). The
+	// relay starts after the modules, as in cmd/server. Without it the bus
+	// delivers in memory, straight away.
+	outbox bool
 }
 
 func newInstance(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client) *instance {
@@ -253,6 +262,9 @@ func newInstanceWith(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client, cfg 
 	tx := database.NewTxManager(pool)
 
 	bus := eventbus.New(logger)
+	if cfg.outbox {
+		bus = eventbus.NewOutbox(pool, logger)
+	}
 	deps := &app.Deps{
 		Logger:        logger,
 		Services:      services,
@@ -269,7 +281,7 @@ func newInstanceWith(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client, cfg 
 
 	// Every module is available, as in cmd/server's modules slice; the
 	// enabled list is what MODULES_ENABLED selects.
-	reg := app.NewRegistry(auth.New(), workspace.New(), chat.New(), notify.New())
+	reg := app.NewRegistry(auth.New(), workspace.New(), chat.New(), notify.New(), task.New(), approval.New())
 	mods, err := reg.Enable(modulesEnabled)
 	if err != nil {
 		t.Fatal(err)
@@ -300,6 +312,20 @@ func newInstanceWith(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client, cfg 
 			defer cancel()
 			if err := queue.Stop(ctx); err != nil {
 				t.Errorf("jobs stop: %v", err)
+			}
+		})
+	}
+	// The relay starts after the modules and the queue, and stops before the
+	// queue, as in cmd/server: its handlers may enqueue jobs.
+	if cfg.outbox {
+		if err := bus.Start(context.Background()); err != nil {
+			t.Fatalf("start event relay: %v", err)
+		}
+		t.Cleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			if err := bus.Stop(ctx); err != nil {
+				t.Errorf("eventbus stop: %v", err)
 			}
 		})
 	}
