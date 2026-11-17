@@ -1194,7 +1194,9 @@ export interface components {
             mentions: string[];
             mentions_channel: boolean;
             /** @description Card payload; null for text */
-            payload: Record<string, never> | null;
+            payload: {
+                [key: string]: unknown;
+            } | null;
             reactions: components["schemas"]["Reaction"][];
             /** Format: int64 */
             reply_count: number;

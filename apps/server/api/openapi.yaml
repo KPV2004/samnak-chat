@@ -937,9 +937,10 @@ components:
         mentions_channel:
           type: boolean
         payload:
+          additionalProperties: true
           description: Card payload; null for text
           type:
-            - ""
+            - object
             - "null"
         reactions:
           items:

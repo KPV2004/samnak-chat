@@ -50,8 +50,7 @@ export function TaskCard({ message }: { message: Message }) {
     const latest = chat?.store.getState().channels[message.channel_id]?.messages.find((m) => m.id === message.id);
     const shown = parseTaskCard(latest?.payload ?? message.payload);
     if (!chat || !latest || !shown || shown.version > Date.parse(task.updated_at)) return;
-    // The generated schema types a card payload as an empty object; the card's kind decides its shape.
-    chat.store.applyMessage({ ...latest, payload: withTask(shown, task) as Message["payload"] });
+    chat.store.applyMessage({ ...latest, payload: withTask(shown, task) });
   }
 
   async function changeStatus(status: TaskStatus) {

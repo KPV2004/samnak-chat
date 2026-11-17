@@ -7,6 +7,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
+
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat/usecase"
 )
 
@@ -54,6 +56,29 @@ type Reaction struct {
 	Me    bool   `json:"me" doc:"The viewer used this emoji. In a WebSocket event it is true for the recipient"`
 }
 
+// CardPayload is a card's JSON object as stored, or null for a text message.
+// Its shape depends on the message kind, so the schema is an open object.
+type CardPayload json.RawMessage
+
+// MarshalJSON writes the stored JSON as is, or null when there is none.
+func (p CardPayload) MarshalJSON() ([]byte, error) {
+	if len(p) == 0 {
+		return []byte("null"), nil
+	}
+	return p, nil
+}
+
+// UnmarshalJSON keeps a copy of the raw JSON.
+func (p *CardPayload) UnmarshalJSON(b []byte) error {
+	*p = append((*p)[:0], b...)
+	return nil
+}
+
+// Schema describes the payload as any JSON object or null.
+func (CardPayload) Schema(huma.Registry) *huma.Schema {
+	return &huma.Schema{Type: huma.TypeObject, AdditionalProperties: true, Nullable: true}
+}
+
 // Message is a message of a channel.
 type Message struct {
 	ID              string          `json:"id"`
@@ -63,7 +88,7 @@ type Message struct {
 	ClientMsgID     string          `json:"client_msg_id"`
 	Kind            string          `json:"kind" doc:"text, or a card kind such as approval.request"`
 	Body            string          `json:"body" doc:"Empty once deleted"`
-	Payload         json.RawMessage `json:"payload" nullable:"true" doc:"Card payload; null for text"`
+	Payload         CardPayload     `json:"payload" doc:"Card payload; null for text"`
 	FallbackText    string          `json:"fallback_text"`
 	ThreadRootID    *string         `json:"thread_root_id"`
 	ReplyCount      int64           `json:"reply_count"`
@@ -81,7 +106,7 @@ func ToMessage(v usecase.MessageView, viewerID string) Message {
 	m := v.Message
 	out := Message{
 		ID: m.ID, ChannelID: m.ChannelID, Seq: m.Seq, SenderID: m.SenderID, ClientMsgID: m.ClientMsgID, Kind: m.Kind,
-		Body: m.Body, Payload: m.Payload, FallbackText: m.FallbackText, ReplyCount: v.ReplyCount,
+		Body: m.Body, Payload: CardPayload(m.Payload), FallbackText: m.FallbackText, ReplyCount: v.ReplyCount,
 		Attachments: []Attachment{}, Reactions: []Reaction{}, Mentions: m.Mentions, MentionsChannel: m.MentionsChannel,
 		EditedAt: m.EditedAt, DeletedAt: m.DeletedAt, CreatedAt: m.CreatedAt.UTC(),
 	}
