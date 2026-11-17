@@ -34,7 +34,7 @@ This plan details **M0: project skeleton** (PLT-01 to PLT-08). Later milestones 
 { "error": { "code": "not_found", "message": "channel not found" } }
 ```
 
-Codes: `invalid` 400, `unauthorized` 401, `forbidden` 403, `not_found` 404, `conflict` 409, `rate_limited` 429, `internal` 500.
+Codes: `invalid` 400, `unauthorized` 401, `forbidden` 403, `not_found` 404, `conflict` 409, `rate_limited` 429, `internal` 500. A client that hangs up mid-request gets `client_closed_request` 499 (access log only; never logged as an error).
 
 ## M0 dependency graph
 

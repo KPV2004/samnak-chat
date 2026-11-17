@@ -602,34 +602,34 @@ Planner notes from checkpoint E:
 - Accepted deviations: the relay filters undeclared names in the claim query so unknown rows cannot block newer ones; an undecodable declared payload is logged and marked published; publishing a type other than the declared one is an error; approval prefixes its Huma types with `Approval` to avoid schema collisions; approval events also carry `requester_id`/`approver_id`; `approver_required` is a module-specific error code in the shared error shape; `next_cursor` is an opaque string, empty on the last page.
 - Known: two concurrent deliveries of one approval event can post a duplicate card (the request keeps pointing at one; logged). Uploaded approval files never attached to a request are not cleaned up yet (M6).
 
-## [ ] M4-06 web: chat extensions and tasks (wave 2)
+## [x] M4-06 web: chat extensions and tasks (wave 2)
 **SRS:** CHAT-16, TASK-01..05, 07 · **Size:** M · **Depends on:** checkpoint E
 
 **Acceptance criteria**
-- [ ] `packages/core`: task and extensions API from the generated schema; `card.updated` keeps the newest `version`
-- [ ] Composer slash-command menu and sending; message menu "Create task"; `task.item` card with status change and "Comments" opening the thread; "My tasks" page with filters
-- [ ] Hidden when `/meta` lacks task; Thai and English strings; component tests; `npm run build`, `npm test`, `npm run lint` pass
+- [x] `packages/core`: task and extensions API from the generated schema; `card.updated` keeps the newest `version`
+- [x] Composer slash-command menu and sending; message menu "Create task"; `task.item` card with status change and "Comments" opening the thread; "My tasks" page with filters
+- [x] Hidden when `/meta` lacks task; Thai and English strings; component tests; `npm run build`, `npm test`, `npm run lint` pass
 
 **Files:** `packages/core/src/` (new `task/`, `api/`), `apps/web/src/` (new `task/`, `chat/Composer.tsx`, `chat/MessageItem.tsx`, `chat/cards.tsx`, `App.tsx`, `pages/Shell.tsx`, `i18n/`)
 
-## [ ] M4-07 web: approvals and groups (wave 2)
+## [x] M4-07 web: approvals and groups (wave 2)
 **SRS:** APR-01..09, WSP-09 · **Size:** M · **Depends on:** checkpoint E
 
 **Acceptance criteria**
-- [ ] `packages/core`: approval and groups API from the generated schema
-- [ ] `approval.request` card with approve, reject (reason) and cancel; "Approvals" page with the new request form (leave and general, approver picker, attachments) and the two lists; detail with history
-- [ ] "Groups" page: everyone sees groups and managers, owners and admins edit
-- [ ] Hidden when `/meta` lacks approval; Thai and English; component tests; build, test and lint pass
+- [x] `packages/core`: approval and groups API from the generated schema
+- [x] `approval.request` card with approve, reject (reason) and cancel; "Approvals" page with the new request form (leave and general, approver picker, attachments) and the two lists; detail with history
+- [x] "Groups" page: everyone sees groups and managers, owners and admins edit
+- [x] Hidden when `/meta` lacks approval; Thai and English; component tests; build, test and lint pass
 
 **Files:** `packages/core/src/` (new `approval/`, `api/`), `apps/web/src/` (new `approval/` and `groups/`, `App.tsx`, `pages/Shell.tsx`, `i18n/`). Register the card renderer from `approval/`; do not edit `chat/` files.
 
-## [ ] M4-08 M4 acceptance test and module matrix (wave 3)
+## [x] M4-08 M4 acceptance test and module matrix (wave 3)
 **SRS:** 16.3 M4, PLT-10, PLT-12 · **Size:** M · **Depends on:** M4-06, M4-07
 
 **Acceptance criteria**
-- [ ] `internal/acceptance`: task from a message → card; status change from the card's API → `card.updated` to channel members; leave request → card in the DM → manager approves → the requester's card updates within 1 s; a non-approver gets 403; events published in a rolled-back transaction are never delivered and a relay restart delivers pending ones
-- [ ] CI job starts the server with the module sets in the plan's PLT-12 and checks `/healthz`, `/meta` and a disabled module's 404
-- [ ] `go test -race ./internal/acceptance/` passes; CI green
+- [x] `internal/acceptance`: task from a message → card; status change from the card's API → `card.updated` to channel members; leave request → card in the DM → manager approves → the requester's card updates within 1 s; a non-approver gets 403; events published in a rolled-back transaction are never delivered and a relay restart delivers pending ones
+- [x] CI job starts the server with the module sets in the plan's PLT-12 and checks `/healthz`, `/meta` and a disabled module's 404
+- [x] `go test -race ./internal/acceptance/` passes; CI green
 
 **Files:** `internal/acceptance/`, `.github/workflows/`
 

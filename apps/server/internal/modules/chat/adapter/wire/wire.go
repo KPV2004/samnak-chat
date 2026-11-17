@@ -81,24 +81,24 @@ func (CardPayload) Schema(huma.Registry) *huma.Schema {
 
 // Message is a message of a channel.
 type Message struct {
-	ID              string          `json:"id"`
-	ChannelID       string          `json:"channel_id"`
-	Seq             int64           `json:"seq"`
-	SenderID        string          `json:"sender_id"`
-	ClientMsgID     string          `json:"client_msg_id"`
-	Kind            string          `json:"kind" doc:"text, or a card kind such as approval.request"`
-	Body            string          `json:"body" doc:"Empty once deleted"`
-	Payload         CardPayload     `json:"payload" doc:"Card payload; null for text"`
-	FallbackText    string          `json:"fallback_text"`
-	ThreadRootID    *string         `json:"thread_root_id"`
-	ReplyCount      int64           `json:"reply_count"`
-	Attachments     []Attachment    `json:"attachments" nullable:"false"`
-	Reactions       []Reaction      `json:"reactions" nullable:"false"`
-	Mentions        []string        `json:"mentions" nullable:"false" doc:"User IDs mentioned who are in the channel"`
-	MentionsChannel bool            `json:"mentions_channel"`
-	EditedAt        *time.Time      `json:"edited_at"`
-	DeletedAt       *time.Time      `json:"deleted_at"`
-	CreatedAt       time.Time       `json:"created_at"`
+	ID              string       `json:"id"`
+	ChannelID       string       `json:"channel_id"`
+	Seq             int64        `json:"seq"`
+	SenderID        string       `json:"sender_id"`
+	ClientMsgID     string       `json:"client_msg_id"`
+	Kind            string       `json:"kind" doc:"text, or a card kind such as approval.request"`
+	Body            string       `json:"body" doc:"Empty once deleted"`
+	Payload         CardPayload  `json:"payload" doc:"Card payload; null for text"`
+	FallbackText    string       `json:"fallback_text"`
+	ThreadRootID    *string      `json:"thread_root_id"`
+	ReplyCount      int64        `json:"reply_count"`
+	Attachments     []Attachment `json:"attachments" nullable:"false"`
+	Reactions       []Reaction   `json:"reactions" nullable:"false"`
+	Mentions        []string     `json:"mentions" nullable:"false" doc:"User IDs mentioned who are in the channel"`
+	MentionsChannel bool         `json:"mentions_channel"`
+	EditedAt        *time.Time   `json:"edited_at"`
+	DeletedAt       *time.Time   `json:"deleted_at"`
+	CreatedAt       time.Time    `json:"created_at"`
 }
 
 // ToMessage converts a message as viewerID sees it: Reaction.Me is about them.
