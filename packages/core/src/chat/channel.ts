@@ -82,6 +82,20 @@ export function find(ch: ChannelState, m: Message): ChatMessage | undefined {
   return ch.messages.find((x) => sameMessage(x, m));
 }
 
+/** The `version` of a card payload (the row's `updated_at` in Unix ms), or null for a payload without one. */
+function payloadVersion(payload: unknown): number | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const v = (payload as { version?: unknown }).version;
+  return typeof v === "number" ? v : null;
+}
+
+/** The payload to keep: a card update never replaces a payload that has a newer `version`. */
+export function newerPayload(existing: unknown, incoming: unknown): unknown {
+  const have = payloadVersion(existing);
+  const got = payloadVersion(incoming);
+  return have !== null && got !== null && got < have ? existing : incoming;
+}
+
 /** Whether `incoming` may replace `existing`: a delete is final, an older edit never wins. */
 function fresher(existing: Message, incoming: Message): boolean {
   if (existing.deleted_at) return false;
@@ -106,7 +120,7 @@ export function upsert(ch: ChannelState, m: Message): ChannelState {
   const existing = ch.messages[i]!;
   if (existing.status === "sent" && !fresher(existing, m)) return ch;
   const messages = [...ch.messages];
-  messages[i] = confirmed;
+  messages[i] = { ...confirmed, payload: newerPayload(existing.payload, m.payload) };
   return { ...ch, messages: sorted(messages) };
 }
 

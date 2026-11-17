@@ -7,6 +7,7 @@ import {
   find,
   mapMessage,
   newChannelState,
+  newerPayload,
   applyRead,
   pendingMessage,
   removeMessage,
@@ -233,7 +234,7 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
     opts.realtime.on("message.deleted", (d) => void onMessage(d, false)),
     opts.realtime.on("card.updated", (d) => {
       if (!inView(d.workspace_id)) return;
-      update(d.channel_id, (ch) => mapMessage(ch, d.message_id, (m) => ({ ...m, payload: d.payload })));
+      update(d.channel_id, (ch) => mapMessage(ch, d.message_id, (m) => ({ ...m, payload: newerPayload(m.payload, d.payload) })));
     }),
     opts.realtime.on("channel.read", (d) => {
       if (!inView(d.workspace_id)) return;

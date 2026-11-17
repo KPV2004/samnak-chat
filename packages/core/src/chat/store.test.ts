@@ -405,6 +405,28 @@ describe("updates from the server", () => {
     expect(first().payload).toEqual({ status: "approved" });
   });
 
+  it("keeps the card payload with the newest version", () => {
+    t.emit("card.updated", { channel_id: "c1", message_id: "m1", payload: { status: "done", version: 200 } });
+    t.emit("card.updated", { channel_id: "c1", message_id: "m1", payload: { status: "doing", version: 100 } });
+    expect(first().payload).toEqual({ status: "done", version: 200 });
+    t.emit("card.updated", { channel_id: "c1", message_id: "m1", payload: { status: "todo", version: 300 } });
+    expect(first().payload).toEqual({ status: "todo", version: 300 });
+  });
+
+  it("takes a payload without a version, and one that replaces an unversioned payload", () => {
+    t.emit("card.updated", { channel_id: "c1", message_id: "m1", payload: { status: "a" } });
+    t.emit("card.updated", { channel_id: "c1", message_id: "m1", payload: { status: "b", version: 5 } });
+    t.emit("card.updated", { channel_id: "c1", message_id: "m1", payload: { status: "c" } });
+    expect(first().payload).toEqual({ status: "c" });
+  });
+
+  it("does not let an older copy of the message bring back an older card payload", () => {
+    const m = t.server.messagesOf("c1")[0]!;
+    t.emit("card.updated", { channel_id: "c1", message_id: "m1", payload: { status: "done", version: 200 } });
+    t.emit("message.updated", { message: { ...m, payload: { status: "todo", version: 100 } } });
+    expect(first().payload).toEqual({ status: "done", version: 200 });
+  });
+
   it("applies channel.read from another device and clears the unread count", () => {
     t.emit("channel.read", { channel_id: "c1", last_read_seq: 1, unread_count: 0, mention_count: 0 });
     expect(t.store.getState().channels.c1).toMatchObject({ lastReadSeq: 1, unreadCount: 0, mentionCount: 0 });
