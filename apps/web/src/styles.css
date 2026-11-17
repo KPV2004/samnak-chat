@@ -114,8 +114,17 @@
 
   fieldset {
     margin: 0 0 1rem;
+    padding: revert;
     border: 1px solid var(--line);
     border-radius: 0.375rem;
+  }
+
+  legend {
+    padding: revert;
+  }
+
+  input:is([type="checkbox"], [type="radio"]):where(:not([data-slot])) {
+    margin: revert;
   }
 
   table:where(:not([data-slot])) {
