@@ -28,6 +28,17 @@ func TestCanMatrix(t *testing.T) {
 	}
 }
 
+// api.go has no constant for the group action yet, so the test spells it out.
+func TestGroupManageIsForOwnersAndAdmins(t *testing.T) {
+	a := workspace.NewAuthorizer()
+	const action workspace.Action = "workspace.group.manage"
+	for r, want := range map[app.Role]bool{app.RoleOwner: true, app.RoleAdmin: true, app.RoleManager: false, app.RoleMember: false, app.RoleGuest: false} {
+		if got := a.Can(app.Principal{UserID: "u", WorkspaceID: "w", Role: r}, action); got != want {
+			t.Errorf("Can(%s, %s) = %v, want %v", r, action, got, want)
+		}
+	}
+}
+
 func TestCanDeniesWithoutWorkspaceOrRoleOrAction(t *testing.T) {
 	a := workspace.NewAuthorizer()
 	if a.Can(app.Principal{UserID: "u", Role: app.RoleOwner}, workspace.ActionMemberManage) {

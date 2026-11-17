@@ -10,6 +10,11 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace/domain"
 )
 
+// actionGroupManage covers creating, renaming and deleting groups and setting
+// their members (WSP-09). It is unexported because api.go, which owns the
+// exported Action constants, is the planner's file.
+const actionGroupManage Action = "workspace.group.manage"
+
 // Policy implements Authorizer and ActionRegistry with a table of allowed
 // roles per action.
 type Policy struct {
@@ -33,6 +38,7 @@ func NewAuthorizer() *Policy {
 		{ActionMemberList, all},
 		{ActionMemberManage, []app.Role{app.RoleOwner, app.RoleAdmin}},
 		{ActionInviteManage, []app.Role{app.RoleOwner, app.RoleAdmin}},
+		{actionGroupManage, []app.Role{app.RoleOwner, app.RoleAdmin}},
 	} {
 		if err := p.Register(reg.action, reg.roles...); err != nil {
 			panic(err) // the table above is constant
