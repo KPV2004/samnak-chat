@@ -1,19 +1,18 @@
 import { Outlet } from "react-router";
 import { useT } from "../i18n/useT";
 import { useRealtimeStatus } from "../state/chat";
-import { Sidebar } from "./Sidebar";
 
+/** The chat area. The channel list is in the app sidebar; this holds the reconnect banner and the open page. */
 export function ChatLayout() {
   const t = useT();
   const status = useRealtimeStatus();
   return (
-    <div className="chat">
+    <div className="grid h-full grid-rows-[auto_minmax(0,1fr)]">
       {status === "reconnecting" && (
-        <p className="chat-banner" role="status">
+        <p className="m-0 border-b bg-muted px-4 py-1.5 text-sm text-muted-foreground" role="status">
           {t("chat.reconnecting")}
         </p>
       )}
-      <Sidebar />
       <section className="chat-pane">
         <Outlet />
       </section>

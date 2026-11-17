@@ -100,7 +100,8 @@ describe("Members", () => {
             : { items: [mali], next_cursor: "c1" },
       },
     });
-    await screen.findByText("Mali");
+    // The sidebar also shows the signed-in user's name (Mali), so look for the member inside the page.
+    await within(screen.getByRole("main")).findByText("Mali");
     await user.click(screen.getByRole("button", { name: "Load more" }));
     expect(await screen.findByText("Somchai")).toBeInTheDocument();
     expect(app.calls.filter((c) => c.path.endsWith("/members"))).toHaveLength(2);
