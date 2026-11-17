@@ -14,6 +14,7 @@ import { NewWorkspace } from "./pages/NewWorkspace";
 import { Profile } from "./pages/Profile";
 import { Register } from "./pages/Register";
 import { Shell } from "./pages/Shell";
+import { MyTasks } from "./task/MyTasks";
 
 export function App() {
   return (
@@ -29,6 +30,7 @@ export function App() {
           <Route path="dm" element={<NewDm />} />
           <Route path=":channelId" element={<ChannelPage />} />
         </Route>
+        <Route path="tasks" element={<MyTasks />} />
         <Route path="members" element={<Members />} />
         <Route path="invites" element={<Invites />} />
         <Route path="profile" element={<Profile />} />

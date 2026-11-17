@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation } from "react-router";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { NotificationBell } from "../notify/NotificationBell";
+import { TaskNavLink } from "../task/TaskNavLink";
 import { ChatProvider } from "../state/chat";
 import { useT } from "../i18n/useT";
 import { useLocale } from "../state/locale";
@@ -73,6 +74,7 @@ export function Shell() {
           {t("nav.home")}
         </NavLink>
         <NavLink to="/chat">{t("nav.chat")}</NavLink>
+        <TaskNavLink />
         <NavLink to="/members">{t("nav.members")}</NavLink>
         <NavLink to="/invites">{t("nav.invites")}</NavLink>
         <NavLink to="/profile">{t("nav.profile")}</NavLink>
