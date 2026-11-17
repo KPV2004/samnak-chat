@@ -65,6 +65,22 @@ describe("Approvals page", () => {
     expect(within(waitingList).getByText("Waiting")).toBeInTheDocument();
   });
 
+  it("asks for pending requests only in the waiting list", async () => {
+    const urls: string[] = [];
+    renderApp({
+      route: "/approvals",
+      routes: routes({
+        "GET /api/v1/approval/requests": (_b, url) => {
+          urls.push(url);
+          return { items: url.includes("role=approver") ? [waiting] : [mine], next_cursor: "" };
+        },
+      }),
+    });
+    await screen.findByRole("list", { name: "Waiting for me" });
+    expect(urls.find((u) => u.includes("role=approver"))).toContain("status=pending");
+    expect(urls.find((u) => u.includes("role=requester"))).not.toContain("status=");
+  });
+
   it("says when a list is empty", async () => {
     renderApp({
       route: "/approvals",
@@ -137,6 +153,21 @@ describe("Approvals page", () => {
     expect(app.called(create)[0]!.body).toEqual({
       type: "general",
       payload: { subject: "Laptop purchase", details: "For the design team", amount: "1200.50", currency: "THB" },
+      attachment_ids: [],
+    });
+  });
+
+  it("sends a general request without an amount and no currency, which the server would refuse", async () => {
+    const user = userEvent.setup();
+    const app = renderApp({ route: "/approvals", routes: routes() });
+    await screen.findByRole("list", { name: "My requests" });
+    await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
+    await user.type(screen.getByLabelText("Subject"), "Team lunch");
+    await user.click(screen.getByRole("button", { name: "Send request" }));
+    await waitFor(() => expect(app.called(create)).toHaveLength(1));
+    expect(app.called(create)[0]!.body).toEqual({
+      type: "general",
+      payload: { subject: "Team lunch", details: "" },
       attachment_ids: [],
     });
   });

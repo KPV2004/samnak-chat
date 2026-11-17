@@ -59,8 +59,8 @@ function buildInput(type: ApprovalType, v: Record<string, string>, attachmentIds
       : {
           subject: text("subject"),
           details: text("details"),
-          currency: text("currency") || "THB",
-          ...(text("amount") ? { amount: text("amount") } : {}),
+          // The server takes a currency only together with an amount.
+          ...(text("amount") ? { amount: text("amount"), currency: text("currency") || "THB" } : {}),
         };
   return {
     type,

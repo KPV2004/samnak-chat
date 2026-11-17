@@ -31,7 +31,9 @@ export function RequestList({ role, title, empty }: Props) {
   const requests = useInfiniteQuery({
     queryKey: ["approval", workspaceId, "requests", role],
     initialPageParam: "",
-    queryFn: ({ pageParam }) => api.listRequests({ role, cursor: pageParam || undefined, limit: 20 }),
+    // "Waiting for me" holds only what still needs a decision; decided ones stay in the chat cards.
+    queryFn: ({ pageParam }) =>
+      api.listRequests({ role, status: role === "approver" ? "pending" : undefined, cursor: pageParam || undefined, limit: 20 }),
     getNextPageParam: (page) => page.next_cursor || undefined,
     enabled: workspaceId !== null,
   });
