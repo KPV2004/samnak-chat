@@ -525,75 +525,82 @@ Plan: `tasks/plan.md` section "M4" (APIs, payloads, events, card rules; canonica
 - [x] `workspace.GroupDirectory`
 - [x] Plan section M4 and these tasks
 
-## [ ] M4-01 platform: transactional outbox (wave 1)
+## [x] M4-01 platform: transactional outbox (wave 1)
 **SRS:** PLT-10 · **Architecture:** section 6.1; ADR 0003 · **Size:** M · **Depends on:** M4-00
 
 **Acceptance criteria**
-- [ ] `eventbus` keeps today's in-memory behaviour outside a transaction; inside `TxManager.Do` `Publish` writes `platform_outbox_events` and `pg_notify` in that transaction, and an undeclared event returns an error
-- [ ] A relay (`LISTEN` plus a 2 s poll) claims rows with `FOR UPDATE SKIP LOCKED`, decodes them into the declared types, runs local handlers and marks them published; rolled back → never delivered; committed → delivered within 1 s; two relays on one database deliver each event once
-- [ ] A crash between handling and marking redelivers (simulate by failing the claim transaction); handler errors and panics are logged, as today
-- [ ] Job `platform.outbox_prune` (24 h) deletes published rows older than 7 days, when `Deps.Jobs` exists
-- [ ] `cmd/server` builds the bus with the pool, starts the relay after `reg.Start` and stops it after HTTP drains; with no database (tests, `server openapi`) it stays in memory
-- [ ] testcontainers tests that run, not skip; `go build ./... && go vet ./... && go test ./...` and `go test -race ./internal/platform/eventbus/` pass
+- [x] `eventbus` keeps today's in-memory behaviour outside a transaction; inside `TxManager.Do` `Publish` writes `platform_outbox_events` and `pg_notify` in that transaction, and an undeclared event returns an error
+- [x] A relay (`LISTEN` plus a 2 s poll) claims rows with `FOR UPDATE SKIP LOCKED`, decodes them into the declared types, runs local handlers and marks them published; rolled back → never delivered; committed → delivered within 1 s; two relays on one database deliver each event once
+- [x] A crash between handling and marking redelivers (simulate by failing the claim transaction); handler errors and panics are logged, as today
+- [x] Job `platform.outbox_prune` (24 h) deletes published rows older than 7 days, when `Deps.Jobs` exists
+- [x] `cmd/server` builds the bus with the pool, starts the relay after `reg.Start` and stops it after HTTP drains; with no database (tests, `server openapi`) it stays in memory
+- [x] testcontainers tests that run, not skip; `go build ./... && go vet ./... && go test ./...` and `go test -race ./internal/platform/eventbus/` pass
 
 **Files:** `internal/platform/eventbus/`, `cmd/server/main.go`, a migration in `internal/platform/database/migrations/platform/` only if an index is needed
 
-## [ ] M4-02 workspace: groups and managers (wave 1)
+## [x] M4-02 workspace: groups and managers (wave 1)
 **SRS:** WSP-09 · **Size:** M · **Depends on:** M4-00
 
 **Acceptance criteria**
-- [ ] Migration for `workspace_groups` and `workspace_group_members`; the six endpoints in the plan with the permissions shown (`workspace.group.manage` for owner and admin)
-- [ ] `PUT .../members` replaces the set in one transaction and rejects users who are not active members (400)
-- [ ] `GroupDirectory.ManagersOf` provided through `app.Services`, ordered as the contract says, excluding the user
-- [ ] Removing a member from the workspace removes them from its groups
-- [ ] Use case, handler and repository tests; `go build ./... && go vet ./... && go test ./...` pass
+- [x] Migration for `workspace_groups` and `workspace_group_members`; the six endpoints in the plan with the permissions shown (`workspace.group.manage` for owner and admin)
+- [x] `PUT .../members` replaces the set in one transaction and rejects users who are not active members (400)
+- [x] `GroupDirectory.ManagersOf` provided through `app.Services`, ordered as the contract says, excluding the user
+- [x] Removing a member from the workspace removes them from its groups
+- [x] Use case, handler and repository tests; `go build ./... && go vet ./... && go test ./...` pass
 
 **Files:** `internal/modules/workspace/` except `api.go` and `events.go`
 
-## [ ] M4-03 chat: slash commands, message actions and channel access (wave 1)
+## [x] M4-03 chat: slash commands, message actions and channel access (wave 1)
 **SRS:** CHAT-16 · **Size:** M · **Depends on:** M4-00
 
 **Acceptance criteria**
-- [ ] chat provides `app.ChatExtensions` and `app.ChannelAccess` in `Provide`
-- [ ] `GET /chat/extensions` and `POST /chat/channels/{id}/commands` as in the plan; the handler gets the caller's `Principal`; `ErrInvalid` → 400, `ErrForbidden` → 403, unknown command → 404, unreadable channel → 404
-- [ ] A duplicate command name panics at registration; names are validated (lower case letters, digits, `-`, 1-32)
-- [ ] `ChannelAccess.CanRead` matches the existing channel read rules (public for active members, private and DM for members, archived still readable)
-- [ ] Tests for all of the above; existing chat tests pass unchanged; `go build ./... && go vet ./... && go test ./...` pass
+- [x] chat provides `app.ChatExtensions` and `app.ChannelAccess` in `Provide`
+- [x] `GET /chat/extensions` and `POST /chat/channels/{id}/commands` as in the plan; the handler gets the caller's `Principal`; `ErrInvalid` → 400, `ErrForbidden` → 403, unknown command → 404, unreadable channel → 404
+- [x] A duplicate command name panics at registration; names are validated (lower case letters, digits, `-`, 1-32)
+- [x] `ChannelAccess.CanRead` matches the existing channel read rules (public for active members, private and DM for members, archived still readable)
+- [x] Tests for all of the above; existing chat tests pass unchanged; `go build ./... && go vet ./... && go test ./...` pass
 
 **Files:** `internal/modules/chat/` except `api.go` and `events.go`
 
-## [ ] M4-04 task module (wave 1)
+## [x] M4-04 task module (wave 1)
 **SRS:** TASK-01..08 · **Size:** L (commit in slices: storage and create, list and get, edit and events, card handlers, rules and due scan, command and action) · **Depends on:** M4-00
 
 Build `internal/modules/task` like notify and chat (`domain`, `usecase`, `adapter/postgres` with sqlc via `go tool sqlc`, `adapter/http`, `migrations`, `module.go`, `api.go`, `events.go`), exactly as the plan's "task module" and "Rules for modules that own cards".
 
 **Acceptance criteria**
-- [ ] Migration, the four endpoints, filters and cursor paging; visibility through `ChannelAccess`; edit rights per TASK-05; assignee validation
-- [ ] Events published inside the transaction and declared; card posted and updated by the module's own handlers after commit, idempotently
-- [ ] Notification rules and `task.due_scan` (guarded when `Deps.Jobs` or a lookup is missing)
-- [ ] `/task` command and `task.create_from_message` action registered when `ChatExtensions` is available
-- [ ] Unit tests with fakes for every rule; handler tests with `humatest`; repository tests on testcontainers; a module test on the real registry with the in-memory bus; `go build ./... && go vet ./... && go test ./...` pass
+- [x] Migration, the four endpoints, filters and cursor paging; visibility through `ChannelAccess`; edit rights per TASK-05; assignee validation
+- [x] Events published inside the transaction and declared; card posted and updated by the module's own handlers after commit, idempotently
+- [x] Notification rules and `task.due_scan` (guarded when `Deps.Jobs` or a lookup is missing)
+- [x] `/task` command and `task.create_from_message` action registered when `ChatExtensions` is available
+- [x] Unit tests with fakes for every rule; handler tests with `humatest`; repository tests on testcontainers; a module test on the real registry with the in-memory bus; `go build ./... && go vet ./... && go test ./...` pass
 
 **Files:** `internal/modules/task/` (new). Do not edit `cmd/`; the planner registers the module.
 
-## [ ] M4-05 approval module (wave 1)
+## [x] M4-05 approval module (wave 1)
 **SRS:** APR-01..09, 13 · **Size:** L (commit in slices: storage and submit, lists and detail, decide and cancel with history, card handlers, rules, uploads) · **Depends on:** M4-00
 
 Build `internal/modules/approval` the same way, exactly as the plan's "approval module" and "Rules for modules that own cards".
 
 **Acceptance criteria**
-- [ ] Migrations, payload validation for leave and general, default approver from `GroupDirectory` (400 `approver_required` when none or the lookup is missing)
-- [ ] Approve, reject (reason required) and cancel with the 403/409 rules; every action written to `approval_history`
-- [ ] Events in the transaction and declared; card in the requester–approver DM, updated on every decision
-- [ ] Notification rules; uploads and attachment downloads through `Deps.Storage`
-- [ ] Unit, handler, repository and module tests as for task; `go build ./... && go vet ./... && go test ./...` pass
+- [x] Migrations, payload validation for leave and general, default approver from `GroupDirectory` (400 `approver_required` when none or the lookup is missing)
+- [x] Approve, reject (reason required) and cancel with the 403/409 rules; every action written to `approval_history`
+- [x] Events in the transaction and declared; card in the requester–approver DM, updated on every decision
+- [x] Notification rules; uploads and attachment downloads through `Deps.Storage`
+- [x] Unit, handler, repository and module tests as for task; `go build ./... && go vet ./... && go test ./...` pass
 
 **Files:** `internal/modules/approval/` (new). Do not edit `cmd/`.
 
 ## Checkpoint E: after M4 wave 1 (planner)
-- [ ] Branches merged; task and approval registered in `cmd/server` and `cmd/migrate`; OpenAPI and `schema.d.ts` regenerated; no Huma schema name collisions
-- [ ] All checks pass; CI green
-- [ ] Live API run: `/task` creates a card that updates on status change; a leave request posts a card in the DM, the approver approves, a third user gets 403; notifications arrive; restart mid-flow loses no event
+- [x] Branches merged; task and approval registered in `cmd/server` and `cmd/migrate`; OpenAPI and `schema.d.ts` regenerated; no Huma schema name collisions
+- [x] All checks pass; CI green
+- [x] Live API run: `/task` creates a card that updates on status change; a leave request posts a card in the DM, the approver approves, a third user gets 403; notifications arrive; restart mid-flow loses no event
+
+Planner notes from checkpoint E:
+- Workers: Claude Sonnet 5.5, five in parallel; branches merged without conflicts. task and approval registered in `cmd/server` and `cmd/migrate`; OpenAPI regenerated (45 paths), no new numbered schema names; all Go tests, `golangci-lint` (0 issues) and the web build pass.
+- Live run with three users over WebSocket against the dev stack, 22/22: groups (admin 201/204, member 403), `/chat/extensions`, `/task` card in 42 ms with the assignee and a `task.assigned` notification, a plain member's PATCH 403, status change → `card.updated` in 31 ms, "My tasks"; a leave request defaults to the group manager, its card reaches the approver's DM in 62 ms with `approval.requested`, the requester and a third member get 403 on approve, reject without reason 400, approve → the requester's card shows approved in 26 ms with `approval.approved`, a second decision 409, history `created,approved`, no manager → 400 `approver_required`.
+- "Restart mid-flow" is covered by the outbox tests (a failed claim commit redelivers; rows inserted without a notify are found by the poll), not by killing the dev server.
+- Accepted deviations: the relay filters undeclared names in the claim query so unknown rows cannot block newer ones; an undecodable declared payload is logged and marked published; publishing a type other than the declared one is an error; approval prefixes its Huma types with `Approval` to avoid schema collisions; approval events also carry `requester_id`/`approver_id`; `approver_required` is a module-specific error code in the shared error shape; `next_cursor` is an opaque string, empty on the last page.
+- Known: two concurrent deliveries of one approval event can post a duplicate card (the request keeps pointing at one; logged). Uploaded approval files never attached to a request are not cleaned up yet (M6).
 
 ## [ ] M4-06 web: chat extensions and tasks (wave 2)
 **SRS:** CHAT-16, TASK-01..05, 07 · **Size:** M · **Depends on:** checkpoint E
