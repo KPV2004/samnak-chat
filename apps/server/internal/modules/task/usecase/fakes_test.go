@@ -400,3 +400,5 @@ func (e *env) create(p app.Principal, in usecase.CreateInput) domain.Task {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func isErr(err, target error) bool { return errors.Is(err, target) }
