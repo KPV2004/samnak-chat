@@ -5,7 +5,10 @@ import { BrowserRouter } from "react-router";
 import { App } from "./App";
 import { session } from "./session";
 import { SessionProvider } from "./state/session";
-import "./styles.css";
+import { initTheme } from "./state/theme";
+import "./index.css";
+
+initTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 15_000, refetchOnWindowFocus: false } },

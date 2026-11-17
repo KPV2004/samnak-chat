@@ -1,4 +1,5 @@
 import type { NotificationItem } from "@samnak/core";
+import { Bell } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -55,7 +56,7 @@ export function NotificationBell() {
       }}
     >
       <button type="button" className="notify-bell" aria-expanded={open} onClick={toggle}>
-        <span aria-hidden="true">🔔</span>
+        <Bell aria-hidden="true" className="size-4" />
         {count > 0 && (
           <span className="notify-count" aria-hidden="true">
             {count > maxShown ? `${maxShown}+` : count}

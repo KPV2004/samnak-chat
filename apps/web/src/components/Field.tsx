@@ -1,4 +1,6 @@
 import { useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "children"> {
   label: string;
@@ -15,19 +17,20 @@ export function Field({ label, error, hint, children, ...input }: FieldProps) {
   const hintId = `${id}-hint`;
   const describedBy = [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ") || undefined;
   return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
+    // The bottom margin spaces fields in the old pages; a <Page> lays its children out with `gap` instead.
+    <div className="mb-4 grid gap-1.5 [[data-page]_&]:mb-0">
+      <Label htmlFor={id}>{label}</Label>
       {children ? (
         children({ id, describedBy, invalid: Boolean(error) })
       ) : (
-        <input id={id} aria-invalid={error ? true : undefined} aria-describedby={describedBy} {...input} />
+        <Input id={id} aria-invalid={error ? true : undefined} aria-describedby={describedBy} {...input} />
       )}
       {hint && (
-        <small id={hintId} className="hint">
+        <small id={hintId} className="text-xs text-muted-foreground">
           {hint}
         </small>
       )}
-      <small id={errorId} className="error" aria-live="polite">
+      <small id={errorId} className="text-xs text-destructive empty:hidden" aria-live="polite">
         {error}
       </small>
     </div>

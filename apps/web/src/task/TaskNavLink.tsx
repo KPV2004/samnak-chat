@@ -1,4 +1,5 @@
-import { NavLink } from "react-router";
+import { ListChecks } from "lucide-react";
+import { NavItem } from "../components/NavItem";
 import { useT } from "../i18n/useT";
 import { useModuleEnabled } from "../modules";
 
@@ -7,5 +8,9 @@ export function TaskNavLink() {
   const t = useT();
   const enabled = useModuleEnabled("task");
   if (!enabled) return null;
-  return <NavLink to="/tasks">{t("nav.tasks")}</NavLink>;
+  return (
+    <NavItem to="/tasks" icon={ListChecks}>
+      {t("nav.tasks")}
+    </NavItem>
+  );
 }

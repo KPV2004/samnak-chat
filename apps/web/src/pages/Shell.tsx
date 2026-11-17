@@ -1,25 +1,30 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
-import { Link, NavLink, Navigate, Outlet, useLocation } from "react-router";
-import { ApprovalNav } from "../approval/ApprovalNav";
+import { Menu } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Navigate, Outlet, useLocation } from "react-router";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Toaster } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
+import { AppSidebar } from "../components/AppSidebar";
+import { Brand } from "../components/Brand";
 import { LanguageSelect } from "../components/LanguageSelect";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { NotificationBell } from "../notify/NotificationBell";
-import { TaskNavLink } from "../task/TaskNavLink";
 import { ChatProvider } from "../state/chat";
 import { useT } from "../i18n/useT";
 import { useLocale } from "../state/locale";
-import { useMe, useSyncWorkspace, useWorkspaces } from "../state/queries";
-import { useSession, useSessionState } from "../state/session";
+import { useMe, useSyncWorkspace } from "../state/queries";
+import { useSessionState } from "../state/session";
 
 export function Shell() {
   const t = useT();
-  const session = useSession();
   const { signedIn } = useSessionState();
   const location = useLocation();
   const queryClient = useQueryClient();
   const setLocale = useLocale((s) => s.setLocale);
   const me = useMe();
-  const { workspaces, current } = useWorkspaces();
+  const [menuOpen, setMenuOpen] = useState(false);
   const localeAppliedFor = useRef<string | null>(null);
 
   useSyncWorkspace();
@@ -42,49 +47,60 @@ export function Shell() {
 
   if (!signedIn) return <Navigate to="/login" replace state={{ from: location }} />;
 
+  const isChat = location.pathname.startsWith("/chat");
+
   return (
     <ChatProvider>
-      <header className="shell-header">
-        <Link to="/" className="brand">
-          {t("title")}
-        </Link>
-        {workspaces && workspaces.length > 0 && (
-          <label className="inline">
-            {t("workspace.switch")}{" "}
-            <select value={current?.id ?? ""} onChange={(e) => session.setWorkspaceId(e.target.value)}>
-              {workspaces.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <Link to="/workspaces/new">{t("workspace.new")}</Link>
-        <NotificationBell />
-        <LanguageSelect />
-        <button
-          type="button"
-          onClick={() => void session.logout(false)}
-        >
-          {t("signOut")}
-        </button>
-      </header>
-      <nav aria-label={t("nav.label")} className="shell-nav">
-        <NavLink to="/" end>
-          {t("nav.home")}
-        </NavLink>
-        <NavLink to="/chat">{t("nav.chat")}</NavLink>
-        <TaskNavLink />
-        <NavLink to="/members">{t("nav.members")}</NavLink>
-        <NavLink to="/invites">{t("nav.invites")}</NavLink>
-        <NavLink to="/profile">{t("nav.profile")}</NavLink>
-        <NavLink to="/devices">{t("nav.devices")}</NavLink>
-        <ApprovalNav />
-      </nav>
-      <main className={location.pathname.startsWith("/chat") ? "wide" : undefined}>
-        <Outlet />
-      </main>
+      <a
+        href="#main"
+        className="sr-only z-50 rounded-md bg-background px-3 py-2 text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+      >
+        {t("ui.skipToContent")}
+      </a>
+      <div className="flex h-dvh bg-background">
+        <aside className="hidden w-64 shrink-0 border-r border-sidebar-border md:block">
+          <AppSidebar />
+        </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="relative z-10 flex h-12 shrink-0 items-center gap-2 border-b px-3 md:px-4">
+            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+              <SheetTrigger asChild>
+                <Button type="button" variant="ghost" size="icon-sm" className="md:hidden" aria-label={t("ui.openMenu")}>
+                  <Menu />
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="left"
+                className="w-72 gap-0 p-0"
+                aria-describedby={undefined}
+                // Focus the panel rather than the first control, which would open with a focus ring on the workspace switch.
+                onOpenAutoFocus={(e) => {
+                  e.preventDefault();
+                  (e.currentTarget as HTMLElement | null)?.focus();
+                }}
+              >
+                <SheetTitle className="sr-only">{t("title")}</SheetTitle>
+                <AppSidebar onNavigate={() => setMenuOpen(false)} />
+              </SheetContent>
+            </Sheet>
+            <Brand className="md:hidden" />
+            <div className="ml-auto flex items-center gap-1">
+              {/* The bell still uses the old styles (notify.css), so it sits in a legacy scope. */}
+              <div className="legacy-scope">
+                <NotificationBell />
+              </div>
+              <LanguageSelect />
+              <ThemeToggle />
+            </div>
+          </header>
+          <div className={cn("min-h-0 flex-1", isChat ? "overflow-hidden" : "overflow-y-auto")}>
+            <main id="main" tabIndex={-1} className={cn("legacy-scope outline-none", isChat ? "h-full" : "legacy-column")}>
+              <Outlet />
+            </main>
+          </div>
+        </div>
+      </div>
+      <Toaster />
     </ChatProvider>
   );
 }

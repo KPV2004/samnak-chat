@@ -3,6 +3,7 @@ import { chatEn, chatTh } from "./chat-messages";
 import { groupsEn, groupsTh } from "./groups-messages";
 import { notifyEn, notifyTh } from "./notify-messages";
 import { taskEn, taskTh } from "./task-messages";
+import { uiEn, uiTh } from "./ui-messages";
 
 export const messages = {
   th: {
@@ -11,6 +12,7 @@ export const messages = {
     ...taskTh,
     ...approvalTh,
     ...groupsTh,
+    ...uiTh,
     title: "Samnak Chat",
     modules: "โมดูลที่เปิดใช้งาน",
     loading: "กำลังโหลด…",
@@ -137,6 +139,7 @@ export const messages = {
     ...taskEn,
     ...approvalEn,
     ...groupsEn,
+    ...uiEn,
     title: "Samnak Chat",
     modules: "Enabled modules",
     loading: "Loading…",
