@@ -27,6 +27,9 @@ func New(log *slog.Logger) *Bus {
 	return &Bus{log: log, handlers: map[string][]app.Handler{}}
 }
 
+// Declare is a no-op here: this bus has no outbox and delivers in memory.
+func (b *Bus) Declare(...app.Event) {}
+
 func (b *Bus) Subscribe(name string, h app.Handler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()

@@ -514,3 +514,119 @@ Planner notes from M3-05 review:
 - [x] With notify turned off, chat works normally
 
 All three checked in two browsers at checkpoint D (see its notes); M3-05 adds the same outcomes to `internal/acceptance`.
+
+# M4: tasks, approvals, chat extensions, groups and the outbox
+
+Plan: `tasks/plan.md` section "M4" (APIs, payloads, events, card rules; canonical). Contracts are fixed in M4-00; workers do not change `internal/app` or another module's `api.go`/`events.go`. Wave 1 tasks own disjoint files and run in parallel.
+
+## [x] M4-00 contracts (planner)
+- [x] `app.EventBus.Declare` and the outbox rule in its doc; the in-memory bus implements `Declare` as a no-op
+- [x] `app.ChatExtensions`, `app.Command`, `app.CommandInput`, `app.CommandResult`, `app.CommandHandler`, `app.MessageAction`, `app.ChannelAccess`
+- [x] `workspace.GroupDirectory`
+- [x] Plan section M4 and these tasks
+
+## [ ] M4-01 platform: transactional outbox (wave 1)
+**SRS:** PLT-10 · **Architecture:** section 6.1; ADR 0003 · **Size:** M · **Depends on:** M4-00
+
+**Acceptance criteria**
+- [ ] `eventbus` keeps today's in-memory behaviour outside a transaction; inside `TxManager.Do` `Publish` writes `platform_outbox_events` and `pg_notify` in that transaction, and an undeclared event returns an error
+- [ ] A relay (`LISTEN` plus a 2 s poll) claims rows with `FOR UPDATE SKIP LOCKED`, decodes them into the declared types, runs local handlers and marks them published; rolled back → never delivered; committed → delivered within 1 s; two relays on one database deliver each event once
+- [ ] A crash between handling and marking redelivers (simulate by failing the claim transaction); handler errors and panics are logged, as today
+- [ ] Job `platform.outbox_prune` (24 h) deletes published rows older than 7 days, when `Deps.Jobs` exists
+- [ ] `cmd/server` builds the bus with the pool, starts the relay after `reg.Start` and stops it after HTTP drains; with no database (tests, `server openapi`) it stays in memory
+- [ ] testcontainers tests that run, not skip; `go build ./... && go vet ./... && go test ./...` and `go test -race ./internal/platform/eventbus/` pass
+
+**Files:** `internal/platform/eventbus/`, `cmd/server/main.go`, a migration in `internal/platform/database/migrations/platform/` only if an index is needed
+
+## [ ] M4-02 workspace: groups and managers (wave 1)
+**SRS:** WSP-09 · **Size:** M · **Depends on:** M4-00
+
+**Acceptance criteria**
+- [ ] Migration for `workspace_groups` and `workspace_group_members`; the six endpoints in the plan with the permissions shown (`workspace.group.manage` for owner and admin)
+- [ ] `PUT .../members` replaces the set in one transaction and rejects users who are not active members (400)
+- [ ] `GroupDirectory.ManagersOf` provided through `app.Services`, ordered as the contract says, excluding the user
+- [ ] Removing a member from the workspace removes them from its groups
+- [ ] Use case, handler and repository tests; `go build ./... && go vet ./... && go test ./...` pass
+
+**Files:** `internal/modules/workspace/` except `api.go` and `events.go`
+
+## [ ] M4-03 chat: slash commands, message actions and channel access (wave 1)
+**SRS:** CHAT-16 · **Size:** M · **Depends on:** M4-00
+
+**Acceptance criteria**
+- [ ] chat provides `app.ChatExtensions` and `app.ChannelAccess` in `Provide`
+- [ ] `GET /chat/extensions` and `POST /chat/channels/{id}/commands` as in the plan; the handler gets the caller's `Principal`; `ErrInvalid` → 400, `ErrForbidden` → 403, unknown command → 404, unreadable channel → 404
+- [ ] A duplicate command name panics at registration; names are validated (lower case letters, digits, `-`, 1-32)
+- [ ] `ChannelAccess.CanRead` matches the existing channel read rules (public for active members, private and DM for members, archived still readable)
+- [ ] Tests for all of the above; existing chat tests pass unchanged; `go build ./... && go vet ./... && go test ./...` pass
+
+**Files:** `internal/modules/chat/` except `api.go` and `events.go`
+
+## [ ] M4-04 task module (wave 1)
+**SRS:** TASK-01..08 · **Size:** L (commit in slices: storage and create, list and get, edit and events, card handlers, rules and due scan, command and action) · **Depends on:** M4-00
+
+Build `internal/modules/task` like notify and chat (`domain`, `usecase`, `adapter/postgres` with sqlc via `go tool sqlc`, `adapter/http`, `migrations`, `module.go`, `api.go`, `events.go`), exactly as the plan's "task module" and "Rules for modules that own cards".
+
+**Acceptance criteria**
+- [ ] Migration, the four endpoints, filters and cursor paging; visibility through `ChannelAccess`; edit rights per TASK-05; assignee validation
+- [ ] Events published inside the transaction and declared; card posted and updated by the module's own handlers after commit, idempotently
+- [ ] Notification rules and `task.due_scan` (guarded when `Deps.Jobs` or a lookup is missing)
+- [ ] `/task` command and `task.create_from_message` action registered when `ChatExtensions` is available
+- [ ] Unit tests with fakes for every rule; handler tests with `humatest`; repository tests on testcontainers; a module test on the real registry with the in-memory bus; `go build ./... && go vet ./... && go test ./...` pass
+
+**Files:** `internal/modules/task/` (new). Do not edit `cmd/`; the planner registers the module.
+
+## [ ] M4-05 approval module (wave 1)
+**SRS:** APR-01..09, 13 · **Size:** L (commit in slices: storage and submit, lists and detail, decide and cancel with history, card handlers, rules, uploads) · **Depends on:** M4-00
+
+Build `internal/modules/approval` the same way, exactly as the plan's "approval module" and "Rules for modules that own cards".
+
+**Acceptance criteria**
+- [ ] Migrations, payload validation for leave and general, default approver from `GroupDirectory` (400 `approver_required` when none or the lookup is missing)
+- [ ] Approve, reject (reason required) and cancel with the 403/409 rules; every action written to `approval_history`
+- [ ] Events in the transaction and declared; card in the requester–approver DM, updated on every decision
+- [ ] Notification rules; uploads and attachment downloads through `Deps.Storage`
+- [ ] Unit, handler, repository and module tests as for task; `go build ./... && go vet ./... && go test ./...` pass
+
+**Files:** `internal/modules/approval/` (new). Do not edit `cmd/`.
+
+## Checkpoint E: after M4 wave 1 (planner)
+- [ ] Branches merged; task and approval registered in `cmd/server` and `cmd/migrate`; OpenAPI and `schema.d.ts` regenerated; no Huma schema name collisions
+- [ ] All checks pass; CI green
+- [ ] Live API run: `/task` creates a card that updates on status change; a leave request posts a card in the DM, the approver approves, a third user gets 403; notifications arrive; restart mid-flow loses no event
+
+## [ ] M4-06 web: chat extensions and tasks (wave 2)
+**SRS:** CHAT-16, TASK-01..05, 07 · **Size:** M · **Depends on:** checkpoint E
+
+**Acceptance criteria**
+- [ ] `packages/core`: task and extensions API from the generated schema; `card.updated` keeps the newest `version`
+- [ ] Composer slash-command menu and sending; message menu "Create task"; `task.item` card with status change and "Comments" opening the thread; "My tasks" page with filters
+- [ ] Hidden when `/meta` lacks task; Thai and English strings; component tests; `npm run build`, `npm test`, `npm run lint` pass
+
+**Files:** `packages/core/src/` (new `task/`, `api/`), `apps/web/src/` (new `task/`, `chat/Composer.tsx`, `chat/MessageItem.tsx`, `chat/cards.tsx`, `App.tsx`, `pages/Shell.tsx`, `i18n/`)
+
+## [ ] M4-07 web: approvals and groups (wave 2)
+**SRS:** APR-01..09, WSP-09 · **Size:** M · **Depends on:** checkpoint E
+
+**Acceptance criteria**
+- [ ] `packages/core`: approval and groups API from the generated schema
+- [ ] `approval.request` card with approve, reject (reason) and cancel; "Approvals" page with the new request form (leave and general, approver picker, attachments) and the two lists; detail with history
+- [ ] "Groups" page: everyone sees groups and managers, owners and admins edit
+- [ ] Hidden when `/meta` lacks approval; Thai and English; component tests; build, test and lint pass
+
+**Files:** `packages/core/src/` (new `approval/`, `api/`), `apps/web/src/` (new `approval/` and `groups/`, `App.tsx`, `pages/Shell.tsx`, `i18n/`). Register the card renderer from `approval/`; do not edit `chat/` files.
+
+## [ ] M4-08 M4 acceptance test and module matrix (wave 3)
+**SRS:** 16.3 M4, PLT-10, PLT-12 · **Size:** M · **Depends on:** M4-06, M4-07
+
+**Acceptance criteria**
+- [ ] `internal/acceptance`: task from a message → card; status change from the card's API → `card.updated` to channel members; leave request → card in the DM → manager approves → the requester's card updates within 1 s; a non-approver gets 403; events published in a rolled-back transaction are never delivered and a relay restart delivers pending ones
+- [ ] CI job starts the server with the module sets in the plan's PLT-12 and checks `/healthz`, `/meta` and a disabled module's 404
+- [ ] `go test -race ./internal/acceptance/` passes; CI green
+
+**Files:** `internal/acceptance/`, `.github/workflows/`
+
+## Checkpoint M4: SRS 16.3 acceptance (planner)
+- [ ] Create a task from a message, then change its status from the card
+- [ ] Send a leave request; the manager approves from the card; the requester's card changes at once
+- [ ] A non-approver who presses approve gets 403

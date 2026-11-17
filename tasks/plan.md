@@ -274,6 +274,120 @@ chat registers one rule on `chat.message_created`. For each recipient, at most o
 | 2 | M3-05 M3 acceptance test | 1 worker |
 | Checkpoint M3 | SRS 16.3 M3 acceptance, two browsers | Planner |
 
+## M4: tasks, approvals, chat extensions, groups and the outbox (SRS TASK-01..08, APR-01..09, 13, CHAT-16, WSP-09, PLT-10, 12)
+
+### Contracts the planner fixed before M4
+
+- `app.EventBus.Declare(protos ...Event)` and the outbox rule: `Publish` outside a transaction runs handlers now (unchanged); inside `TxManager.Do` it writes `platform_outbox_events` in that transaction and the event is delivered after commit, at least once, on one instance (PLT-10). A module that publishes inside a transaction declares those event types in `Init`. The in-memory bus accepts `Declare` and ignores it.
+- `app.ChatExtensions` (`internal/app/chat.go`): `RegisterCommand(Command)` and `RegisterMessageAction(MessageAction)`, provided by chat; modules register in `Init` when the lookup succeeds (CHAT-16).
+- `app.ChannelAccess.CanRead(ctx, workspaceID, channelID, userID)`, provided by chat, so task shows a task only to people who can read its channel (TASK-05).
+- `workspace.GroupDirectory.ManagersOf(ctx, workspaceID, userID)` in `workspace/api.go`, provided by workspace (WSP-09, APR-02).
+- Unchanged and used: `app.CardRegistry` (Post, Update, DirectChannel), `auth.Directory` (display names), `workspace.Authorizer` and `ActionRegistry`, `app.Jobs`, `Deps.Notifications`, `Deps.Storage`.
+
+### Rules for modules that own cards (task, approval)
+
+- Write the row and `Publish` the event inside one `TxManager.Do`. Post or update the card in your own handler of that event, after commit, never inside the transaction (chat sends realtime frames as soon as its own call returns). The handler is idempotent: posting a card stores its `message_id` with `UPDATE ... WHERE message_id IS NULL`, and a redelivered event finds it set and only updates the payload.
+- Each card payload carries what the web needs to render it without another request, plus a `version` (the row's `updated_at` in Unix ms) so a late `card.updated` never overwrites a newer one on the client.
+- Card buttons call the owning module's REST API; chat has no generic action endpoint.
+
+### Outbox (`internal/platform/eventbus`, PLT-10)
+
+- `Publish` inside a transaction (`database.TxFromContext`) inserts `{id uuidv7, name, payload jsonb}` and runs `SELECT pg_notify('platform_outbox', '')` in the same transaction; Postgres delivers the notification only on commit.
+- A relay per instance `LISTEN`s and also polls every 2 s. It claims a batch with `SELECT ... WHERE published_at IS NULL ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 100`, decodes each by its declared type, runs the local handlers, and sets `published_at` in that claim transaction. A handler error is logged (like today) and the event still counts as delivered; a crash before the commit redelivers. An undeclared name is logged and left unpublished.
+- `notify.prune`-style cleanup: delete published rows older than 7 days (a `platform.outbox_prune` job every 24 h).
+- `cmd/server` builds the bus with the pool, starts the relay after `reg.Start` and stops it after HTTP drains.
+
+### Chat extensions (chat, CHAT-16)
+
+| Method and path | Body | Response |
+| --- | --- | --- |
+| `GET /chat/extensions` | | `{commands: [{name, usage, description, module}], message_actions: [{id, module}]}` |
+| `POST /chat/channels/{id}/commands` | `{name, args, thread_root_id?}` | 200 `{text}`; unknown command 404; the caller must be able to read the channel (404 otherwise) |
+
+Handlers run with the caller's `Principal` in `ctx`. Command names are unique; registering a taken name panics at startup.
+
+### Groups (workspace, WSP-09)
+
+Tables `workspace_groups (id, workspace_id, name, created_at)` with unique `(workspace_id, lower(name))`, and `workspace_group_members (group_id, user_id, is_manager, manager_since, added_at)`.
+
+| Method and path | Body | Response | Who |
+| --- | --- | --- | --- |
+| `GET /workspace/groups` | | `{items: [{id, name, member_count, manager_ids}]}` | members |
+| `POST /workspace/groups` | `{name}` | 201 group | owner, admin (`workspace.group.manage`) |
+| `PATCH /workspace/groups/{id}` | `{name}` | group | owner, admin |
+| `DELETE /workspace/groups/{id}` | | 204 | owner, admin |
+| `GET /workspace/groups/{id}/members` | | `{items: [{user_id, display_name, is_manager}]}` | members |
+| `PUT /workspace/groups/{id}/members` | `{members: [{user_id, is_manager}]}` (replaces the set; only active members of the workspace) | 204 | owner, admin |
+
+Removing a member from the workspace removes them from its groups.
+
+### task module (`internal/modules/task`)
+
+Table `task_items (id, workspace_id, channel_id, source_message_id, message_id, title, description, creator_id, assignee_id, due_at, priority low|normal|high, status todo|doing|done, due_soon_sent_at, overdue_sent_at, created_at, updated_at)`. Changing `due_at` clears both `*_sent_at`.
+
+| Method and path | Body or query | Response |
+| --- | --- | --- |
+| `POST /task/items` | `{channel_id, title (1-200), description? (≤ 4000), assignee_id?, due_at?, priority? (normal), source_message_id?}` | 201 `Task` |
+| `GET /task/items` | `?assignee=me\|any`, `?creator=me`, `?status=todo,doing`, `?channel_id=`, `?due=overdue\|today\|week`, `?cursor=&limit=` (≤ 100) | `{items: Task[], next_cursor}`; only tasks whose channel the caller can read |
+| `GET /task/items/{id}` | | `Task` (404 when the channel is not readable) |
+| `PATCH /task/items/{id}` | any of `{title, description, assignee_id (null clears), due_at (null clears), priority, status}` | `Task` |
+
+`Task {id, channel_id, message_id, source_message_id, title, description, creator_id, assignee_id, due_at, priority, status, created_at, updated_at}`.
+
+- The caller must be able to read the channel to create; the assignee must be an active workspace member who can read the channel (400 otherwise).
+- Edit (TASK-05): creator, assignee, owner or admin; others who can read get 403. Status changes follow the same rule.
+- Events (`task/events.go`, published in the transaction, declared): `task.created {workspace_id, task_id, channel_id, creator_id, assignee_id}`, `task.assigned {workspace_id, task_id, assignee_id, actor_id}` (on create with an assignee and on a change of assignee), `task.status_changed {workspace_id, task_id, from, to, actor_id}`, `task.updated {workspace_id, task_id}` (any other field), `task.due_soon` and `task.overdue {workspace_id, task_id, assignee_id, due_at}` (TASK-08).
+- Card kind `task.item`, posted in `channel_id` by the creator on `task.created`; payload `{task_id, title, status, priority, assignee_id, assignee_name, due_at, version}`; fallback text `Task: {title}`. Every later event updates the payload. The card's thread is the task's comments (TASK-07); nothing extra on the server.
+- Notification rules: `task.assigned` → the assignee (not when they assigned themselves); `task.due_soon` and `task.overdue` → the assignee. Keys `task.assigned:{task_id}:{assignee_id}:{updated_at}`, `task.due_soon:{task_id}:{due_at}`, `task.overdue:{task_id}:{due_at}`.
+- Job `task.due_scan` every 5 minutes: tasks not done, with an assignee and `due_at`, publish `task.due_soon` when `due_at - 24h <= now < due_at` and `due_soon_sent_at` is null, and `task.overdue` when `due_at <= now` and `overdue_sent_at` is null, setting the column in the same transaction (TASK-06).
+- Chat extensions: command `/task <title>` (an optional `<@user>` token anywhere sets the assignee; the rest is the title) creates a task in that channel and returns `{text: ""}`; message action `task.create_from_message` (the web opens the create form with the message text as the title and its ID as `source_message_id`).
+
+### approval module (`internal/modules/approval`)
+
+Tables `approval_requests (id, workspace_id, type leave|general, requester_id, approver_id, status pending|approved|rejected|cancelled, payload jsonb, channel_id, message_id, decided_at, reason, created_at, updated_at)`, `approval_steps (request_id, step_no, approver_id, status, reason, decided_at)` (one step in v0.1; APR-11 is P4), `approval_history (id, request_id, actor_id, action created|approved|rejected|cancelled, reason, at)` (APR-07), `approval_attachments (id, request_id null until submit, workspace_id, uploader_id, object_key, file_name, size, mime_type, created_at)`.
+
+Payloads (APR-01): `leave {leave_type annual|sick|personal|other, start_date, end_date (dates, end ≥ start), half_day? morning|afternoon (only when start = end), reason (1-1000)}`; `general {subject (1-200), details (≤ 4000), amount? (decimal string, ≥ 0, 2 places), currency? (default THB)}`.
+
+| Method and path | Body or query | Response |
+| --- | --- | --- |
+| `POST /approval/requests` | `{type, payload, approver_id?, attachment_ids?}` | 201 `Request`; without `approver_id` the first of `GroupDirectory.ManagersOf` (400 `approver_required` when none); the approver must be an active member other than the requester |
+| `GET /approval/requests` | `?role=requester\|approver`, `?status=`, `?cursor=&limit=` | `{items: Request[], next_cursor}` (APR-06) |
+| `GET /approval/requests/{id}` | | `Request` with `history` and `attachments`; visible to the requester and approver, else 404 |
+| `POST /approval/requests/{id}/approve` | | `Request`; caller not the approver → 403; not pending → 409 |
+| `POST /approval/requests/{id}/reject` | `{reason (1-1000)}` | same rules; empty reason → 400 (APR-04) |
+| `POST /approval/requests/{id}/cancel` | | requester only (403), pending only (409) (APR-05) |
+| `POST /approval/uploads` | `{file_name, size (≤ 50 MB), mime_type}` | 201 `{attachment_id, upload: {url, method, headers, expires_at}}`; key `approval/{workspace_id}/{attachment_id}` (APR-09) |
+| `GET /approval/attachments/{id}` | | `{url, expires_at}` for the requester and approver |
+
+`Request {id, type, status, requester_id, approver_id, payload, reason, decided_at, created_at, updated_at, message_id}`.
+
+- Events (published in the transaction, declared): `approval.request_created {workspace_id, request_id, type, requester_id, approver_id}`, `approval.request_approved`, `approval.request_rejected` (+ `reason`), `approval.request_cancelled`, each with `actor_id` (APR-13).
+- Card kind `approval.request`, posted on `approval.request_created` in the DM between requester and approver (`DirectChannel`), sent as the requester (APR-03); payload `{request_id, type, status, summary, fields, requester_id, requester_name, approver_id, approver_name, reason, decided_at, version}` where `summary` is the leave range or the subject and `fields` the payload. Fallback `Approval request: {summary} ({status})`. The decision events update it, so both people see the new status at once.
+- Notification rules (APR-08): created → approver (`approval.requested`); approved and rejected → requester (`approval.approved`, `approval.rejected`); cancelled → approver. Key `approval:{request_id}:{action}`.
+- Actions registered with `ActionRegistry` are not needed; the approver rule is the module's own domain rule.
+
+### Web (wave 2)
+
+- Card renderers in `apps/web/src/chat/cards.tsx`'s registry: `task.item` (title, assignee, due, priority, a status select that PATCHes, "Comments" opens the thread) and `approval.request` (summary, fields, status badge; Approve and Reject with a reason prompt for the approver while pending; Cancel for the requester). A 403 or 409 shows the server's message and refetches.
+- Composer: typing `/` lists `GET /chat/extensions` commands; Enter on a known command sends `POST .../commands`; an unknown command is sent as text. Message menu: "Create task" for `task.create_from_message`.
+- Pages: "My tasks" (`/tasks`, filters status, due and channel), "Approvals" (`/approvals`: new request form for leave and general with approver picker defaulting to the server's choice, tabs "My requests" and "Waiting for me", detail with history and attachments), "Groups" (`/groups`, admin edits, members see).
+- Navigation hides each page when `/meta` does not list its module.
+
+### PLT-12
+
+CI starts the server with `MODULES_ENABLED` unset, empty, `task`, `approval` and `notify,task,approval`, then checks `/healthz`, `/meta` and a 404 for a disabled module's route.
+
+### M4 waves
+
+| Wave | Tasks | Run as |
+| --- | --- | --- |
+| 0 | M4-00 contracts (this section) | Planner |
+| 1 | M4-01 outbox, M4-02 groups, M4-03 chat extensions, M4-04 task, M4-05 approval | 5 parallel workers (disjoint files) |
+| Checkpoint E | Planner merges, registers task and approval, regenerates OpenAPI and web types, live API run | Planner |
+| 2 | M4-06 web: extensions and tasks, M4-07 web: approvals and groups | 2 parallel workers |
+| 3 | M4-08 acceptance test and PLT-12 CI matrix | 1 worker |
+| Checkpoint M4 | SRS 16.3 M4 acceptance in two browsers | Planner |
+
 ## Later milestones (to be broken down at each checkpoint)
 
 | Milestone | Scope | SRS IDs |

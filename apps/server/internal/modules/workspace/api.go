@@ -2,7 +2,11 @@
 // This file and events.go are the only parts other modules may import.
 package workspace
 
-import "github.com/KPV2004/samnak-chat/apps/server/internal/app"
+import (
+	"context"
+
+	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+)
 
 // Action names something a user may do, written "<module>.<thing>.<verb>".
 type Action string
@@ -40,4 +44,15 @@ type ActionRegistry interface {
 	// Register allows action for the given roles. Registering the same action
 	// again with the same roles is fine; with different roles it is an error.
 	Register(action Action, roles ...app.Role) error
+}
+
+// GroupDirectory answers questions about groups (departments or teams) and
+// their managers (WSP-09). workspace provides it through app.Services; a
+// consumer must handle Lookup returning false.
+type GroupDirectory interface {
+	// ManagersOf returns the managers of every group userID belongs to in
+	// the workspace, without userID itself, without duplicates, ordered by
+	// group name and then by when they became manager. approval uses the
+	// first one as the default approver (APR-02). Empty when there is none.
+	ManagersOf(ctx context.Context, workspaceID, userID string) ([]string, error)
 }
