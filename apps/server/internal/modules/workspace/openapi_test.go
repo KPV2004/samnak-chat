@@ -26,12 +26,15 @@ func TestOperationsAppearInOpenAPIWithoutDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string][]string{
-		"/workspace":                  {"POST", "GET"},
-		"/workspace/members":          {"GET"},
-		"/workspace/members/{userId}": {"PATCH", "DELETE"},
-		"/workspace/invites":          {"POST", "GET"},
-		"/workspace/invites/{id}":     {"DELETE"},
-		"/workspace/invites/accept":   {"POST"},
+		"/workspace":                     {"POST", "GET"},
+		"/workspace/members":             {"GET"},
+		"/workspace/members/{userId}":    {"PATCH", "DELETE"},
+		"/workspace/invites":             {"POST", "GET"},
+		"/workspace/invites/{id}":        {"DELETE"},
+		"/workspace/invites/accept":      {"POST"},
+		"/workspace/groups":              {"GET", "POST"},
+		"/workspace/groups/{id}":         {"PATCH", "DELETE"},
+		"/workspace/groups/{id}/members": {"GET", "PUT"},
 	}
 	paths := api.OpenAPI().Paths
 	for path, methods := range want {
@@ -40,7 +43,7 @@ func TestOperationsAppearInOpenAPIWithoutDatabase(t *testing.T) {
 			t.Errorf("path %s missing from OpenAPI", path)
 			continue
 		}
-		ops := map[string]bool{"POST": item.Post != nil, "GET": item.Get != nil, "PATCH": item.Patch != nil, "DELETE": item.Delete != nil}
+		ops := map[string]bool{"POST": item.Post != nil, "GET": item.Get != nil, "PATCH": item.Patch != nil, "PUT": item.Put != nil, "DELETE": item.Delete != nil}
 		for _, m := range methods {
 			if !ops[m] {
 				t.Errorf("%s %s missing", m, path)
