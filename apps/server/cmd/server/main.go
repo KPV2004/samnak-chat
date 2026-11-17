@@ -147,10 +147,13 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 	}()
 
 	queue := jobs.New(pool, logger)
+	bus := eventbus.NewOutbox(pool, logger)
+	bus.RegisterJobs(queue)
 	handler, err := newHandler(logger, cfg.Modules, available, infra{
 		Services: services,
 		Tx:       database.NewTxManager(pool),
 		Jobs:     queue,
+		Bus:      bus,
 		Realtime: hub,
 		Storage:  store,
 		Mount:    hub.Mount,
@@ -174,6 +177,19 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 		}
 	}()
 
+	// The relay delivers outbox events to handlers that may enqueue jobs, so it
+	// starts after the queue and, being deferred later, stops before it.
+	if err := bus.Start(ctx); err != nil {
+		return fmt.Errorf("start event relay: %w", err)
+	}
+	defer func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := bus.Stop(stopCtx); err != nil {
+			logger.Error("eventbus: stop relay", "error", err)
+		}
+	}()
+
 	ln, err := net.Listen("tcp", cfg.HTTPAddr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", cfg.HTTPAddr, err)
@@ -192,7 +208,10 @@ type infra struct {
 	Mount func(chi.Router)
 	Tx    app.TxManager
 	// Jobs is the background queue; nil in tests and the openapi command.
-	Jobs     app.Jobs
+	Jobs app.Jobs
+	// Bus is the event bus with the outbox; nil means an in-memory bus, as in
+	// tests and the openapi command.
+	Bus      app.EventBus
 	Platform map[string]any
 	Checks   []httpx.Check
 }
@@ -302,12 +321,16 @@ func newDeps(logger *slog.Logger, in infra) *app.Deps {
 	if services == nil {
 		services = app.NewServices()
 	}
+	bus := in.Bus
+	if bus == nil {
+		bus = eventbus.New(logger)
+	}
 	return &app.Deps{
 		Logger:        logger,
 		Services:      services,
 		Realtime:      in.Realtime,
 		Storage:       in.Storage,
-		Bus:           eventbus.New(logger),
+		Bus:           bus,
 		Notifications: app.NewNotificationRules(),
 		Tx:            in.Tx,
 		Jobs:          in.Jobs,
