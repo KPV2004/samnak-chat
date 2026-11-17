@@ -13,11 +13,11 @@ import (
 )
 
 const claimDueSoon = `-- name: ClaimDueSoon :many
-UPDATE task_items SET due_soon_sent_at = $1
+UPDATE task_items SET due_soon_sent_at = $1::timestamptz
 WHERE id IN (
     SELECT t.id FROM task_items t
     WHERE t.status <> 'done' AND t.assignee_id IS NOT NULL AND t.due_at IS NOT NULL
-      AND t.due_soon_sent_at IS NULL AND t.due_at > $1 AND t.due_at <= $2
+      AND t.due_soon_sent_at IS NULL AND t.due_at > $1::timestamptz AND t.due_at <= $2::timestamptz
     ORDER BY t.due_at, t.id
     LIMIT $3 FOR UPDATE SKIP LOCKED
 )
@@ -25,8 +25,8 @@ RETURNING id, workspace_id, assignee_id, due_at
 `
 
 type ClaimDueSoonParams struct {
-	Now     *time.Time
-	Horizon *time.Time
+	Now     time.Time
+	Horizon time.Time
 	Batch   int32
 }
 
@@ -63,11 +63,11 @@ func (q *Queries) ClaimDueSoon(ctx context.Context, arg ClaimDueSoonParams) ([]C
 }
 
 const claimOverdue = `-- name: ClaimOverdue :many
-UPDATE task_items SET overdue_sent_at = $1
+UPDATE task_items SET overdue_sent_at = $1::timestamptz
 WHERE id IN (
     SELECT t.id FROM task_items t
     WHERE t.status <> 'done' AND t.assignee_id IS NOT NULL AND t.due_at IS NOT NULL
-      AND t.overdue_sent_at IS NULL AND t.due_at <= $1
+      AND t.overdue_sent_at IS NULL AND t.due_at <= $1::timestamptz
     ORDER BY t.due_at, t.id
     LIMIT $2 FOR UPDATE SKIP LOCKED
 )
@@ -75,7 +75,7 @@ RETURNING id, workspace_id, assignee_id, due_at
 `
 
 type ClaimOverdueParams struct {
-	Now   *time.Time
+	Now   time.Time
 	Batch int32
 }
 

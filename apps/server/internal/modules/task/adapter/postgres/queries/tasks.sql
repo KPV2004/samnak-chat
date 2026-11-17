@@ -36,22 +36,22 @@ ORDER BY id DESC
 LIMIT @page_size;
 
 -- name: ClaimDueSoon :many
-UPDATE task_items SET due_soon_sent_at = @now
+UPDATE task_items SET due_soon_sent_at = @now::timestamptz
 WHERE id IN (
     SELECT t.id FROM task_items t
     WHERE t.status <> 'done' AND t.assignee_id IS NOT NULL AND t.due_at IS NOT NULL
-      AND t.due_soon_sent_at IS NULL AND t.due_at > @now AND t.due_at <= @horizon
+      AND t.due_soon_sent_at IS NULL AND t.due_at > @now::timestamptz AND t.due_at <= @horizon::timestamptz
     ORDER BY t.due_at, t.id
     LIMIT @batch FOR UPDATE SKIP LOCKED
 )
 RETURNING id, workspace_id, assignee_id, due_at;
 
 -- name: ClaimOverdue :many
-UPDATE task_items SET overdue_sent_at = @now
+UPDATE task_items SET overdue_sent_at = @now::timestamptz
 WHERE id IN (
     SELECT t.id FROM task_items t
     WHERE t.status <> 'done' AND t.assignee_id IS NOT NULL AND t.due_at IS NOT NULL
-      AND t.overdue_sent_at IS NULL AND t.due_at <= @now
+      AND t.overdue_sent_at IS NULL AND t.due_at <= @now::timestamptz
     ORDER BY t.due_at, t.id
     LIMIT @batch FOR UPDATE SKIP LOCKED
 )
