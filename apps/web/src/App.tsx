@@ -14,6 +14,7 @@ import { NewWorkspace } from "./pages/NewWorkspace";
 import { Profile } from "./pages/Profile";
 import { Register } from "./pages/Register";
 import { Shell } from "./pages/Shell";
+import "./approval/register";
 
 export function App() {
   return (
