@@ -18,6 +18,7 @@ import "./approval/register";
 import { ApprovalDetail } from "./approval/ApprovalDetail";
 import { Approvals } from "./approval/Approvals";
 import { RequireModule } from "./approval/useModule";
+import { Groups } from "./groups/Groups";
 
 export function App() {
   return (
@@ -35,6 +36,7 @@ export function App() {
         </Route>
         <Route path="approvals" element={<RequireModule name="approval"><Approvals /></RequireModule>} />
         <Route path="approvals/:requestId" element={<RequireModule name="approval"><ApprovalDetail /></RequireModule>} />
+        <Route path="groups" element={<RequireModule name="approval"><Groups /></RequireModule>} />
         <Route path="members" element={<Members />} />
         <Route path="invites" element={<Invites />} />
         <Route path="profile" element={<Profile />} />
