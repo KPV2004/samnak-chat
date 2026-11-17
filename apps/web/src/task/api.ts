@@ -2,7 +2,7 @@ import { createExtensionsApi, createTaskApi, type ChatCommand, type ChatMessageA
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useSession } from "../state/session";
-import { useEnabledModules } from "./modules";
+import { useEnabledModules } from "../modules";
 
 export function useTaskApi(): TaskApi {
   const session = useSession();

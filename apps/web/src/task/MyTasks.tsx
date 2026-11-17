@@ -9,7 +9,7 @@ import { formatDateTime } from "../lib/format";
 import { useChat, useChatState } from "../state/chat";
 import { useSessionState } from "../state/session";
 import { useTaskApi } from "./api";
-import { useMeta } from "./modules";
+import { useMeta } from "../modules";
 import "./task.css";
 
 const statuses: TaskStatus[] = ["todo", "doing", "done"];

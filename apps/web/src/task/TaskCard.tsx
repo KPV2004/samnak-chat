@@ -8,7 +8,7 @@ import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import { useChat } from "../state/chat";
 import { useTaskApi } from "./api";
-import { useModuleEnabled } from "./modules";
+import { useModuleEnabled } from "../modules";
 import "./task.css";
 
 const statuses: TaskStatus[] = ["todo", "doing", "done"];

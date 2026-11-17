@@ -18,7 +18,7 @@ import { MyTasks } from "./task/MyTasks";
 import "./approval/register";
 import { ApprovalDetail } from "./approval/ApprovalDetail";
 import { Approvals } from "./approval/Approvals";
-import { RequireModule } from "./approval/useModule";
+import { RequireModule } from "./modules";
 import { Groups } from "./groups/Groups";
 
 export function App() {

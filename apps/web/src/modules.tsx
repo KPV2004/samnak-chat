@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useSession } from "../state/session";
+import type { ReactNode } from "react";
+import { Navigate } from "react-router";
+import { useT } from "./i18n/useT";
+import { useSession } from "./state/session";
 
 const noModules: string[] = [];
 
@@ -17,4 +20,13 @@ export function useEnabledModules(): string[] {
 /** Whether `/meta` lists the module. A module that is off leaves no trace in the UI. */
 export function useModuleEnabled(name: string): boolean {
   return useEnabledModules().includes(name);
+}
+
+/** A page that exists only while its module is enabled; otherwise it leads to the home page. */
+export function RequireModule({ name, children }: { name: string; children: ReactNode }) {
+  const t = useT();
+  const meta = useMeta();
+  if (meta.isPending) return <p role="status">{t("loading")}</p>;
+  if (!meta.data?.modules.includes(name)) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }

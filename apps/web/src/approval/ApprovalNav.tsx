@@ -1,11 +1,11 @@
 import { NavLink } from "react-router";
 import { useT } from "../i18n/useT";
-import { useModuleEnabled } from "./useModule";
+import { useModuleEnabled } from "../modules";
 
 /** The header links of the approval module: its requests and the groups they route to. Hidden while /meta lacks approval. */
 export function ApprovalNav() {
   const t = useT();
-  const { enabled } = useModuleEnabled("approval");
+  const enabled = useModuleEnabled("approval");
   if (!enabled) return null;
   return (
     <>

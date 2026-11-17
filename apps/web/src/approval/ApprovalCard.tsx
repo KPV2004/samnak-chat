@@ -5,14 +5,14 @@ import { formatDateTime } from "../lib/format";
 import { useMe } from "../state/queries";
 import { ApprovalActions } from "./ApprovalActions";
 import { statusKeys, typeKeys } from "./format";
-import { useModuleEnabled } from "./useModule";
+import { useModuleEnabled } from "../modules";
 
 /**
  * The renderer of `approval.request` cards in a chat (APR-03). While `/meta` lacks
  * approval, a card shows its fallback text like any card this client does not know (PLT-11).
  */
 export function ApprovalCardGate({ message }: { message: Message }) {
-  const { enabled } = useModuleEnabled("approval");
+  const enabled = useModuleEnabled("approval");
   return enabled ? <ApprovalCard message={message} /> : <FallbackCard message={message} />;
 }
 
