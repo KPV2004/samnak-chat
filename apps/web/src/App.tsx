@@ -15,6 +15,7 @@ import { Profile } from "./pages/Profile";
 import { Register } from "./pages/Register";
 import { Shell } from "./pages/Shell";
 import "./approval/register";
+import { ApprovalDetail } from "./approval/ApprovalDetail";
 import { Approvals } from "./approval/Approvals";
 import { RequireModule } from "./approval/useModule";
 
@@ -33,6 +34,7 @@ export function App() {
           <Route path=":channelId" element={<ChannelPage />} />
         </Route>
         <Route path="approvals" element={<RequireModule name="approval"><Approvals /></RequireModule>} />
+        <Route path="approvals/:requestId" element={<RequireModule name="approval"><ApprovalDetail /></RequireModule>} />
         <Route path="members" element={<Members />} />
         <Route path="invites" element={<Invites />} />
         <Route path="profile" element={<Profile />} />
