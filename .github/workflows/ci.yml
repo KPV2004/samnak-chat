@@ -57,3 +57,46 @@ jobs:
       - run: npm ci
       - run: make openapi
       - run: git diff --exit-code apps/server/api packages/core/src/api
+
+  # PLT-12: the server starts with each module set, /healthz and /meta answer
+  # for it, and a disabled module's route is 404. scripts/check-modules.sh does
+  # the work and runs the same way on a laptop.
+  modules:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: unset
+            modules: unset
+            enabled: notify
+          - label: empty
+            modules: ""
+            enabled: ""
+          - label: task
+            modules: task
+            enabled: task
+          - label: approval
+            modules: approval
+            enabled: approval
+          - label: notify,task,approval
+            modules: notify,task,approval
+            enabled: notify,task,approval
+    name: modules ${{ matrix.label }}
+    env:
+      DATABASE_URL: postgres://samnak:samnak@localhost:5432/samnak?sslmode=disable
+      REDIS_URL: redis://localhost:6379/0
+      S3_ENDPOINT: http://localhost:9000
+      S3_BUCKET: samnak
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      JWT_SECRET: ci-only-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      # The Postgres, Redis and MinIO that `make up` starts, with their health checks.
+      - run: docker compose -f deploy/docker-compose.yml up -d --wait
+      - run: bash scripts/check-modules.sh "${{ matrix.modules }}" "${{ matrix.enabled }}"
