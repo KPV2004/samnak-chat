@@ -1,5 +1,7 @@
 import type { Member } from "@samnak/core";
 import { useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useT } from "../i18n/useT";
 import { useSession, useSessionState } from "../state/session";
 
 /**
@@ -24,4 +26,17 @@ export function useMembers() {
       return all;
     },
   });
+}
+
+/** Resolves a user id to a name: the member's display name, else the e-mail, else a placeholder. */
+export function useNameOf(): (userId: string) => string {
+  const t = useT();
+  const { data } = useMembers();
+  return useCallback(
+    (userId) => {
+      const member = data?.find((m) => m.user_id === userId);
+      return member?.display_name || member?.email || t("approval.unknownUser");
+    },
+    [data, t],
+  );
 }
