@@ -1,10 +1,12 @@
 import { chatEn, chatTh } from "./chat-messages";
 import { notifyEn, notifyTh } from "./notify-messages";
+import { taskEn, taskTh } from "./task-messages";
 
 export const messages = {
   th: {
     ...chatTh,
     ...notifyTh,
+    ...taskTh,
     title: "Samnak Chat",
     modules: "โมดูลที่เปิดใช้งาน",
     loading: "กำลังโหลด…",
@@ -128,6 +130,7 @@ export const messages = {
   en: {
     ...chatEn,
     ...notifyEn,
+    ...taskEn,
     title: "Samnak Chat",
     modules: "Enabled modules",
     loading: "Loading…",
