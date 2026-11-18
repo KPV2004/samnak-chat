@@ -79,6 +79,16 @@ type Repository interface {
 	LinkAttachments(ctx context.Context, workspaceID, ticketID, uploaderID string, ids []string) (int64, error)
 	// AttachmentsOf returns a ticket's files in upload order.
 	AttachmentsOf(ctx context.Context, ticketID string) ([]domain.Attachment, error)
+
+	// SetRequesterCard stores the message of the card in the requester's
+	// channel, only when none is stored yet. changed=false means one is.
+	SetRequesterCard(ctx context.Context, workspaceID, ticketID, messageID string) (changed bool, err error)
+	// SetQueueCard is SetRequesterCard for the card in the agents' channel.
+	SetQueueCard(ctx context.Context, workspaceID, ticketID, messageID string) (changed bool, err error)
+	// DefaultCategory returns the workspace's default category, which new
+	// tickets from chat use (HD-03). A missing one is an error wrapping
+	// app.ErrNotFound.
+	DefaultCategory(ctx context.Context, workspaceID string) (domain.Category, error)
 }
 
 // TicketFilter selects the tickets of a list. The visibility rule (requester,
@@ -111,4 +121,17 @@ type Members interface {
 // Permissions is the workspace authorizer, narrowed to what helpdesk asks.
 type Permissions interface {
 	Can(p app.Principal, action string) bool
+}
+
+// Cards is the chat card registry, narrowed to what helpdesk does. Both
+// methods run from event handlers, after the commit, never inside a
+// transaction (PLT-10).
+type Cards interface {
+	Post(ctx context.Context, c app.Card) (messageID string, err error)
+	Update(ctx context.Context, workspaceID, messageID string, payload any) error
+}
+
+// Names looks up display names. Unknown IDs are left out of the map.
+type Names interface {
+	Names(ctx context.Context, ids []string) map[string]string
 }

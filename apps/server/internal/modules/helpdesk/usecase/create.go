@@ -18,6 +18,10 @@ type CreateInput struct {
 	Description     string
 	Priority        domain.Priority
 	SourceMessageID string
+	// SourceChannelID is the channel a ticket made by the "/ticket" command
+	// comes from; the requester's card goes there. A source message sets it
+	// by itself. Only the command sets it: the form never does.
+	SourceChannelID string
 	// AttachmentIDs are files from RequestUpload that the requester uploaded.
 	AttachmentIDs []string
 }
@@ -51,7 +55,7 @@ func (s *Service) Create(ctx context.Context, p app.Principal, in CreateInput) (
 	var fromMessage []app.MessageAttachment
 	in2 := domain.NewTicketInput{
 		WorkspaceID: p.WorkspaceID, QueueID: cat.QueueID, CategoryID: cat.ID, RequesterID: p.UserID,
-		Title: in.Title, Description: in.Description, Priority: in.Priority,
+		Title: in.Title, Description: in.Description, Priority: in.Priority, SourceChannelID: in.SourceChannelID,
 	}
 	if in.SourceMessageID != "" {
 		msg, err := s.readSource(ctx, p, in.SourceMessageID)

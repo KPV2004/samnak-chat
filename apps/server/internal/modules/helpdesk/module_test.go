@@ -26,8 +26,10 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/migrations"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/usecase"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	dbmigrations "github.com/KPV2004/samnak-chat/apps/server/internal/platform/database/migrations"
@@ -117,6 +119,71 @@ func (f fakeMembers) Role(_ context.Context, workspaceID, userID string) (app.Ro
 		return r, nil
 	}
 	return "", fmt.Errorf("not a member: %w", app.ErrForbidden)
+}
+
+// fakeCards is chat's card registry: it keeps what was posted and updated.
+type fakeCards struct {
+	mu      sync.Mutex
+	kinds   []app.CardKind
+	posts   []app.Card
+	updates int
+	byID    map[string]app.Card
+}
+
+func newFakeCards() *fakeCards { return &fakeCards{byID: map[string]app.Card{}} }
+
+func (f *fakeCards) Register(k app.CardKind) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.kinds = append(f.kinds, k)
+}
+
+func (f *fakeCards) Post(_ context.Context, c app.Card) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	id := newID()
+	f.posts = append(f.posts, c)
+	f.byID[id] = c
+	return id, nil
+}
+
+func (f *fakeCards) Update(_ context.Context, _, messageID string, payload any) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, ok := f.byID[messageID]
+	if !ok {
+		return fmt.Errorf("card %s: %w", messageID, app.ErrNotFound)
+	}
+	c.Payload = payload
+	f.byID[messageID] = c
+	f.updates++
+	return nil
+}
+
+func (f *fakeCards) DirectChannel(_ context.Context, _ string, _ []string) (string, error) {
+	return newID(), nil
+}
+
+// fakeExtensions is chat's ChatExtensions.
+type fakeExtensions struct {
+	commands []app.Command
+	actions  []app.MessageAction
+}
+
+func (f *fakeExtensions) RegisterCommand(c app.Command)             { f.commands = append(f.commands, c) }
+func (f *fakeExtensions) RegisterMessageAction(a app.MessageAction) { f.actions = append(f.actions, a) }
+
+// fakeDirectory is auth's Directory.
+type fakeDirectory map[string]string
+
+func (f fakeDirectory) Users(_ context.Context, ids []string) ([]auth.UserSummary, error) {
+	out := make([]auth.UserSummary, 0, len(ids))
+	for _, id := range ids {
+		if name, ok := f[id]; ok {
+			out = append(out, auth.UserSummary{ID: id, DisplayName: name})
+		}
+	}
+	return out, nil
 }
 
 // fakeStorage presigns without a network and knows which objects exist.
@@ -239,6 +306,10 @@ type env struct {
 	bus      *busSim
 	deps     *app.Deps
 	store    *fakeStorage
+	cards    *fakeCards
+	ext      *fakeExtensions
+	dir      fakeDirectory
+	rules    *app.NotificationRules
 	ws       string
 	admin    user
 	agent    user
@@ -249,11 +320,15 @@ type env struct {
 }
 
 // newEnv wires the helpdesk module on the real registry with the real workspace
-// authorizer, a real transaction manager and a fake object storage.
+// authorizer, a real transaction manager, fake object storage, chat's card
+// registry and extensions, and auth's directory.
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	pool := sharedDB(t)
-	e := &env{t: t, auth: fakeAuth{}, members: fakeMembers{}, store: &fakeStorage{objects: map[string]int64{}}, ws: newID()}
+	e := &env{
+		t: t, auth: fakeAuth{}, members: fakeMembers{}, store: &fakeStorage{objects: map[string]int64{}},
+		cards: newFakeCards(), ext: &fakeExtensions{}, dir: fakeDirectory{}, rules: app.NewNotificationRules(), ws: newID(),
+	}
 	e.admin = e.newUser("admin", app.RoleAdmin)
 	e.agent = e.newUser("agent", app.RoleMember)
 	e.member = e.newUser("member", app.RoleMember)
@@ -266,11 +341,14 @@ func newEnv(t *testing.T) *env {
 	app.Provide[app.MembershipResolver](services, e.members)
 	app.Provide[workspace.Authorizer](services, policy)
 	app.Provide[workspace.ActionRegistry](services, policy)
+	app.Provide[app.CardRegistry](services, e.cards)
+	app.Provide[app.ChatExtensions](services, e.ext)
+	app.Provide[auth.Directory](services, e.dir)
 
 	logger := slogNew(testWriter{t})
 	e.bus = newBusSim(logger, database.NewTxManager(pool))
 	e.deps = &app.Deps{
-		Logger: logger, Services: services, Bus: e.bus, Notifications: app.NewNotificationRules(), Tx: e.bus,
+		Logger: logger, Services: services, Bus: e.bus, Notifications: e.rules, Tx: e.bus,
 		Storage: e.store, Platform: map[string]any{"db": pool},
 	}
 	return e
@@ -281,6 +359,7 @@ func (e *env) newUser(name string, role app.Role) user {
 	u := user{ID: id, Token: "tok-" + name + "-" + id}
 	e.auth[u.Token] = app.Identity{UserID: id, DeviceID: "dev-" + id}
 	e.members[e.ws+"/"+id] = role
+	e.dir[id] = name
 	return u
 }
 
@@ -459,5 +538,113 @@ func TestWithoutTheModuleThereAreNoRoutes(t *testing.T) {
 	e.start()
 	if r := e.call(http.MethodGet, "/helpdesk/queues", e.member, nil); r.Code != http.StatusNotFound {
 		t.Errorf("GET /helpdesk/queues with the module off = %d, want 404", r.Code)
+	}
+}
+
+// TestTheModuleRegistersItsCardCommandActionAndRules: the parts chat and
+// notify read from the real registry (HD-03, HD-08, HD-20).
+func TestTheModuleRegistersItsCardCommandActionAndRules(t *testing.T) {
+	e := newEnv(t)
+	e.start(helpdesk.New())
+
+	if len(e.cards.kinds) != 1 || e.cards.kinds[0].Kind != "helpdesk.ticket" || e.cards.kinds[0].Module != "helpdesk" {
+		t.Errorf("card kinds = %+v, want helpdesk.ticket of helpdesk", e.cards.kinds)
+	}
+	if len(e.ext.commands) != 1 || e.ext.commands[0].Name != "ticket" || e.ext.commands[0].Usage != "/ticket <title>" {
+		t.Errorf("commands = %+v, want /ticket", e.ext.commands)
+	}
+	if len(e.ext.actions) != 1 || e.ext.actions[0].ID != "helpdesk.create_from_message" {
+		t.Errorf("actions = %+v, want helpdesk.create_from_message", e.ext.actions)
+	}
+	rules := e.rules.Rules()
+	for _, name := range []string{"helpdesk.ticket_created", "helpdesk.ticket_assigned", "helpdesk.status_changed", "helpdesk.comment_added"} {
+		if len(rules[name]) != 1 {
+			t.Errorf("rules[%s] = %d, want 1", name, len(rules[name]))
+		}
+	}
+	if len(rules["helpdesk.ticket_resolved"]) != 0 {
+		t.Errorf("a resolved ticket has its own rule; want status_changed only")
+	}
+}
+
+// TestTheQueueCardFollowsTheTicketOnTheRealRegistry: the modules own event
+// handlers post the card after the commit and update it on every change.
+func TestTheQueueCardFollowsTheTicketOnTheRealRegistry(t *testing.T) {
+	e := newEnv(t)
+	e.start(helpdesk.New())
+	channelID := newID()
+	var q struct {
+		ID string `json:"id"`
+	}
+	e.call(http.MethodPost, "/helpdesk/queues", e.admin, map[string]any{"name": "IT", "prefix": "IT", "channel_id": channelID}).json(t, &q)
+	if r := e.call(http.MethodPut, "/helpdesk/queues/"+q.ID+"/agents", e.admin, map[string]any{"user_ids": []string{e.agent.ID}}); r.Code != http.StatusNoContent {
+		t.Fatalf("set agents = %d: %s", r.Code, r.Body)
+	}
+	var cat struct {
+		ID string `json:"id"`
+	}
+	e.call(http.MethodPost, "/helpdesk/categories", e.admin, map[string]any{"queue_id": q.ID, "name": "Laptop"}).json(t, &cat)
+
+	var tk struct {
+		ID string `json:"id"`
+	}
+	r := e.call(http.MethodPost, "/helpdesk/tickets", e.member, map[string]any{"category_id": cat.ID, "title": "Laptop will not boot"})
+	if r.Code != http.StatusCreated {
+		t.Fatalf("create ticket = %d: %s", r.Code, r.Body)
+	}
+	r.json(t, &tk)
+
+	if len(e.cards.posts) != 1 || e.cards.posts[0].ChannelID != channelID || e.cards.posts[0].Kind != "helpdesk.ticket" {
+		t.Fatalf("posts = %+v, want one card in the queue channel", e.cards.posts)
+	}
+	if got := e.cards.posts[0].SenderID; got != e.member.ID {
+		t.Errorf("card sender = %q, want the requester %q", got, e.member.ID)
+	}
+	if r := e.call(http.MethodPost, "/helpdesk/tickets/"+tk.ID+"/assign", e.agent, map[string]any{"assignee_id": e.agent.ID}); r.Code != http.StatusOK {
+		t.Fatalf("claim = %d: %s", r.Code, r.Body)
+	}
+	if e.cards.updates == 0 {
+		t.Error("claiming did not update the card")
+	}
+	for _, c := range e.cards.byID {
+		p, ok := c.Payload.(usecase.CardPayload)
+		if !ok {
+			t.Fatalf("payload is %T", c.Payload)
+		}
+		if p.TicketID != tk.ID || p.Status != "open" || p.AssigneeID == nil || *p.AssigneeID != e.agent.ID {
+			t.Errorf("card payload = %+v, want the claimed ticket", p)
+		}
+	}
+}
+
+// TestTheTicketCommandOnTheRealRegistry opens a ticket in the caller's
+// channel through the registered command and puts its card there.
+func TestTheTicketCommandOnTheRealRegistry(t *testing.T) {
+	e := newEnv(t)
+	e.start(helpdesk.New())
+	channelID := newID()
+	var q struct {
+		ID string `json:"id"`
+	}
+	e.call(http.MethodPost, "/helpdesk/queues", e.admin, map[string]any{"name": "IT", "prefix": "IT"}).json(t, &q)
+	e.call(http.MethodPost, "/helpdesk/categories", e.admin, map[string]any{"queue_id": q.ID, "name": "Laptop", "is_default": true}).json(t, &struct{}{})
+
+	ctx := app.WithPrincipal(context.Background(), app.Principal{UserID: e.member.ID, WorkspaceID: e.ws, Role: app.RoleMember})
+	if _, err := e.ext.commands[0].Handler(ctx, app.CommandInput{ChannelID: channelID, Args: "Laptop is dead"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.cards.posts) != 1 || e.cards.posts[0].ChannelID != channelID {
+		t.Fatalf("posts = %+v, want the requester card in the command's channel", e.cards.posts)
+	}
+	var list struct {
+		Items []struct {
+			Key         string `json:"key"`
+			Title       string `json:"title"`
+			RequesterID string `json:"requester_id"`
+		} `json:"items"`
+	}
+	e.call(http.MethodGet, "/helpdesk/tickets", e.member, nil).json(t, &list)
+	if len(list.Items) != 1 || list.Items[0].Key != "IT-0001" || list.Items[0].Title != "Laptop is dead" || list.Items[0].RequesterID != e.member.ID {
+		t.Errorf("tickets = %+v, want the command's ticket", list.Items)
 	}
 }

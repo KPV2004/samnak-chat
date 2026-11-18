@@ -22,6 +22,12 @@ type Deps struct {
 	// Bus receives the events inside Tx, so they reach their listeners only
 	// after the commit (PLT-10). Nil in tests that do not look at events.
 	Bus app.Publisher
+	// Cards posts and updates the ticket cards in chat (HD-08). Nil when chat
+	// is not available: no card is shown then.
+	Cards Cards
+	// Names gives display names for the cards and notices. Nil leaves them
+	// empty.
+	Names Names
 	// Messages is nil when chat is not available; source_message_id is then
 	// refused (HD-03).
 	Messages Messages

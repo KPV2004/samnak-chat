@@ -19,3 +19,8 @@ ORDER BY name, id;
 UPDATE helpdesk_categories SET is_default = false
 WHERE workspace_id = @workspace_id AND is_default
   AND (sqlc.narg('except_id')::uuid IS NULL OR id <> sqlc.narg('except_id')::uuid);
+
+-- name: GetDefaultCategory :one
+-- HD-03: the category the "/ticket" command uses. At most one exists.
+SELECT * FROM helpdesk_categories
+WHERE workspace_id = @workspace_id AND is_default AND archived_at IS NULL;

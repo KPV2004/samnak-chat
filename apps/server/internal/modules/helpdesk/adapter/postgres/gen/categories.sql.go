@@ -52,6 +52,27 @@ func (q *Queries) GetCategory(ctx context.Context, arg GetCategoryParams) (Helpd
 	return i, err
 }
 
+const getDefaultCategory = `-- name: GetDefaultCategory :one
+SELECT id, workspace_id, queue_id, name, is_default, archived_at, created_at FROM helpdesk_categories
+WHERE workspace_id = $1 AND is_default AND archived_at IS NULL
+`
+
+// HD-03: the category the "/ticket" command uses. At most one exists.
+func (q *Queries) GetDefaultCategory(ctx context.Context, workspaceID uuid.UUID) (HelpdeskCategory, error) {
+	row := q.db.QueryRow(ctx, getDefaultCategory, workspaceID)
+	var i HelpdeskCategory
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.QueueID,
+		&i.Name,
+		&i.IsDefault,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertCategory = `-- name: InsertCategory :exec
 INSERT INTO helpdesk_categories (id, workspace_id, queue_id, name, is_default, archived_at, created_at)
 VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7)
