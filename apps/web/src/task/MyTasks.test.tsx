@@ -79,6 +79,21 @@ describe("My tasks", () => {
     expect(latest).toContain("status=doing");
   });
 
+  it("clears every filter at once from the filter bar", async () => {
+    const user = userEvent.setup();
+    const app = renderApp({ route: "/tasks", routes: routes() });
+    await screen.findByText("Prepare the report");
+    await user.click(screen.getByRole("checkbox", { name: "Doing" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Due" }), "today");
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+
+    await waitFor(() => expect(taskUrls(app).at(-1)).not.toContain("status="));
+    expect(taskUrls(app).at(-1)).not.toContain("due=");
+    expect(screen.getByRole("checkbox", { name: "Doing" })).not.toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Due" })).toHaveValue("");
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+  });
+
   it("says so when no task matches", async () => {
     renderApp({ route: "/tasks", routes: routes({ "GET /api/v1/task/items": () => ({ items: [], next_cursor: "" }) }) });
     expect(await screen.findByText("No tasks match these filters.")).toBeInTheDocument();
