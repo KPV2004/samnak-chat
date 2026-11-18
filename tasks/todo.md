@@ -729,3 +729,141 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 - [x] Open a ticket from a message; an agent claims it and changes status along every path in the diagram
 - [x] The requester does not see internal notes
 - [x] With task turned off, helpdesk still works
+
+# M6: v0.1 release
+
+## [x] M6-00 contracts (planner)
+- [x] `app.Mailer`, `app.Mail`, `Deps.Mailer` (`internal/app/mail.go`, `deps.go`)
+- [x] `app.Notification.ChannelID`; `auth.UserSummary.Timezone` filled by the auth `Directory`
+- [x] M6 section in `tasks/plan.md`
+
+## [ ] M6-01 platform: mail (wave 1)
+**SRS:** AUTH-09, NFR-05 · **Size:** S · **Depends on:** M6-00
+
+**Acceptance criteria**
+- [ ] `internal/platform/mail`: `New(cfg, logger) app.Mailer` returns an SMTP mailer (STARTTLS on 587, implicit TLS on 465, auth when a username is set) when `SMTP_HOST` is set, else a log mailer that writes recipient, subject and text at info level
+- [ ] Config reads `WEB_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` with the defaults in the plan; `.env.example` lists them; Mailpit (`axllent/mailpit`, SMTP 1025, UI 8025) added to `deploy/docker-compose.yml` for development
+- [ ] Unit tests for config and the log mailer; an integration test sends through Mailpit with testcontainers and reads it back from the Mailpit API
+- [ ] `go build`, `go vet`, `go test ./...` pass
+
+**Files:** `apps/server/internal/platform/mail/` (new), `apps/server/internal/platform/config/`, `.env.example`, `deploy/docker-compose.yml`
+
+## [ ] M6-02 auth: email verification and password reset (wave 1)
+**SRS:** AUTH-09, AUTH-03, AUTH-06, NFR-07 · **Size:** M · **Depends on:** M6-00
+
+**Acceptance criteria**
+- [ ] Migration adds `auth_email_tokens` and `users.email_verified_at`; tokens as in the plan (random, stored hashed, 1 hour, single use)
+- [ ] Register enqueues `auth.send_email` in its transaction; the job handler renders Thai or English text by the user's locale with links built from `WEB_URL` and calls `Deps.Mailer` (skipped with a log line when nil)
+- [ ] `POST /auth/email/verify`, `POST /auth/email/verify/resend`, `POST /auth/password/forgot` (always 204, rate limited per email and IP), `POST /auth/password/reset` (sets the password with argon2id and revokes all refresh tokens); `GET /auth/me` includes `email_verified`
+- [ ] Tests: expired, reused and wrong-purpose tokens are rejected; forgot for an unknown email is 204 and sends nothing; reset ends other sessions
+- [ ] `go build`, `go vet`, `go test ./...` pass
+
+**Files:** `apps/server/internal/modules/auth/` (all subpackages and migrations). Do not touch `cmd/server`; the planner wires `Mailer` at checkpoint H. Use a fake `app.Mailer` in tests.
+
+## [ ] M6-03 workspace: audit log (wave 1)
+**SRS:** WSP-10, WSP-06 · **Size:** M · **Depends on:** M6-00
+
+**Acceptance criteria**
+- [ ] Migration adds `workspace_audit`; every admin endpoint in the plan's action list writes one row in the same transaction as its change, with actor, target and the `data` shown in the plan
+- [ ] `GET /workspace/audit?cursor=&limit=` (≤ 100, newest first, `{items, next_cursor}`) for Owner and Admin; 403 for others; never rows of another workspace
+- [ ] Tests for each action, the permission check and workspace isolation
+- [ ] `go build`, `go vet`, `go test ./...` pass
+
+**Files:** `apps/server/internal/modules/workspace/` (all subpackages and migrations)
+
+## [ ] M6-04 notify: preferences, mute and do not disturb (wave 1)
+**SRS:** NOTI-07 · **Size:** M · **Depends on:** M6-00
+
+**Acceptance criteria**
+- [ ] Migration adds `notify_preferences`; `GET` and `PUT /notify/preferences` (`{disabled_kinds, muted_channel_ids, dnd_start, dnd_end}`, times as `HH:MM`, both or neither); `GET` returns defaults when no row exists; kinds validated against the registered rule kinds where known
+- [ ] Dispatch drops notices whose kind is disabled or whose `ChannelID` is muted; inside the DND window (user's `Timezone` from `auth.Directory`, wrapping past midnight) the notice is stored and counted and the WebSocket frame has `quiet: true`
+- [ ] chat sets `ChannelID` on every notice it produces (mention, DM, thread reply)
+- [ ] Tests for each rule, the window across midnight in `Asia/Bangkok`, and that other users are unaffected
+- [ ] `go build`, `go vet`, `go test ./...` pass
+
+**Files:** `apps/server/internal/modules/notify/` (all subpackages and migrations), `apps/server/internal/modules/chat/` (only where its notification rules build `app.Notification`, plus their tests)
+
+## [ ] M6-05 observability: Prometheus metrics (wave 1)
+**SRS:** NFR-14 · **Size:** S · **Depends on:** M6-00
+
+**Acceptance criteria**
+- [ ] `internal/platform/observability` exposes a registry, the HTTP middleware (`http_request_duration_seconds` by route pattern, method and status; no raw paths or IDs as labels) and `GET /metrics`
+- [ ] `ws_connections` gauge and `ws_messages_sent_total` counter from `platform/realtime`; Go runtime and process collectors
+- [ ] `cmd/server` mounts `/metrics` and the middleware; a test scrapes `/metrics` after one request and finds the series
+- [ ] `go build`, `go vet`, `go test ./...` pass
+
+**Files:** `apps/server/internal/platform/observability/`, `apps/server/internal/platform/realtime/` (metric hooks only), `apps/server/internal/platform/httpx/` (middleware hook only), `apps/server/cmd/server/` (mounting only), `apps/server/go.mod`, `go.sum`
+
+## [ ] Checkpoint H: after M6 wave 1 (planner)
+- [ ] Merge M6-01..05; wire `mail.New` into `Deps.Mailer` in `cmd/server`; register new migrations in `cmd/migrate`
+- [ ] `make openapi` and commit regenerated types; full CI green
+
+## [ ] M6-06 web: email verification and password reset (wave 2)
+**SRS:** AUTH-09, NFR-17 · **Size:** S · **Depends on:** Checkpoint H
+
+**Acceptance criteria**
+- [ ] Pages `/verify-email?token=`, `/forgot-password`, `/reset-password?token=` with success, expired and invalid states; "Forgot password?" link on sign-in; banner with "Resend" for unverified users
+- [ ] Core API client from the generated schema; Thai and English; component tests; build, test and lint pass
+
+**Files:** `packages/core/src/api/` (auth only), `apps/web/src/pages/` (new pages, `SignIn.tsx` link), `apps/web/src/App.tsx` (routes), `apps/web/src/components/` (new banner), `apps/web/src/i18n/`
+
+## [ ] M6-07 web: audit log and notification settings (wave 2)
+**SRS:** WSP-10, NOTI-07 · **Size:** M · **Depends on:** Checkpoint H
+
+**Acceptance criteria**
+- [ ] "Audit log" page for Owner and Admin (actor, action in words, target, time in the user's time zone, load more)
+- [ ] "Notifications" settings: switch per kind, do-not-disturb start and end, muted channels list; "Mute channel" in the channel header menu; quiet frames show no toast
+- [ ] Core API clients; Thai and English; component tests; build, test and lint pass
+
+**Files:** `packages/core/src/api/` (workspace audit and notify preferences only), `apps/web/src/pages/` (new pages), `apps/web/src/notify/`, `apps/web/src/chat/ChannelHeader*` (mute item only), `apps/web/src/App.tsx`, `apps/web/src/components/AppSidebar.tsx` (nav items only), `apps/web/src/i18n/`
+
+## [ ] M6-08 self-hosting stack and multi-arch images (wave 2)
+**SRS:** NFR-05, NFR-11, NFR-15 · **Size:** M · **Depends on:** Checkpoint H
+
+**Acceptance criteria**
+- [ ] `deploy/compose.prod.yml`: `server` (migrate, then serve; healthcheck on `/readyz`), `web` (Caddy serving the build and proxying `/api` and `/ws`; automatic TLS when `DOMAIN` is set), postgres, redis, minio; `/metrics` not published through Caddy; secrets only from `.env`
+- [ ] `docker compose -f deploy/compose.prod.yml up` on a clean checkout with the example env gives a working app on `http://localhost`
+- [ ] CI builds both images for `linux/amd64` and `linux/arm64` on every push and pushes to GHCR on `v*` tags
+- [ ] `deploy/README.md` with the install steps an outsider follows
+
+**Files:** `deploy/`, `apps/server/Dockerfile`, `apps/web/Dockerfile` (new), `.github/workflows/` (new `images.yml`), `.env.example`
+
+## [ ] M6-09 hardening sweep (wave 2)
+**SRS:** NFR-06, NFR-07, NFR-09, NFR-10, NFR-12 · **Size:** M · **Depends on:** Checkpoint H
+
+**Acceptance criteria**
+- [ ] One acceptance test that, for every module, calls each workspace-scoped read and write endpoint with a member of another workspace and expects 403 or 404 (NFR-06)
+- [ ] Every presigned URL has a 15-minute lifetime, asserted in one test; every endpoint has input limits (list any without, do not change them) (NFR-07)
+- [ ] CI step computes coverage of all `domain` and `usecase` packages and fails below 80% (NFR-12); if it is below today, report the number and the packages instead of lowering the bar
+- [ ] `go test -race ./...` passes
+
+**Files:** `apps/server/internal/acceptance/`, `.github/workflows/ci.yml`, `scripts/` (new coverage script)
+
+## [ ] Checkpoint I: after M6 wave 2 (planner)
+- [ ] Merge M6-06..09; full CI green
+- [ ] Fresh clone on a clean machine: follow `deploy/README.md`, working app in under 10 minutes (SRS 16.3 M6)
+
+## [ ] M6-10 load test (wave 3)
+**SRS:** NFR-01, NFR-02, NFR-03, NFR-04 · **Size:** M · **Depends on:** Checkpoint I
+
+**Acceptance criteria**
+- [ ] k6 scripts in `scripts/load/` with a seed step: REST mix (p95 < 200 ms), send-to-receive over WebSocket (p95 < 300 ms), 1,000 concurrent sockets on one instance, two instances behind Caddy where every message reaches every recipient
+- [ ] `make load` runs them against `compose.prod.yml` with a `scale` of 2; thresholds fail the run
+- [ ] `docs/load-test.md`: machine, results, `/metrics` screenshots or numbers, and anything fixed or still weak
+
+**Files:** `scripts/load/` (new), `Makefile`, `deploy/compose.prod.yml` (load profile only), `docs/load-test.md` (new). Report server bottlenecks; do not change server code.
+
+## [ ] M6-11 release docs and online demo (wave 3)
+**SRS:** NFR-16, NFR-18, SRS 16.3 M6 · **Size:** S · **Depends on:** Checkpoint I, hosting chosen by the user
+
+**Acceptance criteria**
+- [ ] README: what it is, screenshots, install via `deploy/README.md`, development setup, modules; status `v0.1.0`
+- [ ] `CHANGELOG.md` for 0.1.0; `docs/architecture.md` matches the code (modules, contracts, outbox, metrics); CONTRIBUTING up to date
+- [ ] Demo deployed on the chosen host with seed data and a public sign-up; manual check in the latest two Chrome, Firefox, Safari and Edge, and at 360 px width (NFR-16)
+
+**Files:** `README.md`, `CHANGELOG.md` (new), `CONTRIBUTING.md`, `docs/`, `deploy/` (demo config only)
+
+## [ ] Checkpoint M6: SRS 16.3 acceptance and v0.1.0 (planner)
+- [ ] NFR-01 to 03 targets met in `docs/load-test.md`
+- [ ] An outsider installs from the README in under 10 minutes
+- [ ] The online demo works; tag `v0.1.0`

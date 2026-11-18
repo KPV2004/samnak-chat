@@ -10,6 +10,9 @@ type UserSummary struct {
 	Email       string
 	DisplayName string
 	AvatarURL   string
+	// Timezone is the IANA name from the profile, e.g. "Asia/Bangkok"; empty
+	// means UTC. notify uses it for the do-not-disturb window (NOTI-07).
+	Timezone string
 }
 
 // Directory looks up users by ID. auth provides it through app.Services;

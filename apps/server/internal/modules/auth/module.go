@@ -162,7 +162,7 @@ func (d directory) Users(ctx context.Context, ids []string) ([]UserSummary, erro
 	}
 	out := make([]UserSummary, len(users))
 	for i, u := range users {
-		out[i] = UserSummary{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, AvatarURL: u.AvatarURL}
+		out[i] = UserSummary{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, AvatarURL: u.AvatarURL, Timezone: u.Timezone}
 	}
 	return out, nil
 }

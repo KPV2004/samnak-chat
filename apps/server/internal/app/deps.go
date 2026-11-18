@@ -19,6 +19,9 @@ type Deps struct {
 	// Jobs is set by the server. It may be nil in tests and in the openapi
 	// command, so guard calls in Init.
 	Jobs Jobs
+	// Mailer is set by the server (SMTP or the log mailer). It may be nil in
+	// tests and in the openapi command; use it only in job handlers.
+	Mailer Mailer
 	// Platform carries infrastructure handles (db pool, redis, storage, jobs).
 	// Typed accessors live in internal/platform; modules type-assert there.
 	Platform map[string]any

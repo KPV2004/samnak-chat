@@ -481,6 +481,47 @@ Ticket API:
 | 3 | M5-05 web: ticket card, message action, attachments, task from ticket; M5-06 M5 acceptance test | 2 parallel workers |
 | Checkpoint M5 | SRS 16.3 M5 acceptance in two browsers | Planner |
 
+## M6: v0.1 release (SRS AUTH-09, WSP-10, NOTI-07, NFR-01..18)
+
+### Gap at the start of M6 (2026-11-19)
+
+Present: `/healthz` and `/readyz`, graceful shutdown, JSON logs with request ID, Redis fan-out between instances, OpenAPI drift check in CI, README, LICENSE, CONTRIBUTING, ADRs. Missing: an email sender, email verification and password reset, an audit log, notification preferences, `/metrics`, the server and web in Docker Compose, multi-arch images, a load test, a coverage gate, release docs and an online demo.
+
+### Contracts the planner fixed before M6
+
+- `app.Mailer.Send(ctx, app.Mail{To, Subject, Text})` (`internal/app/mail.go`) and `Deps.Mailer`. Implemented by `internal/platform/mail`: SMTP when `SMTP_HOST` is set, otherwise a log mailer. Send only from job handlers, never inside a request transaction.
+- `app.Notification.ChannelID`: the chat channel a notice is about, empty otherwise. notify drops notices for channels the user muted (NOTI-07).
+- `auth.UserSummary.Timezone` (IANA name, empty means UTC), filled by the auth `Directory`, so notify can place the do-not-disturb window in the user's time zone.
+- Config adds `WEB_URL` (base of links in emails, default `http://localhost:5173`), `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`.
+
+### Design
+
+- **Email (AUTH-09).** `auth_email_tokens (id, user_id, purpose verify|reset, token_hash, expires_at, used_at, created_at)`; tokens are 32 random bytes, sent once in the link, stored as SHA-256; lifetime 1 hour; one use. `users.email_verified_at` (null until verified). Register enqueues `auth.send_email` in its transaction; the job handler renders the text and calls `Mailer`. Endpoints: `POST /auth/email/verify {token}`, `POST /auth/email/verify/resend` (signed in), `POST /auth/password/forgot {email}` (always 204, so it does not reveal accounts; rate limited like login), `POST /auth/password/reset {token, password}` (revokes every refresh token of the user, AUTH-03 style). An unverified user can still sign in in v0.1; the web shows a banner. Links: `{WEB_URL}/verify-email?token=` and `{WEB_URL}/reset-password?token=`.
+- **Audit log (WSP-10).** `workspace_audit (id, workspace_id, actor_id, action, target_type, target_id, data jsonb, created_at)`, written by workspace in the same transaction as the change. Actions, one per admin endpoint that exists today: `invite.created` (`POST /workspace/invites`), `invite.revoked` (`DELETE /workspace/invites/{id}`), `member.updated {role: {from,to}, active: {from,to}}` (`PATCH /workspace/members/{userId}`), `member.removed` (`DELETE /workspace/members/{userId}`), `group.created`, `group.updated`, `group.deleted`, `group.members_set` (the `/workspace/groups` endpoints). There is no workspace settings endpoint yet; when one is added it writes `workspace.updated {fields}`. `GET /workspace/audit?cursor=&limit=` for Owner and Admin, newest first. Other modules do not write to it in v0.1.
+- **Notification preferences (NOTI-07).** `notify_preferences (user_id, workspace_id, disabled_kinds text[], muted_channel_ids uuid[], dnd_start time null, dnd_end time null, updated_at)`, one row per user and workspace, defaults when absent. A disabled kind or a muted channel drops the notice before it is stored. Inside the do-not-disturb window (in the user's profile time zone, wrapping past midnight) the notice is stored and counted, and the WebSocket frame carries `quiet: true` so the web shows no toast. `GET /notify/preferences`, `PUT /notify/preferences`. chat sets `ChannelID` on its notices.
+- **Metrics (NFR-14).** `/metrics` on the same listener, Prometheus text: `http_request_duration_seconds{route,method,status}`, `ws_connections`, `ws_messages_sent_total`, `jobs_*` from River, Go runtime. No auth on `/metrics`; the production compose does not publish it through the web proxy.
+- **Self-hosting (NFR-15).** `deploy/docker-compose.yml` gains a `prod` profile (or `deploy/compose.prod.yml`): `server` (runs migrations, then serves), `web` (static build behind Caddy, which also proxies `/api` and `/ws` and terminates TLS for a domain, NFR-05), Mailpit in dev only. Images built for amd64 and arm64 in CI and pushed to GHCR on tags.
+- **Load test (NFR-01..04).** k6 scripts in `scripts/load/`: REST mix (list channels, history, send), message latency from send to receipt over WebSocket, 1,000 concurrent sockets on one instance, two server instances behind the proxy with Redis fan-out. Results written to `docs/load-test.md` with the machine used.
+
+### Decisions
+
+- Email verification is not required to sign in in v0.1 (SRS lists AUTH-09 as Should); the banner nudges.
+- Coverage gate (NFR-12): CI fails if `domain` and `usecase` packages together drop below 80%.
+- Version `0.1.0`, `CHANGELOG.md` in Keep a Changelog style, tag `v0.1.0` (NFR-18).
+- The online demo needs hosting the user chooses (SRS 17 open question); M6-11 waits for that.
+
+### M6 waves
+
+| Wave | Tasks | Run as |
+| --- | --- | --- |
+| 0 | M6-00 contracts (this section) | Planner |
+| 1 | M6-01 platform mail, M6-02 auth email flows, M6-03 audit log, M6-04 notification preferences, M6-05 metrics | 5 parallel workers |
+| Checkpoint H | Planner merges, wires `Mailer` in `cmd/server`, regenerates OpenAPI and web types | Planner |
+| 2 | M6-06 web: email pages, M6-07 web: audit and notification settings, M6-08 self-hosting stack, M6-09 hardening sweep | 4 parallel workers |
+| Checkpoint I | Planner merges; fresh-machine install from README | Planner |
+| 3 | M6-10 load test, M6-11 release docs and demo | 2 workers |
+| Checkpoint M6 | SRS 16.3 M6 acceptance, tag v0.1.0 | Planner |
+
 ## Later milestones (to be broken down at each checkpoint)
 
 | Milestone | Scope | SRS IDs |

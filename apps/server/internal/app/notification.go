@@ -16,7 +16,10 @@ type Notification struct {
 	Title       string
 	Body        string
 	Link        string // web path, e.g. "/chat/{channel_id}"
-	Data        map[string]any
+	// ChannelID is the chat channel the notice is about, if any. notify drops
+	// notices for channels the user has muted (NOTI-07).
+	ChannelID string
+	Data      map[string]any
 	// Key makes a notification idempotent: notify stores at most one
 	// notification per (UserID, Key), so a redelivered event adds nothing.
 	// Use the source object, e.g. "chat.message:{message_id}".
