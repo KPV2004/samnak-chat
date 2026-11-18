@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { Outlet } from "react-router";
+import { RouteFallback } from "../components/RouteFallback";
 import { useT } from "../i18n/useT";
 import { useRealtimeStatus } from "../state/chat";
 
@@ -14,7 +16,9 @@ export function ChatLayout() {
         </p>
       )}
       <section className="chat-pane">
-        <Outlet />
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </section>
     </div>
   );

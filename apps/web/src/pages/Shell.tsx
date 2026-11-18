@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Menu } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { AppSidebar } from "../components/AppSidebar";
 import { Brand } from "../components/Brand";
 import { LanguageSelect } from "../components/LanguageSelect";
+import { RouteFallback } from "../components/RouteFallback";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { NotificationBell } from "../notify/NotificationBell";
 import { ChatProvider } from "../state/chat";
@@ -95,7 +96,9 @@ export function Shell() {
           </header>
           <div className={cn("min-h-0 flex-1", isChat ? "overflow-hidden" : "overflow-y-auto")}>
             <main id="main" tabIndex={-1} className={cn("legacy-scope outline-none", isChat ? "h-full" : "legacy-column")}>
-              <Outlet />
+              <Suspense fallback={<RouteFallback />}>
+                <Outlet />
+              </Suspense>
             </main>
           </div>
         </div>
