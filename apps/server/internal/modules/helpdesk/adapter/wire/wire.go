@@ -139,12 +139,31 @@ func ToComment(c domain.Comment) HelpdeskComment {
 	}
 }
 
-// HelpdeskTicketDetail is a ticket with its comments and history, for the
+// HelpdeskAttachment is a file on a ticket (HD-03). Pass its ID to
+// GET /helpdesk/attachments/{id} for a download URL.
+type HelpdeskAttachment struct {
+	ID          string    `json:"id"`
+	FileName    string    `json:"file_name"`
+	Size        int64     `json:"size"`
+	MimeType    string    `json:"mime_type"`
+	FromMessage bool      `json:"from_message" doc:"Copied from the source chat message"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// ToAttachment converts a stored file.
+func ToAttachment(a domain.Attachment) HelpdeskAttachment {
+	return HelpdeskAttachment{
+		ID: a.ID, FileName: a.FileName, Size: a.Size, MimeType: a.MimeType, FromMessage: a.FromMessage, CreatedAt: a.CreatedAt.UTC(),
+	}
+}
+
+// HelpdeskTicketDetail is a ticket with its comments, history and files, for the
 // ticket's page.
 type HelpdeskTicketDetail struct {
 	HelpdeskTicket
-	Comments []HelpdeskComment      `json:"comments" nullable:"false" doc:"Oldest first; internal ones only for agents and admins"`
-	History  []HelpdeskHistoryEntry `json:"history" nullable:"false" doc:"Oldest first; internal lines only for agents and admins"`
+	Comments    []HelpdeskComment      `json:"comments" nullable:"false" doc:"Oldest first; internal ones only for agents and admins"`
+	History     []HelpdeskHistoryEntry `json:"history" nullable:"false" doc:"Oldest first; internal lines only for agents and admins"`
+	Attachments []HelpdeskAttachment   `json:"attachments" nullable:"false"`
 }
 
 // ToDetail converts a ticket with its comments and history.
@@ -153,6 +172,10 @@ func ToDetail(d usecase.Detail) HelpdeskTicketDetail {
 		HelpdeskTicket: ToTicket(d.Ticket),
 		Comments:       make([]HelpdeskComment, len(d.Comments)),
 		History:        make([]HelpdeskHistoryEntry, len(d.History)),
+		Attachments:    make([]HelpdeskAttachment, len(d.Attachments)),
+	}
+	for i, a := range d.Attachments {
+		out.Attachments[i] = ToAttachment(a)
 	}
 	for i, c := range d.Comments {
 		out.Comments[i] = ToComment(c)

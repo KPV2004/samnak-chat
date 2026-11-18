@@ -18,6 +18,8 @@ type CreateInput struct {
 	Description     string
 	Priority        domain.Priority
 	SourceMessageID string
+	// AttachmentIDs are files from RequestUpload that the requester uploaded.
+	AttachmentIDs []string
 }
 
 // Create stores a ticket in the queue of its category, numbers it within that
@@ -27,6 +29,10 @@ type CreateInput struct {
 func (s *Service) Create(ctx context.Context, p app.Principal, in CreateInput) (domain.Ticket, error) {
 	if !validID(in.CategoryID) {
 		return domain.Ticket{}, invalid("category_id is not a valid ID")
+	}
+	fileIDs, err := parseAttachmentIDs(in.AttachmentIDs)
+	if err != nil {
+		return domain.Ticket{}, err
 	}
 	cat, err := s.d.Repo.Category(ctx, p.WorkspaceID, in.CategoryID)
 	if err != nil {
@@ -42,6 +48,7 @@ func (s *Service) Create(ctx context.Context, p app.Principal, in CreateInput) (
 		return domain.Ticket{}, err
 	}
 
+	var fromMessage []app.MessageAttachment
 	in2 := domain.NewTicketInput{
 		WorkspaceID: p.WorkspaceID, QueueID: cat.QueueID, CategoryID: cat.ID, RequesterID: p.UserID,
 		Title: in.Title, Description: in.Description, Priority: in.Priority,
@@ -55,6 +62,10 @@ func (s *Service) Create(ctx context.Context, p app.Principal, in CreateInput) (
 		if in2.Description == "" {
 			in2.Description = msg.Body
 		}
+		fromMessage = msg.Attachments
+	}
+	if err := s.checkUploads(ctx, p, fileIDs); err != nil {
+		return domain.Ticket{}, err
 	}
 	t, err := domain.NewTicket(in2, newID(), s.clock())
 	if err != nil {
@@ -74,12 +85,40 @@ func (s *Service) Create(ctx context.Context, p app.Principal, in CreateInput) (
 		if err := s.d.Repo.InsertHistory(ctx, hist); err != nil {
 			return err
 		}
+		if err := s.attach(ctx, p, t, fileIDs, fromMessage); err != nil {
+			return err
+		}
 		return s.publish(ctx, domain.TicketCreated{TicketRef: ref(t)})
 	})
 	if err != nil {
 		return domain.Ticket{}, err
 	}
 	return t, nil
+}
+
+// attach gives the ticket its uploaded files, which must all still be unused,
+// and copies the files of the source message with chat's keys (HD-03).
+func (s *Service) attach(ctx context.Context, p app.Principal, t domain.Ticket, fileIDs []string, fromMessage []app.MessageAttachment) error {
+	if len(fileIDs) > 0 {
+		n, err := s.d.Repo.LinkAttachments(ctx, p.WorkspaceID, t.ID, p.UserID, fileIDs)
+		if err != nil {
+			return err
+		}
+		if n != int64(len(fileIDs)) {
+			// Another ticket took a file between the check and now.
+			return fmt.Errorf("an attachment is already used by a ticket: %w", app.ErrConflict)
+		}
+	}
+	for _, m := range fromMessage {
+		a := domain.Attachment{
+			ID: newID(), TicketID: t.ID, WorkspaceID: t.WorkspaceID, UploaderID: p.UserID, ObjectKey: m.ObjectKey,
+			FileName: m.FileName, Size: m.Size, MimeType: m.MimeType, FromMessage: true, CreatedAt: t.CreatedAt,
+		}
+		if err := s.d.Repo.InsertAttachment(ctx, a); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkQueueOpen refuses a queue that is archived or gone, as a 400: the

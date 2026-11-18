@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/humatest"
@@ -123,8 +124,32 @@ func (m activeMembers) Active(ctx context.Context, workspaceID, userID string) b
 	return err == nil
 }
 
+// fakeStore presigns without a network and knows which objects exist.
+type fakeStore struct {
+	mu      sync.Mutex
+	objects map[string]int64
+}
+
+func (f *fakeStore) PresignPut(_ context.Context, key, _ string, _ int64, ttl time.Duration) (app.PresignedRequest, error) {
+	return app.PresignedRequest{URL: "https://store.test/put/" + key, Method: "PUT", Headers: map[string]string{}, ExpiresAt: time.Now().Add(ttl)}, nil
+}
+
+func (f *fakeStore) PresignGet(_ context.Context, key, _ string, ttl time.Duration) (app.PresignedRequest, error) {
+	return app.PresignedRequest{URL: "https://store.test/get/" + key, Method: "GET", ExpiresAt: time.Now().Add(ttl)}, nil
+}
+
+func (f *fakeStore) Stat(_ context.Context, key string) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if size, ok := f.objects[key]; ok {
+		return size, nil
+	}
+	return 0, fmt.Errorf("object: %w", app.ErrNotFound)
+}
+
 type env struct {
 	t     *testing.T
+	store *fakeStore
 	api   humatest.TestAPI
 	ws    string
 	admin string
@@ -147,9 +172,10 @@ func newEnv(t *testing.T) *env {
 	})
 	app.Provide[app.MembershipResolver](services, roles)
 
+	e.store = &fakeStore{objects: map[string]int64{}}
 	uc := usecase.New(usecase.Deps{
 		Tx: database.NewTxManager(pool), Repo: postgres.New(pool), Permissions: rolePerms{}, Members: activeMembers{roles},
-		Log: slog.New(slog.DiscardHandler),
+		Storage: e.store, Log: slog.New(slog.DiscardHandler),
 	})
 	_, api := humatest.New(t)
 	// The module mounts its routes under /helpdesk; the group does the same here.
@@ -656,5 +682,66 @@ func TestCommentsAndTheirVisibilityOverHTTP(t *testing.T) {
 	e.call(http.MethodGet, "/helpdesk/tickets/"+tk.ID, "carol", nil).json(t, &asAgent)
 	if len(asAgent.Comments) != 2 {
 		t.Errorf("agent's comments = %+v, want both", asAgent.Comments)
+	}
+}
+
+func TestUploadAttachAndDownloadOverHTTP(t *testing.T) {
+	e := newEnv(t)
+	cat := e.laptopCategory(t)
+
+	r := e.call(http.MethodPost, "/helpdesk/uploads", "bob", map[string]any{"file_name": "log.txt", "size": 12, "mime_type": "text/plain"})
+	if r.Code != http.StatusCreated {
+		t.Fatalf("upload = %d: %s", r.Code, r.Body.String())
+	}
+	var up struct {
+		AttachmentID string `json:"attachment_id"`
+		Upload       struct {
+			URL    string `json:"url"`
+			Method string `json:"method"`
+		} `json:"upload"`
+	}
+	r.json(t, &up)
+	if up.AttachmentID == "" || up.Upload.Method != "PUT" || !strings.Contains(up.Upload.URL, "helpdesk/"+e.ws+"/"+up.AttachmentID) {
+		t.Fatalf("upload = %+v", up)
+	}
+	if r := e.call(http.MethodPost, "/helpdesk/uploads", "bob", map[string]any{"file_name": "x", "size": 0, "mime_type": "text/plain"}); r.Code != http.StatusBadRequest {
+		t.Errorf("empty file = %d, want 400", r.Code)
+	}
+
+	// The client puts the bytes into storage; the fake store learns of them.
+	e.store.objects["helpdesk/"+e.ws+"/"+up.AttachmentID] = 12
+
+	var tk struct {
+		ID string `json:"id"`
+	}
+	r = e.call(http.MethodPost, "/helpdesk/tickets", "bob", map[string]any{"category_id": cat, "title": "Logs", "attachment_ids": []string{up.AttachmentID}})
+	if r.Code != http.StatusCreated {
+		t.Fatalf("create with a file = %d: %s", r.Code, r.Body.String())
+	}
+	r.json(t, &tk)
+
+	var detail struct {
+		Attachments []struct {
+			ID       string `json:"id"`
+			FileName string `json:"file_name"`
+		} `json:"attachments"`
+	}
+	e.call(http.MethodGet, "/helpdesk/tickets/"+tk.ID, "bob", nil).json(t, &detail)
+	if len(detail.Attachments) != 1 || detail.Attachments[0].FileName != "log.txt" {
+		t.Fatalf("attachments = %+v", detail.Attachments)
+	}
+	fileID := detail.Attachments[0].ID
+
+	if r := e.call(http.MethodGet, "/helpdesk/attachments/"+fileID, "bob", nil); r.Code != http.StatusOK || !strings.Contains(r.Body.String(), "store.test/get/") {
+		t.Errorf("requester's download = %d: %s", r.Code, r.Body.String())
+	}
+	if r := e.call(http.MethodGet, "/helpdesk/attachments/"+fileID, "carol", nil); r.Code != http.StatusNotFound {
+		t.Errorf("member who cannot see the ticket = %d, want 404", r.Code)
+	}
+	if r := e.call(http.MethodGet, "/helpdesk/attachments/"+fileID, "out", nil); r.Code != http.StatusForbidden {
+		t.Errorf("non-member = %d, want 403", r.Code)
+	}
+	if r := e.call(http.MethodPost, "/helpdesk/tickets", "bob", map[string]any{"category_id": cat, "title": "Again", "attachment_ids": []string{up.AttachmentID}}); r.Code != http.StatusBadRequest {
+		t.Errorf("reusing the file = %d, want 400", r.Code)
 	}
 }

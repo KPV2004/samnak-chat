@@ -25,7 +25,10 @@ type Deps struct {
 	// Messages is nil when chat is not available; source_message_id is then
 	// refused (HD-03).
 	Messages Messages
-	Log      *slog.Logger
+	// Storage presigns uploads and downloads of files (HD-03). Nil in tests
+	// that do not look at files.
+	Storage app.ObjectStorage
+	Log     *slog.Logger
 	// Now is injected so tests control time.
 	Now func() time.Time
 }

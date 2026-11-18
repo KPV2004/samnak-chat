@@ -60,7 +60,7 @@ func (m *Module) Init(d *app.Deps) error {
 	}
 	deps := usecase.Deps{
 		Tx: d.Tx, Repo: postgres.New(pool), Permissions: permissions{d.Services}, Members: members{d.Services},
-		Bus: d.Bus, Log: m.log, Now: time.Now,
+		Bus: d.Bus, Storage: d.Storage, Log: m.log, Now: time.Now,
 	}
 	// Without chat's reader a source message is refused (HD-03), so the
 	// dependency stays nil.

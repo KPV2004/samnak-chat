@@ -67,6 +67,18 @@ type Repository interface {
 	InsertComment(ctx context.Context, c domain.Comment) error
 	// Comments returns a ticket's comments, oldest first.
 	Comments(ctx context.Context, ticketID string) ([]domain.Comment, error)
+
+	InsertAttachment(ctx context.Context, a domain.Attachment) error
+	// Attachment returns one file. A missing one is an error wrapping
+	// app.ErrNotFound.
+	Attachment(ctx context.Context, workspaceID, id string) (domain.Attachment, error)
+	// AttachmentsByIDs returns the files with these IDs in the workspace.
+	AttachmentsByIDs(ctx context.Context, workspaceID string, ids []string) ([]domain.Attachment, error)
+	// LinkAttachments gives the uploader's files that are not used yet to a
+	// ticket and returns how many it linked.
+	LinkAttachments(ctx context.Context, workspaceID, ticketID, uploaderID string, ids []string) (int64, error)
+	// AttachmentsOf returns a ticket's files in upload order.
+	AttachmentsOf(ctx context.Context, ticketID string) ([]domain.Attachment, error)
 }
 
 // TicketFilter selects the tickets of a list. The visibility rule (requester,

@@ -18,9 +18,10 @@ const (
 // Detail is a ticket with its comments and history, for the ticket's page.
 // Internal comments and history lines are left out for the requester (HD-07).
 type Detail struct {
-	Ticket   domain.Ticket
-	Comments []domain.Comment
-	History  []domain.HistoryEntry
+	Ticket      domain.Ticket
+	Comments    []domain.Comment
+	History     []domain.HistoryEntry
+	Attachments []domain.Attachment
 }
 
 // actor says who the caller is for the rules of one ticket: admin, agent of its
@@ -60,7 +61,11 @@ func (s *Service) Get(ctx context.Context, p app.Principal, id string) (Detail, 
 	if err != nil {
 		return Detail{}, err
 	}
-	d := Detail{Ticket: t, Comments: []domain.Comment{}, History: []domain.HistoryEntry{}}
+	files, err := s.d.Repo.AttachmentsOf(ctx, t.ID)
+	if err != nil {
+		return Detail{}, err
+	}
+	d := Detail{Ticket: t, Comments: []domain.Comment{}, History: []domain.HistoryEntry{}, Attachments: files}
 	for _, c := range comments {
 		if !c.Internal || a.SeesInternal() {
 			d.Comments = append(d.Comments, c)

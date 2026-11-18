@@ -632,3 +632,136 @@ func (r *Repo) Comments(ctx context.Context, ticketID string) ([]domain.Comment,
 	}
 	return out, nil
 }
+
+// toAttachment converts a row of helpdesk_attachments.
+func toAttachment(row gen.HelpdeskAttachment) domain.Attachment {
+	return domain.Attachment{
+		ID: row.ID.String(), TicketID: str(row.TicketID), WorkspaceID: row.WorkspaceID.String(),
+		UploaderID: row.UploaderID.String(), ObjectKey: row.ObjectKey, FileName: row.FileName, Size: row.Size,
+		MimeType: row.MimeType, FromMessage: row.FromMessage, CreatedAt: row.CreatedAt.UTC(),
+	}
+}
+
+// uuidList parses every ID, or fails like id.
+func uuidList(ss []string) ([]uuid.UUID, error) {
+	out := make([]uuid.UUID, 0, len(ss))
+	for _, s := range ss {
+		u, err := uuid.Parse(s)
+		if err != nil {
+			return nil, fmt.Errorf("%q: %w", s, app.ErrNotFound)
+		}
+		out = append(out, u)
+	}
+	return out, nil
+}
+
+func (r *Repo) InsertAttachment(ctx context.Context, a domain.Attachment) error {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return err
+	}
+	p := gen.InsertAttachmentParams{
+		FileName: a.FileName, Size: a.Size, MimeType: a.MimeType, ObjectKey: a.ObjectKey,
+		FromMessage: a.FromMessage, CreatedAt: a.CreatedAt.UTC(),
+	}
+	for _, f := range []struct {
+		dst *uuid.UUID
+		src string
+	}{{&p.ID, a.ID}, {&p.WorkspaceID, a.WorkspaceID}, {&p.UploaderID, a.UploaderID}} {
+		if *f.dst, err = id(f.src); err != nil {
+			return err
+		}
+	}
+	if p.TicketID, err = optID(a.TicketID); err != nil {
+		return err
+	}
+	return wrap(qs.InsertAttachment(ctx, p), "insert attachment")
+}
+
+func (r *Repo) Attachment(ctx context.Context, workspaceID, attachmentID string) (domain.Attachment, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return domain.Attachment{}, err
+	}
+	ws, err := id(workspaceID)
+	if err != nil {
+		return domain.Attachment{}, err
+	}
+	aid, err := id(attachmentID)
+	if err != nil {
+		return domain.Attachment{}, err
+	}
+	row, err := qs.GetAttachment(ctx, gen.GetAttachmentParams{ID: aid, WorkspaceID: ws})
+	if err != nil {
+		return domain.Attachment{}, wrap(err, "attachment")
+	}
+	return toAttachment(row), nil
+}
+
+func (r *Repo) AttachmentsByIDs(ctx context.Context, workspaceID string, attachmentIDs []string) ([]domain.Attachment, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ws, err := id(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := uuidList(attachmentIDs)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := qs.AttachmentsByIDs(ctx, gen.AttachmentsByIDsParams{WorkspaceID: ws, Ids: ids})
+	if err != nil {
+		return nil, wrap(err, "attachments")
+	}
+	out := make([]domain.Attachment, len(rows))
+	for i, row := range rows {
+		out[i] = toAttachment(row)
+	}
+	return out, nil
+}
+
+func (r *Repo) LinkAttachments(ctx context.Context, workspaceID, ticketID, uploaderID string, attachmentIDs []string) (int64, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return 0, err
+	}
+	p := gen.LinkAttachmentsParams{}
+	for _, f := range []struct {
+		dst *uuid.UUID
+		src string
+	}{{&p.WorkspaceID, workspaceID}, {&p.UploaderID, uploaderID}} {
+		if *f.dst, err = id(f.src); err != nil {
+			return 0, err
+		}
+	}
+	if p.TicketID, err = optID(ticketID); err != nil {
+		return 0, err
+	}
+	if p.Ids, err = uuidList(attachmentIDs); err != nil {
+		return 0, err
+	}
+	n, err := qs.LinkAttachments(ctx, p)
+	return n, wrap(err, "link attachments")
+}
+
+func (r *Repo) AttachmentsOf(ctx context.Context, ticketID string) ([]domain.Attachment, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tid, err := id(ticketID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := qs.ListTicketAttachments(ctx, &tid)
+	if err != nil {
+		return nil, wrap(err, "list attachments")
+	}
+	out := make([]domain.Attachment, len(rows))
+	for i, row := range rows {
+		out[i] = toAttachment(row)
+	}
+	return out, nil
+}

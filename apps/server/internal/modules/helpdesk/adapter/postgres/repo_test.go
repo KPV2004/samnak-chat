@@ -635,3 +635,66 @@ func TestCommentsRoundTripWithTheirInternalFlag(t *testing.T) {
 		t.Fatalf("no comments: %v", err)
 	}
 }
+
+func TestAttachmentsLinkOnceToATicket(t *testing.T) {
+	f := newFixture(t)
+	q := f.queue("IT")
+	cat := f.category(q.ID, false)
+	uploader := newID()
+	file := domain.Attachment{
+		ID: newID(), WorkspaceID: f.ws, UploaderID: uploader, ObjectKey: domain.ObjectKey(f.ws, newID()),
+		FileName: "log.txt", Size: 12, MimeType: "text/plain", CreatedAt: time.Now().UTC(),
+	}
+	file.ObjectKey = domain.ObjectKey(f.ws, file.ID)
+	if err := f.repo.InsertAttachment(f.ctx, file); err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.repo.Attachment(f.ctx, f.ws, file.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TicketID != "" || got.ObjectKey != file.ObjectKey || got.FileName != "log.txt" || got.Size != 12 {
+		t.Fatalf("attachment = %+v", got)
+	}
+	if _, err := f.repo.Attachment(f.ctx, newID(), file.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("other workspace: err = %v, want ErrNotFound", err)
+	}
+
+	tk, err := ticketIn(f.ws, q, cat.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tk.RequesterID = uploader
+	if err := f.repo.InsertTicket(f.ctx, tk); err != nil {
+		t.Fatal(err)
+	}
+	ids := []string{file.ID}
+	found, err := f.repo.AttachmentsByIDs(f.ctx, f.ws, ids)
+	if err != nil || len(found) != 1 {
+		t.Fatalf("by IDs = %d, %v", len(found), err)
+	}
+	if n, err := f.repo.LinkAttachments(f.ctx, f.ws, tk.ID, uploader, ids); err != nil || n != 1 {
+		t.Fatalf("link = %d, %v; want 1", n, err)
+	}
+	if n, err := f.repo.LinkAttachments(f.ctx, f.ws, tk.ID, uploader, ids); err != nil || n != 0 {
+		t.Fatalf("second link = %d, %v; want 0", n, err)
+	}
+	if n, err := f.repo.LinkAttachments(f.ctx, f.ws, tk.ID, newID(), ids); err != nil || n != 0 {
+		t.Fatalf("link by someone else = %d, %v; want 0", n, err)
+	}
+
+	msgFile := domain.Attachment{
+		ID: newID(), TicketID: tk.ID, WorkspaceID: f.ws, UploaderID: uploader, ObjectKey: "chat/" + f.ws + "/x",
+		FileName: "shot.png", Size: 3, MimeType: "image/png", FromMessage: true, CreatedAt: time.Now().UTC().Add(time.Second),
+	}
+	if err := f.repo.InsertAttachment(f.ctx, msgFile); err != nil {
+		t.Fatal(err)
+	}
+	files, err := f.repo.AttachmentsOf(f.ctx, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 2 || files[0].ID != file.ID || !files[1].FromMessage || files[1].ObjectKey != msgFile.ObjectKey {
+		t.Fatalf("ticket files = %+v", files)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"reflect"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -55,6 +56,8 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	huma.Register(api, op("helpdesk-change-ticket-status", http.MethodPost, "/tickets/{id}/status", "Move a ticket along its status table; wrong moves are 409, the wrong person is 403", 0), h.changeStatus)
 	huma.Register(api, op("helpdesk-edit-ticket", http.MethodPatch, "/tickets/{id}", "Change the priority or the category of a ticket; agents and admins only", 0), h.editTicket)
 	huma.Register(api, op("helpdesk-add-comment", http.MethodPost, "/tickets/{id}/comments", "Comment on a ticket; internal comments are for agents and admins only", http.StatusCreated), h.addComment)
+	huma.Register(api, op("helpdesk-request-upload", http.MethodPost, "/uploads", "Presign the upload of a file of at most 50 MB for a ticket; upload it with PUT before creating the ticket", http.StatusCreated), h.requestUpload)
+	huma.Register(api, op("helpdesk-get-attachment", http.MethodGet, "/attachments/{id}", "Get a presigned download URL for a file of a ticket you may see, or your own file before a ticket takes it", 0), h.attachmentURL)
 	huma.Register(api, op("helpdesk-create-ticket", http.MethodPost, "/tickets", "Create a ticket in the queue of a category; with source_message_id the message is read as you (HD-03)", http.StatusCreated), h.createTicket)
 	huma.Register(api, op("helpdesk-update-category", http.MethodPatch, "/categories/{id}", "Rename, move, make default or archive a category; admins only", 0), h.updateCategory)
 }
@@ -258,11 +261,12 @@ func (h *Handler) updateCategory(ctx context.Context, in *helpdeskCategoryUpdate
 
 type helpdeskTicketCreateInput struct {
 	Body struct {
-		CategoryID      string `json:"category_id" doc:"The category; its queue takes the ticket"`
-		Title           string `json:"title" doc:"1 to 200 characters"`
-		Description     string `json:"description,omitempty" doc:"Up to 8000 characters; with source_message_id and no description, the message body"`
-		Priority        string `json:"priority,omitempty" enum:"low,normal,high,urgent" doc:"Defaults to normal"`
-		SourceMessageID string `json:"source_message_id,omitempty" doc:"A chat message you can read; needs chat"`
+		CategoryID      string   `json:"category_id" doc:"The category; its queue takes the ticket"`
+		Title           string   `json:"title" doc:"1 to 200 characters"`
+		Description     string   `json:"description,omitempty" doc:"Up to 8000 characters; with source_message_id and no description, the message body"`
+		Priority        string   `json:"priority,omitempty" enum:"low,normal,high,urgent" doc:"Defaults to normal"`
+		SourceMessageID string   `json:"source_message_id,omitempty" doc:"A chat message you can read; needs chat"`
+		AttachmentIDs   []string `json:"attachment_ids,omitempty" maxItems:"10" doc:"Files from POST /helpdesk/uploads that you uploaded; each can be used once"`
 	}
 }
 
@@ -278,6 +282,7 @@ func (h *Handler) createTicket(ctx context.Context, in *helpdeskTicketCreateInpu
 	t, err := h.uc.Create(ctx, p, usecase.CreateInput{
 		CategoryID: in.Body.CategoryID, Title: in.Body.Title, Description: in.Body.Description,
 		Priority: domain.Priority(in.Body.Priority), SourceMessageID: in.Body.SourceMessageID,
+		AttachmentIDs: in.Body.AttachmentIDs,
 	})
 	if err != nil {
 		return nil, h.fail(ctx, err)
@@ -423,4 +428,67 @@ func (h *Handler) addComment(ctx context.Context, in *helpdeskCommentInput) (*he
 		return nil, h.fail(ctx, err)
 	}
 	return &helpdeskCommentOutput{Body: wire.ToComment(c)}, nil
+}
+
+// HelpdeskPresignedUpload is the request the client makes to object storage.
+type HelpdeskPresignedUpload struct {
+	URL       string            `json:"url" doc:"Presigned URL; send the file bytes to it"`
+	Method    string            `json:"method"`
+	Headers   map[string]string `json:"headers" nullable:"false" doc:"Send exactly these headers; the URL is signed for them"`
+	ExpiresAt time.Time         `json:"expires_at"`
+}
+
+type helpdeskUploadInput struct {
+	Body struct {
+		FileName string `json:"file_name" maxLength:"1024"`
+		Size     int64  `json:"size" minimum:"1" maximum:"52428800" doc:"Bytes, at most 50 MB"`
+		MimeType string `json:"mime_type" maxLength:"255" example:"application/pdf"`
+	}
+}
+
+type helpdeskUploadOutput struct {
+	Body struct {
+		AttachmentID string                  `json:"attachment_id" doc:"Pass it in attachment_ids when creating the ticket"`
+		Upload       HelpdeskPresignedUpload `json:"upload" doc:"Upload with PUT before creating the ticket; expires after 15 minutes"`
+	}
+}
+
+func (h *Handler) requestUpload(ctx context.Context, in *helpdeskUploadInput) (*helpdeskUploadOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	up, err := h.uc.RequestUpload(ctx, p, usecase.UploadInput{FileName: in.Body.FileName, Size: in.Body.Size, MimeType: in.Body.MimeType})
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	out := &helpdeskUploadOutput{}
+	out.Body.AttachmentID = up.AttachmentID
+	out.Body.Upload = HelpdeskPresignedUpload{URL: up.Request.URL, Method: up.Request.Method, Headers: up.Request.Headers, ExpiresAt: up.Request.ExpiresAt.UTC()}
+	if out.Body.Upload.Headers == nil {
+		out.Body.Upload.Headers = map[string]string{}
+	}
+	return out, nil
+}
+
+type helpdeskAttachmentURLOutput struct {
+	Body struct {
+		URL       string    `json:"url" doc:"Presigned download URL; opening it saves the file under its name"`
+		ExpiresAt time.Time `json:"expires_at"`
+	}
+}
+
+func (h *Handler) attachmentURL(ctx context.Context, in *helpdeskTicketIDInput) (*helpdeskAttachmentURLOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	req, err := h.uc.AttachmentURL(ctx, p, in.ID)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	out := &helpdeskAttachmentURLOutput{}
+	out.Body.URL = req.URL
+	out.Body.ExpiresAt = req.ExpiresAt.UTC()
+	return out, nil
 }

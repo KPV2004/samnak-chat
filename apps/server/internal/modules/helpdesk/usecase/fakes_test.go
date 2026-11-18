@@ -54,6 +54,7 @@ type memRepo struct {
 	tickets    map[string]domain.Ticket
 	history    []domain.HistoryEntry
 	comments   []domain.Comment
+	files      map[string]domain.Attachment
 	// next is the number the next ticket of each queue takes.
 	next map[string]int64
 }
@@ -61,7 +62,7 @@ type memRepo struct {
 func newMemRepo() *memRepo {
 	return &memRepo{
 		queues: map[string]domain.Queue{}, categories: map[string]domain.Category{},
-		tickets: map[string]domain.Ticket{}, next: map[string]int64{},
+		tickets: map[string]domain.Ticket{}, next: map[string]int64{}, files: map[string]domain.Attachment{},
 	}
 }
 
@@ -190,6 +191,64 @@ func (r *memRepo) IsAgent(_ context.Context, workspaceID, queueID, userID string
 	defer r.mu.Unlock()
 	q, ok := r.queues[queueID]
 	return ok && q.WorkspaceID == workspaceID && q.IsAgent(userID), nil
+}
+
+func (r *memRepo) InsertAttachment(_ context.Context, a domain.Attachment) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.files[a.ID] = a
+	return nil
+}
+
+func (r *memRepo) Attachment(_ context.Context, workspaceID, id string) (domain.Attachment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if a, ok := r.files[id]; ok && a.WorkspaceID == workspaceID {
+		return a, nil
+	}
+	return domain.Attachment{}, notFound("attachment")
+}
+
+func (r *memRepo) AttachmentsByIDs(_ context.Context, workspaceID string, ids []string) ([]domain.Attachment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []domain.Attachment
+	for _, id := range ids {
+		if a, ok := r.files[id]; ok && a.WorkspaceID == workspaceID {
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+// LinkAttachments links the uploader's unused files, as the SQL does.
+func (r *memRepo) LinkAttachments(_ context.Context, workspaceID, ticketID, uploaderID string, ids []string) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var n int64
+	for _, id := range ids {
+		a, ok := r.files[id]
+		if !ok || a.WorkspaceID != workspaceID || a.UploaderID != uploaderID || a.TicketID != "" {
+			continue
+		}
+		a.TicketID = ticketID
+		r.files[id] = a
+		n++
+	}
+	return n, nil
+}
+
+func (r *memRepo) AttachmentsOf(_ context.Context, ticketID string) ([]domain.Attachment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []domain.Attachment
+	for _, a := range r.files {
+		if a.TicketID == ticketID {
+			out = append(out, a)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	return out, nil
 }
 
 func (r *memRepo) InsertComment(_ context.Context, c domain.Comment) error {
@@ -364,6 +423,36 @@ func (r *memRepo) defaults(workspaceID string) []string {
 
 func newID() string { return uuid.Must(uuid.NewV7()).String() }
 
+// fakeStore presigns without a network and knows which objects exist.
+type fakeStore struct {
+	mu      sync.Mutex
+	objects map[string]int64
+}
+
+func (f *fakeStore) PresignPut(_ context.Context, key, _ string, _ int64, ttl time.Duration) (app.PresignedRequest, error) {
+	return app.PresignedRequest{URL: "https://store.test/put/" + key, Method: "PUT", ExpiresAt: time.Now().Add(ttl)}, nil
+}
+
+func (f *fakeStore) PresignGet(_ context.Context, key, _ string, ttl time.Duration) (app.PresignedRequest, error) {
+	return app.PresignedRequest{URL: "https://store.test/get/" + key, Method: "GET", ExpiresAt: time.Now().Add(ttl)}, nil
+}
+
+func (f *fakeStore) Stat(_ context.Context, key string) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if size, ok := f.objects[key]; ok {
+		return size, nil
+	}
+	return 0, fmt.Errorf("object: %w", app.ErrNotFound)
+}
+
+// put records that the bytes of key were uploaded.
+func (f *fakeStore) put(key string, size int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.objects[key] = size
+}
+
 // recordingBus keeps every published event, in order.
 type recordingBus struct {
 	mu     sync.Mutex
@@ -401,11 +490,12 @@ func (f fakeMessages) ReadMessage(_ context.Context, _, messageID, _ string) (ap
 // env wires a Service over the fakes. Admins are alice and bob; carol is an
 // active member who is not an admin; outside is not a member at all.
 type env struct {
-	svc  *usecase.Service
-	repo *memRepo
-	bus  *recordingBus
-	msgs fakeMessages
-	p    map[string]app.Principal
+	svc   *usecase.Service
+	repo  *memRepo
+	bus   *recordingBus
+	msgs  fakeMessages
+	store *fakeStore
+	p     map[string]app.Principal
 	// now is the clock; a test moves it forward to test time limits.
 	now time.Time
 }
@@ -414,7 +504,7 @@ func newEnv(t *testing.T) *env {
 	t.Helper()
 	repo := newMemRepo()
 	members := fakeMembers{ws + "/" + alice: true, ws + "/" + bob: true, ws + "/" + carol: true, ws + "/" + admin: true}
-	e := &env{repo: repo, bus: &recordingBus{}, msgs: fakeMessages{}, p: map[string]app.Principal{}, now: t0}
+	e := &env{repo: repo, bus: &recordingBus{}, msgs: fakeMessages{}, store: &fakeStore{objects: map[string]int64{}}, p: map[string]app.Principal{}, now: t0}
 	for name, id := range map[string]string{"alice": alice, "bob": bob, "carol": carol, "admin": admin, "outside": outside} {
 		role := app.RoleMember
 		if name == "alice" || name == "admin" {
@@ -423,7 +513,7 @@ func newEnv(t *testing.T) *env {
 		e.p[name] = app.Principal{UserID: id, WorkspaceID: ws, Role: role}
 	}
 	e.svc = usecase.New(usecase.Deps{
-		Tx: fakeTx{}, Repo: repo, Members: members, Bus: e.bus, Messages: e.msgs,
+		Tx: fakeTx{}, Repo: repo, Members: members, Bus: e.bus, Messages: e.msgs, Storage: e.store,
 		Permissions: fakePerms{alice: true, admin: true},
 		Now:         func() time.Time { return e.now },
 	})
