@@ -64,6 +64,8 @@ export const messages = {
     "workspace.nameRequired": "กรอกชื่อ workspace",
     "workspace.slugInvalid": "ใช้ได้เฉพาะ a-z, 0-9 และ - ยาว 3 ถึง 40 ตัวอักษร",
     "workspace.slugTaken": "ชื่อย่อนี้ถูกใช้แล้ว",
+    "workspace.createBody": "แต่ละ workspace มีช่อง สมาชิก และคำเชิญของตัวเอง",
+    "workspace.created": "สร้าง workspace แล้ว",
 
     "profile.title": "โปรไฟล์",
     "profile.language": "ภาษาที่ต้องการ",
@@ -123,6 +125,7 @@ export const messages = {
     "accept.notFound": "คำเชิญนี้ไม่ถูกต้อง หมดอายุ หรือถูกยกเลิกแล้ว",
     "accept.wrongEmail": "คำเชิญนี้ส่งถึงอีเมลอื่น",
     "accept.alreadyMember": "คุณเป็นสมาชิกของ workspace นี้อยู่แล้ว",
+    "accept.joined": "คุณเข้าร่วม {name} แล้ว",
 
     "error.invalid": "ข้อมูลไม่ถูกต้อง ตรวจสอบแล้วลองอีกครั้ง",
     "error.unauthorized": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
@@ -191,6 +194,8 @@ export const messages = {
     "workspace.nameRequired": "Enter a workspace name",
     "workspace.slugInvalid": "Use only a-z, 0-9 and -, 3 to 40 characters",
     "workspace.slugTaken": "This short name is already taken",
+    "workspace.createBody": "Each workspace has its own channels, members and invites.",
+    "workspace.created": "Workspace created",
 
     "profile.title": "Profile",
     "profile.language": "Preferred language",
@@ -250,6 +255,7 @@ export const messages = {
     "accept.notFound": "This invite is invalid, expired or revoked.",
     "accept.wrongEmail": "This invite was sent to a different email.",
     "accept.alreadyMember": "You are already a member of this workspace.",
+    "accept.joined": "You joined {name}",
 
     "error.invalid": "Some details are not valid. Check them and try again.",
     "error.unauthorized": "Your session has expired. Sign in again.",

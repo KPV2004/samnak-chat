@@ -61,6 +61,7 @@ describe("New workspace", () => {
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     expect(await screen.findByText("My Team 2", { selector: "strong" })).toBeInTheDocument();
+    expect(await screen.findByText("Workspace created")).toBeInTheDocument();
     expect(app.called("POST /api/v1/workspace")[0]!.body).toEqual({ name: "My Team 2", slug: "my-team-2" });
     expect(app.store.load()?.workspaceId).toBe("w9");
   });
@@ -98,6 +99,7 @@ describe("Accept invite", () => {
     });
     await user.click(await screen.findByRole("button", { name: "Join" }));
     expect(await screen.findByText("Beta", { selector: "strong" })).toBeInTheDocument();
+    expect(await screen.findByText("You joined Beta")).toBeInTheDocument();
     expect(app.called("POST /api/v1/workspace/invites/accept")[0]!.body).toEqual({ token: "tok123" });
     expect(app.store.load()?.workspaceId).toBe("w2");
   });
