@@ -127,6 +127,9 @@ export const messages = {
     "invites.expires": "หมดอายุ {time}",
     "invites.revoke": "ยกเลิก",
     "invites.revokeFor": "ยกเลิกคำเชิญของ {who}",
+    "invites.revoked": "ยกเลิกคำเชิญแล้ว",
+    "invites.emailInvalid": "กรอกอีเมลให้ถูกต้อง",
+    "invites.emptyHint": "สร้างคำเชิญด้านบนเพื่อเชิญคนเข้ามา",
 
     "accept.title": "เข้าร่วม workspace",
     "accept.body": "คุณได้รับเชิญให้เข้าร่วม workspace",
@@ -266,6 +269,9 @@ export const messages = {
     "invites.expires": "Expires {time}",
     "invites.revoke": "Revoke",
     "invites.revokeFor": "Revoke invite for {who}",
+    "invites.revoked": "Invite revoked",
+    "invites.emailInvalid": "Enter a valid email",
+    "invites.emptyHint": "Create an invite above to bring people in.",
 
     "accept.title": "Join a workspace",
     "accept.body": "You have been invited to join a workspace.",
