@@ -55,6 +55,8 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   const [note, setNote] = useState<Note | null>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
   const nextCaret = useRef<number | null>(null);
+  // The caret right after the space a pick left behind, until the sender types something.
+  const pickedEnd = useRef<number | null>(null);
   const lastTyping = useRef(0);
   const uid = useId();
 
@@ -116,6 +118,7 @@ export function Composer({ channelId, threadRootId, label }: Props) {
     const added = addPick(picks, option.insert ?? option.token, option.token);
     const next = insertMention(text, caret, mention, added.shown);
     nextCaret.current = next.caret;
+    pickedEnd.current = next.caret;
     setDraft({ text: next.text, picks: added.picks });
     boxRef.current?.focus();
   }
@@ -151,6 +154,7 @@ export function Composer({ channelId, threadRootId, label }: Props) {
 
   function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const value = e.target.value;
+    pickedEnd.current = null;
     setDraft((current) => ({ ...current, text: value }));
     setCaret(e.target.selectionStart);
     setActive(0);
@@ -183,6 +187,11 @@ export function Composer({ channelId, threadRootId, label }: Props) {
         setDismissed(true);
         return;
       }
+    }
+    // The pick already left a space after the name; a space typed right after it is dropped, not doubled.
+    if (e.key === " " && pickedEnd.current === caret && text.charAt(caret - 1) === " ") {
+      e.preventDefault();
+      return;
     }
     // Enter while an IME (Thai, Japanese) is composing confirms the word, it does not send.
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {

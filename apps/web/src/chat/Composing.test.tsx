@@ -46,6 +46,15 @@ describe("mention picker", () => {
     expect(app.called("POST /api/v1/chat/channels/c1/messages")[0]!.body.body).toBe("hello <@u2> welcome");
   });
 
+  it("does not double the space after a picked name when I type a space next", async () => {
+    const user = userEvent.setup();
+    renderApp({ route: "/chat/c1", routes: routes() });
+    await user.type(await box(), "@som");
+    await user.click(await screen.findByRole("option", { name: "Somchai" }));
+    await user.type(await box(), " welcome");
+    expect(await box()).toHaveValue("@Somchai welcome");
+  });
+
   it("works from the keyboard: arrows move, Enter picks instead of sending", async () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/chat/c1", routes: routes() });
