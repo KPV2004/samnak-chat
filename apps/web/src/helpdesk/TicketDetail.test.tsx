@@ -1,12 +1,13 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { acme, chatRoutes, renderApp, type Routes } from "../test-utils";
 
 const ticketPath = "GET /api/v1/helpdesk/tickets/t1";
 const assign = "POST /api/v1/helpdesk/tickets/t1/assign";
 const status = "POST /api/v1/helpdesk/tickets/t1/status";
 const comment = "POST /api/v1/helpdesk/tickets/t1/comments";
+const taskItems = "POST /api/v1/task/items";
 
 const queue = {
   id: "q1",
@@ -49,10 +50,11 @@ function routes(
   extra: Routes = {},
   role = "member",
   queues: unknown[] = [queue],
+  modules = ["helpdesk"],
 ): Routes {
   return {
     ...chatRoutes,
-    "GET /api/v1/meta": () => ({ name: "samnak-chat", version: "x", modules: ["helpdesk"] }),
+    "GET /api/v1/meta": () => ({ name: "samnak-chat", version: "x", modules }),
     "GET /api/v1/workspace": () => ({ items: [{ ...acme, role }] }),
     "GET /api/v1/helpdesk/queues": () => ({ items: queues }),
     "GET /api/v1/helpdesk/tickets": () => ({ items: [detail()], next_cursor: "" }),
@@ -134,6 +136,62 @@ describe("ticket detail", () => {
     const card = history.closest("[data-slot=card]") ?? history.parentElement!;
     expect(await within(card as HTMLElement).findByText("Somchai opened the ticket")).toBeInTheDocument();
     expect(await within(card as HTMLElement).findByText("Mali changed the status from Open to In progress")).toBeInTheDocument();
+  });
+});
+
+describe("ticket attachments", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("lists the files of the ticket and opens a download link for one", async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const withFile = detail({
+      attachments: [{ id: "a1", file_name: "photo.png", size: 2048, mime_type: "image/png", from_message: false, created_at: "2026-11-17T09:00:00Z" }],
+    });
+    const app = renderApp({
+      route: "/helpdesk/t1",
+      routes: routes(withFile, {
+        "GET /api/v1/helpdesk/attachments/a1": () => ({ url: "https://files.example/a1", expires_at: "2026-11-17T10:00:00Z" }),
+      }),
+    });
+    expect(await screen.findByText("photo.png")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Download photo.png" }));
+    await waitFor(() => expect(open).toHaveBeenCalledWith("https://files.example/a1", "_blank", "noopener"));
+    expect(app.called("GET /api/v1/helpdesk/attachments/a1")).toHaveLength(1);
+  });
+});
+
+describe("create task from a ticket", () => {
+  it("creates a task in the queue's channel that names the ticket", async () => {
+    const user = userEvent.setup();
+    const linked = { ...queue, channel_id: "c1" };
+    const app = renderApp({
+      route: "/helpdesk/t1",
+      routes: routes(detail(), { [taskItems]: () => ({ id: "task1" }) }, "member", [linked], ["helpdesk", "task"]),
+    });
+    await user.click(await screen.findByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(app.called(taskItems)).toHaveLength(1));
+    expect(app.called(taskItems)[0]!.body).toEqual({
+      channel_id: "c1",
+      title: "IT-0142: Printer on fire",
+      description: "Helpdesk ticket IT-0142.",
+    });
+  });
+
+  it("is hidden when /meta does not list task", async () => {
+    const linked = { ...queue, channel_id: "c1" };
+    renderApp({ route: "/helpdesk/t1", routes: routes(detail(), {}, "member", [linked], ["helpdesk"]) });
+    // Claim shows once the queue has loaded, so the button would be there if it were allowed.
+    await screen.findByRole("button", { name: "Claim" });
+    expect(screen.queryByRole("button", { name: "Create task" })).not.toBeInTheDocument();
+  });
+
+  it("is hidden when the queue has no channel", async () => {
+    renderApp({ route: "/helpdesk/t1", routes: routes(detail(), {}, "member", [queue], ["helpdesk", "task"]) });
+    await screen.findByRole("button", { name: "Claim" });
+    expect(screen.queryByRole("button", { name: "Create task" })).not.toBeInTheDocument();
   });
 });
 

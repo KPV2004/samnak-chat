@@ -5,6 +5,7 @@ import { Register } from "./pages/Register";
 import { Shell } from "./pages/Shell";
 import { RequireModule } from "./modules";
 import "./approval/register";
+import "./helpdesk/register";
 
 /**
  * Pages load on first visit, so the first screen carries only the shell and the sign-in pages.
