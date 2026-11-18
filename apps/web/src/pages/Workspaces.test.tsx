@@ -15,8 +15,9 @@ describe("Workspace switcher", () => {
         "GET /api/v1/workspace/members": () => ({ items: [], next_cursor: null }),
       },
     });
+    // The page title shows before the workspace list arrives, so wait for the switcher itself.
     await screen.findByRole("heading", { name: "Members" });
-    await user.selectOptions(screen.getByLabelText("Workspace"), "w2");
+    await user.selectOptions(await screen.findByLabelText("Workspace"), "w2");
 
     await screen.findByRole("heading", { name: "Members" });
     const headers = app.called("GET /api/v1/workspace/members").map((c) => c.headers["X-Workspace-ID"]);

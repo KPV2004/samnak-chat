@@ -100,6 +100,11 @@ export const messages = {
     "members.remove": "นำออก",
     "members.removeNamed": "นำ {name} ออก",
     "members.confirmRemove": "ยืนยันการนำ {name} ออก",
+    "members.removeTitle": "นำ {name} ออกจาก workspace นี้ใช่ไหม",
+    "members.removeBody": "สมาชิกจะเข้าถึงช่องของ workspace นี้ไม่ได้อีก เชิญกลับมาได้ภายหลัง",
+    "members.updated": "อัปเดตสมาชิกแล้ว",
+    "members.removed": "นำสมาชิกออกแล้ว",
+    "members.body": "สมาชิกใน workspace นี้และสิทธิ์ของแต่ละคน",
 
     "role.owner": "เจ้าของ",
     "role.admin": "ผู้ดูแล",
@@ -234,6 +239,11 @@ export const messages = {
     "members.remove": "Remove",
     "members.removeNamed": "Remove {name}",
     "members.confirmRemove": "Confirm removing {name}",
+    "members.removeTitle": "Remove {name} from this workspace?",
+    "members.removeBody": "They lose access to this workspace's channels. You can invite them again later.",
+    "members.updated": "Member updated",
+    "members.removed": "Member removed",
+    "members.body": "People in this workspace and what they can do.",
 
     "role.owner": "Owner",
     "role.admin": "Admin",
