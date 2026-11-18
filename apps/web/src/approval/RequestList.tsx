@@ -1,14 +1,19 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { Inbox } from "lucide-react";
 import { useId } from "react";
 import { Link } from "react-router";
-import { FormError } from "../components/FormError";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { EmptyState } from "../components/EmptyState";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import { useMe } from "../state/queries";
 import { useSessionState } from "../state/session";
 import { useApprovalApi } from "./api";
-import { statusKeys, summarize } from "./format";
+import { statusKeys, statusTones, summarize } from "./format";
 import { useNameOf } from "./useMembers";
 
 interface Props {
@@ -40,37 +45,61 @@ export function RequestList({ role, title, empty }: Props) {
   const items = requests.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
-    <section aria-labelledby={headingId}>
-      <h2 id={headingId}>{title}</h2>
-      {requests.isPending && <p role="status">{t("loading")}</p>}
-      {requests.isError && <FormError message={t(errorKey(requests.error))} />}
-      {requests.data && items.length === 0 && <p>{empty}</p>}
+    <section aria-labelledby={headingId} className="grid gap-3">
+      <h2 id={headingId} className="text-base font-semibold">
+        {title}
+      </h2>
+      {requests.isPending && (
+        <div role="status" className="grid gap-2 rounded-lg border bg-card p-4">
+          <span className="sr-only">{t("loading")}</span>
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      )}
+      {requests.isError && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive">
+          <p className="m-0">{t(errorKey(requests.error))}</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void requests.refetch()}>
+            {t("retry")}
+          </Button>
+        </div>
+      )}
+      {requests.data && items.length === 0 && <EmptyState icon={Inbox} title={empty} />}
       {items.length > 0 && (
-        <ul className="rows" aria-label={title}>
+        <ul aria-label={title} className="divide-y rounded-lg border bg-card">
           {items.map((r) => (
-            <li key={r.id}>
-              <div>
-                <Link to={`/approvals/${r.id}`}>{summarize(r.type, r.payload, t)}</Link>{" "}
-                <span className="badge">{t(statusKeys[r.status])}</span>
-                <br />
-                <small className="muted">
+            <li key={r.id} className="flex items-start justify-between gap-3 px-4 py-3">
+              <div className="grid min-w-0 gap-0.5">
+                <Link to={`/approvals/${r.id}`} className="font-medium break-words underline-offset-4 hover:underline">
+                  {summarize(r.type, r.payload, t)}
+                </Link>
+                <p className="m-0 text-xs text-muted-foreground">
                   {role === "requester"
                     ? t("approval.to", { name: nameOf(r.approver_id) })
                     : t("approval.from", { name: nameOf(r.requester_id) })}
                   {" · "}
                   {t("approval.sentAt", { time: formatDateTime(r.created_at, locale, timeZone) })}
-                </small>
+                </p>
               </div>
+              <Badge variant="outline" className={cn("shrink-0", statusTones[r.status].text)}>
+                {t(statusKeys[r.status])}
+              </Badge>
             </li>
           ))}
         </ul>
       )}
       {requests.hasNextPage && (
-        <p>
-          <button type="button" disabled={requests.isFetchingNextPage} onClick={() => void requests.fetchNextPage()}>
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={requests.isFetchingNextPage}
+            onClick={() => void requests.fetchNextPage()}
+          >
             {t("loadMore")}
-          </button>
-        </p>
+          </Button>
+        </div>
       )}
     </section>
   );

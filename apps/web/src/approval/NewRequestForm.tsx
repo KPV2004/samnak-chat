@@ -1,6 +1,10 @@
 import type { ApprovalType, CreateApprovalInput } from "@samnak/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
 import type { MessageKey } from "../i18n/messages";
@@ -70,8 +74,13 @@ function buildInput(type: ApprovalType, v: Record<string, string>, attachmentIds
   };
 }
 
+interface Props {
+  /** Closes the dialog that holds the form: after a sent request, or on Cancel. */
+  onDone: () => void;
+}
+
 /** The form that sends a new leave or general request (APR-01, APR-02, APR-09). */
-export function NewRequestForm() {
+export function NewRequestForm({ onDone }: Props) {
   const t = useT();
   const api = useApprovalApi();
   const queryClient = useQueryClient();
@@ -85,7 +94,10 @@ export function NewRequestForm() {
 
   const create = useMutation({
     mutationFn: (input: CreateApprovalInput) => api.createRequest(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["approval"] }),
+    onSuccess: () => {
+      toast.success(t("approval.toast.sent"));
+      return queryClient.invalidateQueries({ queryKey: ["approval"] });
+    },
   });
 
   // Each file is uploaded straight to storage first; the request then names the ids (APR-09).
@@ -130,6 +142,7 @@ export function NewRequestForm() {
         form.reset();
         setType("leave");
         setFiles([]);
+        onDone();
       },
     });
   }
@@ -142,123 +155,136 @@ export function NewRequestForm() {
   const error = fileError ?? (create.error ? t(errorKey(create.error)) : null);
 
   return (
-    <section aria-labelledby="new-request-heading">
-      <h2 id="new-request-heading">{t("approval.new")}</h2>
-      <form onSubmit={onSubmit} noValidate>
-        <Field label={t("approval.type")}>
-          {({ id, describedBy }) => (
-            <select
-              id={id}
-              aria-describedby={describedBy}
-              value={type}
-              onChange={(e) => {
-                setType(e.target.value as ApprovalType);
-                setErrors({});
-              }}
-            >
-              <option value="leave">{t("approval.type.leave")}</option>
-              <option value="general">{t("approval.type.general")}</option>
-            </select>
-          )}
-        </Field>
-        <Field label={t("approval.approver")}>
-          {({ id, describedBy }) => (
-            <select id={id} name="approver_id" defaultValue="" aria-describedby={describedBy}>
-              <option value="">{t("approval.approverDefault")}</option>
-              {approvers.map((m) => (
-                <option key={m.user_id} value={m.user_id}>
-                  {m.display_name || m.email}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
-
-        {type === "leave" ? (
-          <>
-            <Field label={t("approval.leaveType")}>
-              {({ id, describedBy }) => (
-                <select id={id} name="leave_type" defaultValue="annual" aria-describedby={describedBy}>
-                  {leaveTypes.map((k) => (
-                    <option key={k} value={k}>
-                      {t(leaveTypeKeys[k])}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </Field>
-            <Field label={t("approval.startDate")} name="start_date" type="date" error={message("start_date")} />
-            <Field label={t("approval.endDate")} name="end_date" type="date" error={message("end_date")} />
-            <Field label={t("approval.halfDay")} hint={t("approval.halfDayHint")} error={message("half_day")}>
-              {({ id, describedBy, invalid }) => (
-                <select id={id} name="half_day" defaultValue="none" aria-describedby={describedBy} aria-invalid={invalid || undefined}>
-                  <option value="none">{t("approval.halfDay.none")}</option>
-                  <option value="morning">{t("approval.halfDay.morning")}</option>
-                  <option value="afternoon">{t("approval.halfDay.afternoon")}</option>
-                </select>
-              )}
-            </Field>
-            <Field label={t("approval.reason")} error={message("reason")}>
-              {({ id, describedBy, invalid }) => (
-                <textarea
-                  id={id}
-                  name="reason"
-                  rows={3}
-                  maxLength={1000}
-                  aria-describedby={describedBy}
-                  aria-invalid={invalid || undefined}
-                />
-              )}
-            </Field>
-          </>
-        ) : (
-          <>
-            <Field label={t("approval.subject")} name="subject" maxLength={200} error={message("subject")} />
-            <Field label={t("approval.details")}>
-              {({ id, describedBy }) => (
-                <textarea id={id} name="details" rows={4} maxLength={4000} aria-describedby={describedBy} />
-              )}
-            </Field>
-            <Field label={t("approval.amount")} name="amount" inputMode="decimal" hint={t("approval.amountHint")} error={message("amount")} />
-            <Field label={t("approval.currency")} name="currency" defaultValue="THB" maxLength={3} />
-          </>
+    <form onSubmit={onSubmit} noValidate>
+      <Field label={t("approval.type")}>
+        {({ id, describedBy }) => (
+          <NativeSelect
+            id={id}
+            aria-describedby={describedBy}
+            containerClassName="w-full"
+            value={type}
+            onChange={(e) => {
+              setType(e.target.value as ApprovalType);
+              setErrors({});
+            }}
+          >
+            <option value="leave">{t("approval.type.leave")}</option>
+            <option value="general">{t("approval.type.general")}</option>
+          </NativeSelect>
         )}
-
-        <Field
-          label={t("approval.attachments")}
-          type="file"
-          multiple
-          hint={t("approval.attachmentsHint")}
-          onChange={(e) => {
-            const picked = Array.from(e.target.files ?? []);
-            e.target.value = "";
-            void addFiles(picked);
-          }}
-        />
-        {uploading && <p role="status">{t("approval.uploading")}</p>}
-        {files.length > 0 && (
-          <ul className="rows" aria-label={t("approval.attachments")}>
-            {files.map((f) => (
-              <li key={f.id}>
-                {f.name}{" "}
-                <button
-                  type="button"
-                  aria-label={t("approval.removeFile", { name: f.name })}
-                  onClick={() => setFiles((prev) => prev.filter((x) => x.id !== f.id))}
-                >
-                  {t("members.remove")}
-                </button>
-              </li>
+      </Field>
+      <Field label={t("approval.approver")}>
+        {({ id, describedBy }) => (
+          <NativeSelect id={id} name="approver_id" defaultValue="" aria-describedby={describedBy} containerClassName="w-full">
+            <option value="">{t("approval.approverDefault")}</option>
+            {approvers.map((m) => (
+              <option key={m.user_id} value={m.user_id}>
+                {m.display_name || m.email}
+              </option>
             ))}
-          </ul>
+          </NativeSelect>
         )}
+      </Field>
 
-        <button type="submit" disabled={create.isPending || uploading}>
+      {type === "leave" ? (
+        <>
+          <Field label={t("approval.leaveType")}>
+            {({ id, describedBy }) => (
+              <NativeSelect id={id} name="leave_type" defaultValue="annual" aria-describedby={describedBy} containerClassName="w-full">
+                {leaveTypes.map((k) => (
+                  <option key={k} value={k}>
+                    {t(leaveTypeKeys[k])}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </Field>
+          <Field label={t("approval.startDate")} name="start_date" type="date" error={message("start_date")} />
+          <Field label={t("approval.endDate")} name="end_date" type="date" error={message("end_date")} />
+          <Field label={t("approval.halfDay")} hint={t("approval.halfDayHint")} error={message("half_day")}>
+            {({ id, describedBy, invalid }) => (
+              <NativeSelect
+                id={id}
+                name="half_day"
+                defaultValue="none"
+                aria-describedby={describedBy}
+                aria-invalid={invalid || undefined}
+                containerClassName="w-full"
+              >
+                <option value="none">{t("approval.halfDay.none")}</option>
+                <option value="morning">{t("approval.halfDay.morning")}</option>
+                <option value="afternoon">{t("approval.halfDay.afternoon")}</option>
+              </NativeSelect>
+            )}
+          </Field>
+          <Field label={t("approval.reason")} error={message("reason")}>
+            {({ id, describedBy, invalid }) => (
+              <Textarea
+                id={id}
+                name="reason"
+                rows={3}
+                maxLength={1000}
+                aria-describedby={describedBy}
+                aria-invalid={invalid || undefined}
+              />
+            )}
+          </Field>
+        </>
+      ) : (
+        <>
+          <Field label={t("approval.subject")} name="subject" maxLength={200} error={message("subject")} />
+          <Field label={t("approval.details")}>
+            {({ id, describedBy }) => <Textarea id={id} name="details" rows={4} maxLength={4000} aria-describedby={describedBy} />}
+          </Field>
+          <Field label={t("approval.amount")} name="amount" inputMode="decimal" hint={t("approval.amountHint")} error={message("amount")} />
+          <Field label={t("approval.currency")} name="currency" defaultValue="THB" maxLength={3} />
+        </>
+      )}
+
+      <Field
+        label={t("approval.attachments")}
+        type="file"
+        multiple
+        hint={t("approval.attachmentsHint")}
+        onChange={(e) => {
+          const picked = Array.from(e.target.files ?? []);
+          e.target.value = "";
+          void addFiles(picked);
+        }}
+      />
+      {uploading && (
+        <p role="status" className="m-0 mb-4 text-sm text-muted-foreground">
+          {t("approval.uploading")}
+        </p>
+      )}
+      {files.length > 0 && (
+        <ul aria-label={t("approval.attachments")} className="m-0 mb-4 grid list-none gap-1 p-0">
+          {files.map((f) => (
+            <li key={f.id} className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-sm">
+              <span className="min-w-0 break-all">{f.name}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={t("approval.removeFile", { name: f.name })}
+                onClick={() => setFiles((prev) => prev.filter((x) => x.id !== f.id))}
+              >
+                {t("members.remove")}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <FormError message={error} />
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" onClick={onDone}>
+          {t("cancel")}
+        </Button>
+        <Button type="submit" disabled={create.isPending || uploading}>
           {t("approval.submit")}
-        </button>
-        {create.isSuccess && <p role="status">{t("approval.sent")}</p>}
-        <FormError message={error} />
-      </form>
-    </section>
+        </Button>
+      </div>
+    </form>
   );
 }
