@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Paperclip, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -17,9 +18,10 @@ import { RequireWorkspace } from "../components/RequireWorkspace";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
+import { useModuleEnabled } from "../modules";
 import { canManage, useMe, useWorkspaces } from "../state/queries";
 import { useSessionState } from "../state/session";
-import { useHelpdeskApi } from "./api";
+import { useHelpdeskApi, useHelpdeskFileApi, useTaskApi } from "./api";
 import { historyLine, moveKeys, priorityKeys, priorities, statusKeys, statusTones } from "./format";
 import { useNameOf } from "./useMembers";
 
@@ -85,6 +87,7 @@ function Detail({ ticket, queues }: { ticket: TicketDetailData; queues: Helpdesk
   const me = useMe().data?.id ?? "";
   const workspace = useWorkspaces().current;
   const nameOf = useNameOf();
+  const taskEnabled = useModuleEnabled("task");
   const queue = queues.find((q) => q.id === ticket.queue_id);
   const categories = queues.flatMap((q) => q.categories);
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? "—";
@@ -133,7 +136,12 @@ function Detail({ ticket, queues }: { ticket: TicketDetailData; queues: Helpdesk
           {queue && <span>· {queue.name}</span>}
         </span>
       }
-      actions={<BackLink />}
+      actions={
+        <>
+          {taskEnabled && queue?.channel_id && <CreateTaskButton ticket={ticket} channelId={queue.channel_id} />}
+          <BackLink />
+        </>
+      }
     >
       <Card className="gap-0 py-5">
         <CardContent className="grid gap-5">
@@ -155,9 +163,10 @@ function Detail({ ticket, queues }: { ticket: TicketDetailData; queues: Helpdesk
               <h2 className="m-0 text-sm font-medium">{t("helpdesk.detail.attachments")}</h2>
               <ul className="m-0 grid list-none gap-1 p-0">
                 {ticket.attachments.map((a) => (
-                  <li key={a.id} className="flex items-center gap-2 text-sm">
+                  <li key={a.id} className="flex flex-wrap items-center gap-2 text-sm">
                     <Paperclip className="size-4 text-muted-foreground" aria-hidden="true" />
-                    {a.file_name}
+                    <span className="min-w-0 break-all">{a.file_name}</span>
+                    <FileDownload id={a.id} name={a.file_name} />
                   </li>
                 ))}
               </ul>
@@ -354,5 +363,61 @@ function Field({ label, value, multiline }: { label: string; value: string; mult
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className={`m-0 text-sm ${multiline ? "whitespace-pre-wrap" : ""}`}>{value}</dd>
     </div>
+  );
+}
+
+/** A file of the ticket: a button that opens its download link in a new tab (HD-03). */
+function FileDownload({ id, name }: { id: string; name: string }) {
+  const t = useT();
+  const files = useHelpdeskFileApi();
+  const download = useMutation({
+    mutationFn: () => files.attachmentUrl(id),
+    onSuccess: ({ url }) => {
+      window.open(url, "_blank", "noopener");
+    },
+  });
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        aria-label={t("helpdesk.detail.downloadFile", { name })}
+        disabled={download.isPending}
+        onClick={() => download.mutate()}
+      >
+        {t("helpdesk.detail.download")}
+      </Button>
+      <FormError message={download.error ? t(errorKey(download.error)) : null} />
+    </>
+  );
+}
+
+/**
+ * Creates a task in the queue's channel that names the ticket (HD-19). The server posts the task's
+ * card there; the button is shown only when `/meta` lists task and the queue has a channel.
+ */
+function CreateTaskButton({ ticket, channelId }: { ticket: Pick<TicketDetailData, "key" | "title">; channelId: string }) {
+  const t = useT();
+  const tasks = useTaskApi();
+  const create = useMutation({
+    mutationFn: () =>
+      tasks.createTask({
+        channel_id: channelId,
+        // A task title is at most 200 characters.
+        title: [...`${ticket.key}: ${ticket.title}`].slice(0, 200).join(""),
+        description: `Helpdesk ticket ${ticket.key}.`,
+      }),
+    onSuccess: () => {
+      toast.success(t("helpdesk.detail.taskCreated"));
+    },
+  });
+  return (
+    <>
+      <Button type="button" variant="outline" disabled={create.isPending} onClick={() => create.mutate()}>
+        {t("helpdesk.detail.createTask")}
+      </Button>
+      <FormError message={create.error ? t(errorKey(create.error)) : null} />
+    </>
   );
 }

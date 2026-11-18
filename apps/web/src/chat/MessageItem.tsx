@@ -1,5 +1,5 @@
 import type { ChatMessage, Reaction } from "@samnak/core";
-import { ListTodo, MessageSquare, MessageSquareReply, Paperclip, Pencil, SmilePlus, Trash2 } from "lucide-react";
+import { ListTodo, MessageSquare, MessageSquareReply, Paperclip, Pencil, SmilePlus, Ticket, Trash2 } from "lucide-react";
 import { memo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { useCurrentLocale, useT } from "../i18n/useT";
 import { formatDateTime, formatMessageTime } from "../lib/format";
 import { useChat } from "../state/chat";
 import { canManage, useWorkspaces } from "../state/queries";
+import { CreateTicketFromMessage } from "../helpdesk/CreateTicketFromMessage";
 import { useChatExtensions } from "../task/api";
 import { CreateTaskForm } from "../task/CreateTaskForm";
 import { CardBody } from "./cards";
@@ -44,9 +45,11 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
   const [deleteFailed, setDeleteFailed] = useState(false);
   const [picking, setPicking] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
+  const [creatingTicket, setCreatingTicket] = useState(false);
   const [failed, setFailed] = useState(false);
   const { messageActions } = useChatExtensions();
   const canCreateTask = messageActions.some((a) => a.id === "task.create_from_message");
+  const canCreateTicket = messageActions.some((a) => a.id === "helpdesk.create_from_message");
 
   const me = chat?.userId ?? "";
   const mine = m.sender_id === me;
@@ -224,6 +227,8 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
             </div>
           )}
 
+          {creatingTicket && <CreateTicketFromMessage message={m} onDone={() => setCreatingTicket(false)} />}
+
           {failed && (
             <p className="mt-1 text-xs text-destructive" role="alert">
               {t("chat.actionError")}
@@ -249,6 +254,11 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
           {canCreateTask && m.kind === "text" && m.body !== "" && (
             <IconAction label={t("task.createFromMessage")} expanded={creatingTask} onClick={() => setCreatingTask((open) => !open)}>
               <ListTodo />
+            </IconAction>
+          )}
+          {canCreateTicket && m.kind === "text" && m.body !== "" && (
+            <IconAction label={t("helpdesk.createFromMessage")} expanded={creatingTicket} onClick={() => setCreatingTicket((open) => !open)}>
+              <Ticket />
             </IconAction>
           )}
           {mine && (
