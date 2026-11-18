@@ -725,7 +725,7 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 
 **Files:** `internal/acceptance/`, `.github/workflows/ci.yml`, `scripts/check-modules.sh`
 
-## [ ] Checkpoint M5: SRS 16.3 acceptance (planner)
-- [ ] Open a ticket from a message; an agent claims it and changes status along every path in the diagram
-- [ ] The requester does not see internal notes
-- [ ] With task turned off, helpdesk still works
+## [x] Checkpoint M5: SRS 16.3 acceptance (planner)
+- [x] Open a ticket from a message; an agent claims it and changes status along every path in the diagram
+- [x] The requester does not see internal notes
+- [x] With task turned off, helpdesk still works
