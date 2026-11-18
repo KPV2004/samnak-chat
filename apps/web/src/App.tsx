@@ -21,6 +21,9 @@ const BrowseChannels = page(() => import("./chat/BrowseChannels"), "BrowseChanne
 const NewChannel = page(() => import("./chat/NewChannel"), "NewChannel");
 const NewDm = page(() => import("./chat/NewDm"), "NewDm");
 const ChannelPage = page(() => import("./chat/ChannelPage"), "ChannelPage");
+const Helpdesk = page(() => import("./helpdesk/Helpdesk"), "Helpdesk");
+const HelpdeskTicket = page(() => import("./helpdesk/TicketDetail"), "TicketDetail");
+const HelpdeskSettings = page(() => import("./helpdesk/Settings"), "Settings");
 const MyTasks = page(() => import("./task/MyTasks"), "MyTasks");
 const Approvals = page(() => import("./approval/Approvals"), "Approvals");
 const ApprovalDetail = page(() => import("./approval/ApprovalDetail"), "ApprovalDetail");
@@ -47,6 +50,9 @@ export function App() {
           <Route path=":channelId" element={<ChannelPage />} />
         </Route>
         <Route path="tasks" element={<MyTasks />} />
+        <Route path="helpdesk" element={<RequireModule name="helpdesk"><Helpdesk /></RequireModule>} />
+        <Route path="helpdesk/settings" element={<RequireModule name="helpdesk"><HelpdeskSettings /></RequireModule>} />
+        <Route path="helpdesk/:ticketId" element={<RequireModule name="helpdesk"><HelpdeskTicket /></RequireModule>} />
         <Route path="approvals" element={<RequireModule name="approval"><Approvals /></RequireModule>} />
         <Route path="approvals/:requestId" element={<RequireModule name="approval"><ApprovalDetail /></RequireModule>} />
         <Route path="groups" element={<RequireModule name="approval"><Groups /></RequireModule>} />

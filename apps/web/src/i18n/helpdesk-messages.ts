@@ -11,6 +11,7 @@ export const helpdeskEn = {
   "helpdesk.saved": "Saved",
   "helpdesk.notFound": "This ticket does not exist or you cannot see it.",
   "helpdesk.noAgents": "This queue has no agents yet. Add agents in Helpdesk settings.",
+  "helpdesk.unknownUser": "Unknown user",
 
   "helpdesk.tabs.mine": "My requests",
   "helpdesk.tabs.queue": "Queue",
@@ -36,6 +37,7 @@ export const helpdeskEn = {
   "helpdesk.opened": "Opened",
   "helpdesk.updated": "Updated",
   "helpdesk.details": "Details",
+  "helpdesk.detail.attachments": "Attachments",
 
   "helpdesk.status.new": "New",
   "helpdesk.status.open": "Open",
@@ -135,6 +137,7 @@ export const helpdeskTh = {
   "helpdesk.saved": "บันทึกแล้ว",
   "helpdesk.notFound": "ไม่พบงานนี้ หรือคุณไม่มีสิทธิ์ดู",
   "helpdesk.noAgents": "คิวนี้ยังไม่มีเจ้าหน้าที่ เพิ่มได้ในตั้งค่าศูนย์ช่วยเหลือ",
+  "helpdesk.unknownUser": "ไม่ทราบชื่อ",
 
   "helpdesk.tabs.mine": "คำขอของฉัน",
   "helpdesk.tabs.queue": "คิวงาน",
@@ -160,6 +163,7 @@ export const helpdeskTh = {
   "helpdesk.opened": "แจ้งเมื่อ",
   "helpdesk.updated": "อัปเดตเมื่อ",
   "helpdesk.details": "รายละเอียด",
+  "helpdesk.detail.attachments": "ไฟล์แนบ",
 
   "helpdesk.status.new": "ใหม่",
   "helpdesk.status.open": "เปิดงาน",
