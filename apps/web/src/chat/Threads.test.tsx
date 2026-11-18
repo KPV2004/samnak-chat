@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { channel, chatRoutes, message, renderApp, type Routes } from "../test-utils";
 
 const general = channel("c1", { name: "general", last_seq: 4 });
@@ -26,6 +26,28 @@ function routes(extra: Routes = {}): Routes {
     ...extra,
   };
 }
+
+describe("thread on a phone", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("opens the thread as a sheet over the channel when the screen is narrow", async () => {
+    vi.stubGlobal("matchMedia", (media: string) => ({
+      matches: false,
+      media,
+      addEventListener() {},
+      removeEventListener() {},
+    }));
+    const user = userEvent.setup();
+    renderApp({ route: "/chat/c1", routes: routes() });
+    await user.click(await screen.findByRole("button", { name: "2 replies" }));
+    const sheet = await screen.findByRole("dialog", { name: "Thread" });
+    expect(await within(sheet).findByText("yes from me")).toBeInTheDocument();
+    await user.click(within(sheet).getByRole("button", { name: "Close thread" }));
+    expect(screen.queryByRole("dialog", { name: "Thread" })).not.toBeInTheDocument();
+  });
+});
 
 describe("threads", () => {
   it("keeps replies out of the channel and shows how many there are", async () => {
