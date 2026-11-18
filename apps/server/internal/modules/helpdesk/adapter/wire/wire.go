@@ -110,3 +110,40 @@ func utcPtr(t *time.Time) *time.Time {
 	u := t.UTC()
 	return &u
 }
+
+// HelpdeskHistoryEntry is one line of a ticket's history (HD-18).
+type HelpdeskHistoryEntry struct {
+	ID       string    `json:"id"`
+	ActorID  string    `json:"actor_id"`
+	Action   string    `json:"action" enum:"created,assigned,status_changed,priority_changed,category_changed,commented"`
+	From     string    `json:"from" doc:"The value before the change; empty when there was none"`
+	To       string    `json:"to" doc:"The value after the change"`
+	Internal bool      `json:"internal" doc:"Only agents and admins see internal lines"`
+	At       time.Time `json:"at"`
+}
+
+// HelpdeskTicketDetail is a ticket with its history, for the ticket's page.
+type HelpdeskTicketDetail struct {
+	HelpdeskTicket
+	History []HelpdeskHistoryEntry `json:"history" nullable:"false" doc:"Oldest first"`
+}
+
+// ToDetail converts a ticket with its history.
+func ToDetail(d usecase.Detail) HelpdeskTicketDetail {
+	out := HelpdeskTicketDetail{HelpdeskTicket: ToTicket(d.Ticket), History: make([]HelpdeskHistoryEntry, len(d.History))}
+	for i, h := range d.History {
+		out.History[i] = HelpdeskHistoryEntry{
+			ID: h.ID, ActorID: h.ActorID, Action: string(h.Action), From: h.From, To: h.To, Internal: h.Internal, At: h.At.UTC(),
+		}
+	}
+	return out
+}
+
+// ToTickets converts a page of tickets.
+func ToTickets(ts []domain.Ticket) []HelpdeskTicket {
+	out := make([]HelpdeskTicket, len(ts))
+	for i, t := range ts {
+		out[i] = ToTicket(t)
+	}
+	return out
+}

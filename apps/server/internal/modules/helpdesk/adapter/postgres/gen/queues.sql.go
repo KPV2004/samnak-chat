@@ -90,6 +90,26 @@ func (q *Queries) InsertQueueAgent(ctx context.Context, arg InsertQueueAgentPara
 	return err
 }
 
+const isQueueAgent = `-- name: IsQueueAgent :one
+SELECT EXISTS (
+    SELECT 1 FROM helpdesk_queue_agents a
+    JOIN helpdesk_queues q ON q.id = a.queue_id
+    WHERE a.queue_id = $1 AND a.user_id = $2 AND q.workspace_id = $3)
+`
+
+type IsQueueAgentParams struct {
+	QueueID     uuid.UUID
+	UserID      uuid.UUID
+	WorkspaceID uuid.UUID
+}
+
+func (q *Queries) IsQueueAgent(ctx context.Context, arg IsQueueAgentParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isQueueAgent, arg.QueueID, arg.UserID, arg.WorkspaceID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listQueueAgents = `-- name: ListQueueAgents :many
 SELECT user_id FROM helpdesk_queue_agents WHERE queue_id = $1 ORDER BY added_at, user_id
 `

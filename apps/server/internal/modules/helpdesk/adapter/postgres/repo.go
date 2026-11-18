@@ -430,3 +430,115 @@ func (r *Repo) InsertHistory(ctx context.Context, h domain.HistoryEntry) error {
 	}
 	return wrap(qs.InsertHistory(ctx, p), "insert history")
 }
+
+// toTicket converts a row of the ticket tables; prefix builds the key.
+func toTicket(row gen.HelpdeskTicket, prefix string) domain.Ticket {
+	return domain.Ticket{
+		ID: row.ID.String(), WorkspaceID: row.WorkspaceID.String(), QueueID: row.QueueID.String(),
+		CategoryID: row.CategoryID.String(), Number: row.Number, Key: domain.TicketKey(prefix, row.Number),
+		Title: row.Title, Description: row.Description, RequesterID: row.RequesterID.String(),
+		AssigneeID: str(row.AssigneeID), Status: domain.Status(row.Status), Priority: domain.Priority(row.Priority),
+		SourceChannelID: str(row.SourceChannelID), SourceMessageID: str(row.SourceMessageID),
+		MessageID: str(row.MessageID), QueueMessageID: str(row.QueueMessageID),
+		ResolvedAt: utc(row.ResolvedAt), ClosedAt: utc(row.ClosedAt),
+		CreatedAt: row.CreatedAt.UTC(), UpdatedAt: row.UpdatedAt.UTC(),
+	}
+}
+
+func (r *Repo) Ticket(ctx context.Context, workspaceID, ticketID string) (domain.Ticket, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+	ws, err := id(workspaceID)
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+	tid, err := id(ticketID)
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+	row, err := qs.GetTicket(ctx, gen.GetTicketParams{ID: tid, WorkspaceID: ws})
+	if err != nil {
+		return domain.Ticket{}, wrap(err, "ticket")
+	}
+	return toTicket(row.HelpdeskTicket, row.Prefix), nil
+}
+
+func (r *Repo) ListTickets(ctx context.Context, f usecase.TicketFilter) ([]domain.Ticket, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p := gen.ListTicketsParams{IsAdmin: f.Admin, NoAssignee: f.NoAssignee, PageSize: int32(f.Limit), Statuses: []string{}}
+	for _, st := range f.Statuses {
+		p.Statuses = append(p.Statuses, string(st))
+	}
+	if p.WorkspaceID, err = id(f.WorkspaceID); err != nil {
+		return nil, err
+	}
+	if p.UserID, err = id(f.UserID); err != nil {
+		return nil, err
+	}
+	for _, opt := range []struct {
+		dst **uuid.UUID
+		src string
+	}{{&p.QueueID, f.QueueID}, {&p.AssigneeID, f.AssigneeID}, {&p.RequesterID, f.RequesterID}, {&p.BeforeID, f.BeforeID}} {
+		if *opt.dst, err = optID(opt.src); err != nil {
+			return nil, err
+		}
+	}
+	rows, err := qs.ListTickets(ctx, p)
+	if err != nil {
+		return nil, wrap(err, "list tickets")
+	}
+	out := make([]domain.Ticket, len(rows))
+	for i, row := range rows {
+		out[i] = toTicket(row.HelpdeskTicket, row.Prefix)
+	}
+	return out, nil
+}
+
+func (r *Repo) IsAgent(ctx context.Context, workspaceID, queueID, userID string) (bool, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return false, err
+	}
+	p := gen.IsQueueAgentParams{}
+	for _, f := range []struct {
+		dst *uuid.UUID
+		src string
+	}{{&p.WorkspaceID, workspaceID}, {&p.QueueID, queueID}, {&p.UserID, userID}} {
+		if *f.dst, err = id(f.src); err != nil {
+			return false, nil // text that is not an ID is not an agent
+		}
+	}
+	ok, err := qs.IsQueueAgent(ctx, p)
+	if err != nil {
+		return false, wrap(err, "is agent")
+	}
+	return ok, nil
+}
+
+func (r *Repo) History(ctx context.Context, ticketID string) ([]domain.HistoryEntry, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tid, err := id(ticketID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := qs.ListHistory(ctx, tid)
+	if err != nil {
+		return nil, wrap(err, "list history")
+	}
+	out := make([]domain.HistoryEntry, len(rows))
+	for i, row := range rows {
+		out[i] = domain.HistoryEntry{
+			ID: row.ID.String(), TicketID: row.TicketID.String(), ActorID: row.ActorID.String(),
+			Action: domain.Action(row.Action), From: row.FromValue, To: row.ToValue, Internal: row.Internal, At: row.At.UTC(),
+		}
+	}
+	return out, nil
+}

@@ -30,3 +30,9 @@ DELETE FROM helpdesk_queue_agents WHERE queue_id = @queue_id;
 
 -- name: InsertQueueAgent :exec
 INSERT INTO helpdesk_queue_agents (queue_id, user_id, added_at) VALUES (@queue_id, @user_id, @added_at);
+
+-- name: IsQueueAgent :one
+SELECT EXISTS (
+    SELECT 1 FROM helpdesk_queue_agents a
+    JOIN helpdesk_queues q ON q.id = a.queue_id
+    WHERE a.queue_id = @queue_id AND a.user_id = @user_id AND q.workspace_id = @workspace_id);

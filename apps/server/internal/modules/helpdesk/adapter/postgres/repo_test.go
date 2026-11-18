@@ -21,6 +21,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/adapter/postgres"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/domain"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/migrations"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/usecase"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	dbmigrations "github.com/KPV2004/samnak-chat/apps/server/internal/platform/database/migrations"
 )
@@ -408,5 +409,141 @@ func TestHistoryLinesAreAddedToATicket(t *testing.T) {
 	orphan.ID, orphan.TicketID = newID(), newID()
 	if err := f.repo.InsertHistory(f.ctx, orphan); err == nil {
 		t.Error("a history line for a missing ticket was stored")
+	}
+}
+
+func TestTicketReadsKeyAndHistoryAndVisibility(t *testing.T) {
+	f := newFixture(t)
+	it := f.queue("IT")
+	cat := f.category(it.ID, false)
+	agent, requester, other := newID(), newID(), newID()
+	if err := f.repo.SetAgents(f.ctx, f.ws, it.ID, []string{agent}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	tk, err := ticketIn(f.ws, it, cat.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tk.RequesterID = requester
+	if err := f.repo.InsertTicket(f.ctx, tk); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.InsertHistory(f.ctx, domain.HistoryEntry{ID: newID(), TicketID: tk.ID, ActorID: requester, Action: domain.ActionCreated, At: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := f.repo.Ticket(f.ctx, f.ws, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Key != "IT-0001" || got.RequesterID != requester || got.Status != domain.StatusNew || got.AssigneeID != "" {
+		t.Fatalf("ticket = %+v", got)
+	}
+	if _, err := f.repo.Ticket(f.ctx, newID(), tk.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("other workspace: err = %v, want ErrNotFound", err)
+	}
+
+	history, err := f.repo.History(f.ctx, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 1 || history[0].Action != domain.ActionCreated {
+		t.Fatalf("history = %+v", history)
+	}
+
+	if ok, err := f.repo.IsAgent(f.ctx, f.ws, it.ID, agent); err != nil || !ok {
+		t.Errorf("agent: %v, %v", ok, err)
+	}
+	if ok, err := f.repo.IsAgent(f.ctx, f.ws, it.ID, other); err != nil || ok {
+		t.Errorf("non-agent: %v, %v", ok, err)
+	}
+
+	count := func(f2 usecaseFilter) int {
+		rows, err := f.repo.ListTickets(f.ctx, f2.toFilter())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(rows)
+	}
+	if n := count(usecaseFilter{ws: f.ws, user: requester}); n != 1 {
+		t.Errorf("requester sees %d, want 1", n)
+	}
+	if n := count(usecaseFilter{ws: f.ws, user: agent}); n != 1 {
+		t.Errorf("agent sees %d, want 1", n)
+	}
+	if n := count(usecaseFilter{ws: f.ws, user: other}); n != 0 {
+		t.Errorf("stranger sees %d, want 0", n)
+	}
+	if n := count(usecaseFilter{ws: f.ws, user: other, admin: true}); n != 1 {
+		t.Errorf("admin sees %d, want 1", n)
+	}
+}
+
+// usecaseFilter is a readable way to build a TicketFilter in these tests.
+type usecaseFilter struct {
+	ws, user string
+	admin    bool
+}
+
+func (u usecaseFilter) toFilter() usecase.TicketFilter {
+	return usecase.TicketFilter{WorkspaceID: u.ws, UserID: u.user, Admin: u.admin, Limit: 100}
+}
+
+func TestListTicketsFiltersAndPagesNewestFirst(t *testing.T) {
+	f := newFixture(t)
+	it := f.queue("IT")
+	cat := f.category(it.ID, false)
+	requester := newID()
+	var ids []string
+	for i := int64(1); i <= 5; i++ {
+		tk, err := ticketIn(f.ws, it, cat.ID, i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tk.RequesterID = requester
+		if i == 2 {
+			tk.Status = domain.StatusWaiting
+		}
+		if err := f.repo.InsertTicket(f.ctx, tk); err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, tk.ID)
+	}
+	base := usecase.TicketFilter{WorkspaceID: f.ws, UserID: requester, Admin: true, Limit: 100}
+
+	waiting := base
+	waiting.Statuses = []domain.Status{domain.StatusWaiting}
+	if rows, err := f.repo.ListTickets(f.ctx, waiting); err != nil || len(rows) != 1 || rows[0].Number != 2 {
+		t.Fatalf("status filter = %d rows, %v", len(rows), err)
+	}
+
+	unassigned := base
+	unassigned.NoAssignee = true
+	if rows, err := f.repo.ListTickets(f.ctx, unassigned); err != nil || len(rows) != 5 {
+		t.Fatalf("unassigned = %d rows, %v; want 5", len(rows), err)
+	}
+
+	seen := map[string]bool{}
+	before := ""
+	for pages := 0; pages < 10; pages++ {
+		f2 := base
+		f2.Limit, f2.BeforeID = 2, before
+		rows, err := f.repo.ListTickets(f.ctx, f2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range rows {
+			if seen[r.ID] {
+				t.Fatalf("ticket %s on two pages", r.ID)
+			}
+			seen[r.ID] = true
+		}
+		if len(rows) == 0 {
+			break
+		}
+		before = rows[len(rows)-1].ID
+	}
+	if len(seen) != len(ids) {
+		t.Fatalf("paging returned %d tickets, want %d", len(seen), len(ids))
 	}
 }

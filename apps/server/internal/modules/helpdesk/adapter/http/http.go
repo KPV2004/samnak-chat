@@ -49,6 +49,8 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	huma.Register(api, op("helpdesk-update-queue", http.MethodPatch, "/queues/{id}", "Rename, set or clear the channel, or archive a queue; admins only", 0), h.updateQueue)
 	huma.Register(api, op("helpdesk-set-queue-agents", http.MethodPut, "/queues/{id}/agents", "Replace the agents of a queue; admins only; each must be an active member", http.StatusNoContent), h.setAgents)
 	huma.Register(api, op("helpdesk-create-category", http.MethodPost, "/categories", "Create a category in an active queue; admins only", http.StatusCreated), h.createCategory)
+	huma.Register(api, op("helpdesk-list-tickets", http.MethodGet, "/tickets", "List the tickets you may see, newest first; filter by queue, status, assignee or requester", 0), h.listTickets)
+	huma.Register(api, op("helpdesk-get-ticket", http.MethodGet, "/tickets/{id}", "Get a ticket with its history; only its requester, the agents of its queue and admins", 0), h.getTicket)
 	huma.Register(api, op("helpdesk-create-ticket", http.MethodPost, "/tickets", "Create a ticket in the queue of a category; with source_message_id the message is read as you (HD-03)", http.StatusCreated), h.createTicket)
 	huma.Register(api, op("helpdesk-update-category", http.MethodPatch, "/categories/{id}", "Rename, move, make default or archive a category; admins only", 0), h.updateCategory)
 }
@@ -277,4 +279,57 @@ func (h *Handler) createTicket(ctx context.Context, in *helpdeskTicketCreateInpu
 		return nil, h.fail(ctx, err)
 	}
 	return &helpdeskTicketOutput{Body: wire.ToTicket(t)}, nil
+}
+
+type helpdeskTicketListInput struct {
+	QueueID   string `query:"queue_id" doc:"Only tickets of this queue"`
+	Status    string `query:"status" doc:"Comma-separated: new, open, in_progress, waiting, resolved, closed"`
+	Assignee  string `query:"assignee" doc:"me, none, or a user ID"`
+	Requester string `query:"requester" enum:"me" doc:"me: the tickets I opened"`
+	Cursor    string `query:"cursor" doc:"next_cursor of the previous page"`
+	Limit     int    `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Page size"`
+}
+
+type helpdeskTicketListOutput struct {
+	Body struct {
+		Items      []wire.HelpdeskTicket `json:"items" nullable:"false"`
+		NextCursor string                `json:"next_cursor" doc:"Empty on the last page"`
+	}
+}
+
+func (h *Handler) listTickets(ctx context.Context, in *helpdeskTicketListInput) (*helpdeskTicketListOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	page, err := h.uc.List(ctx, p, usecase.ListQuery{
+		QueueID: in.QueueID, Status: in.Status, Assignee: in.Assignee, Requester: in.Requester, Cursor: in.Cursor, Limit: in.Limit,
+	})
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	out := &helpdeskTicketListOutput{}
+	out.Body.Items = wire.ToTickets(page.Items)
+	out.Body.NextCursor = page.NextCursor
+	return out, nil
+}
+
+type helpdeskTicketIDInput struct {
+	ID string `path:"id"`
+}
+
+type helpdeskTicketDetailOutput struct {
+	Body wire.HelpdeskTicketDetail
+}
+
+func (h *Handler) getTicket(ctx context.Context, in *helpdeskTicketIDInput) (*helpdeskTicketDetailOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	d, err := h.uc.Get(ctx, p, in.ID)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &helpdeskTicketDetailOutput{Body: wire.ToDetail(d)}, nil
 }

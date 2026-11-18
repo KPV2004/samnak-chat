@@ -94,6 +94,95 @@ func (r *memRepo) InsertHistory(_ context.Context, h domain.HistoryEntry) error 
 	return nil
 }
 
+// keyOf is the ticket's key from its queue's prefix.
+func (r *memRepo) keyOf(t domain.Ticket) string {
+	return domain.TicketKey(r.queues[t.QueueID].Prefix, t.Number)
+}
+
+func (r *memRepo) Ticket(_ context.Context, workspaceID, id string) (domain.Ticket, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	t, ok := r.tickets[id]
+	if !ok || t.WorkspaceID != workspaceID {
+		return domain.Ticket{}, notFound("ticket")
+	}
+	t.Key = r.keyOf(t)
+	return t, nil
+}
+
+func (r *memRepo) ListTickets(_ context.Context, f usecase.TicketFilter) ([]domain.Ticket, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []domain.Ticket
+	for _, t := range r.tickets {
+		if t.WorkspaceID != f.WorkspaceID || !visibleTo(r, t, f.UserID, f.Admin) {
+			continue
+		}
+		if f.QueueID != "" && t.QueueID != f.QueueID {
+			continue
+		}
+		if len(f.Statuses) > 0 && !slicesContains(f.Statuses, t.Status) {
+			continue
+		}
+		if f.AssigneeID != "" && t.AssigneeID != f.AssigneeID {
+			continue
+		}
+		if f.NoAssignee && t.AssigneeID != "" {
+			continue
+		}
+		if f.RequesterID != "" && t.RequesterID != f.RequesterID {
+			continue
+		}
+		if f.BeforeID != "" && t.ID >= f.BeforeID {
+			continue
+		}
+		t.Key = r.keyOf(t)
+		out = append(out, t)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID > out[j].ID })
+	if len(out) > f.Limit {
+		out = out[:f.Limit]
+	}
+	return out, nil
+}
+
+// visibleTo is the requester, the queue's agents and the admins.
+func visibleTo(r *memRepo, t domain.Ticket, userID string, admin bool) bool {
+	if admin || t.RequesterID == userID {
+		return true
+	}
+	q := r.queues[t.QueueID]
+	return q.IsAgent(userID)
+}
+
+func slicesContains(list []domain.Status, s domain.Status) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *memRepo) IsAgent(_ context.Context, workspaceID, queueID, userID string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	q, ok := r.queues[queueID]
+	return ok && q.WorkspaceID == workspaceID && q.IsAgent(userID), nil
+}
+
+func (r *memRepo) History(_ context.Context, ticketID string) ([]domain.HistoryEntry, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []domain.HistoryEntry
+	for _, h := range r.history {
+		if h.TicketID == ticketID {
+			out = append(out, h)
+		}
+	}
+	return out, nil
+}
+
 // ticketsOf returns the tickets of a queue, by number.
 func (r *memRepo) ticketsOf(queueID string) []domain.Ticket {
 	r.mu.Lock()
@@ -286,14 +375,14 @@ func newEnv(t *testing.T) *env {
 	e := &env{repo: repo, bus: &recordingBus{}, msgs: fakeMessages{}, p: map[string]app.Principal{}}
 	for name, id := range map[string]string{"alice": alice, "bob": bob, "carol": carol, "admin": admin, "outside": outside} {
 		role := app.RoleMember
-		if name == "alice" || name == "bob" || name == "admin" {
+		if name == "alice" || name == "admin" {
 			role = app.RoleAdmin
 		}
 		e.p[name] = app.Principal{UserID: id, WorkspaceID: ws, Role: role}
 	}
 	e.svc = usecase.New(usecase.Deps{
 		Tx: fakeTx{}, Repo: repo, Members: members, Bus: e.bus, Messages: e.msgs,
-		Permissions: fakePerms{alice: true, bob: true, admin: true},
+		Permissions: fakePerms{alice: true, admin: true},
 		Now:         func() time.Time { return t0 },
 	})
 	return e

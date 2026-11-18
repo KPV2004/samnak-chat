@@ -46,6 +46,32 @@ type Repository interface {
 	NextTicketNumber(ctx context.Context, workspaceID, queueID string) (prefix string, number int64, err error)
 	InsertTicket(ctx context.Context, t domain.Ticket) error
 	InsertHistory(ctx context.Context, h domain.HistoryEntry) error
+	// Ticket returns one ticket with its key. A missing one is an error
+	// wrapping app.ErrNotFound.
+	Ticket(ctx context.Context, workspaceID, id string) (domain.Ticket, error)
+	// ListTickets returns up to f.Limit tickets the filter selects, newest
+	// first (by ID, which is a UUIDv7). BeforeID pages back from that ticket.
+	ListTickets(ctx context.Context, f TicketFilter) ([]domain.Ticket, error)
+	// IsAgent reports whether userID is an agent of the queue.
+	IsAgent(ctx context.Context, workspaceID, queueID, userID string) (bool, error)
+	// History returns a ticket's lines, oldest first.
+	History(ctx context.Context, ticketID string) ([]domain.HistoryEntry, error)
+}
+
+// TicketFilter selects the tickets of a list. The visibility rule (requester,
+// agents of the queue, admins) is part of it: Admin and UserID say who asks.
+// Empty fields do not filter; NoAssignee selects the unassigned ones.
+type TicketFilter struct {
+	WorkspaceID string
+	UserID      string
+	Admin       bool
+	QueueID     string
+	Statuses    []domain.Status
+	AssigneeID  string
+	NoAssignee  bool
+	RequesterID string
+	BeforeID    string
+	Limit       int
 }
 
 // Messages reads a chat message for a user who can read its channel (HD-03).

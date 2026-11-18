@@ -41,3 +41,36 @@ func (q *Queries) InsertHistory(ctx context.Context, arg InsertHistoryParams) er
 	)
 	return err
 }
+
+const listHistory = `-- name: ListHistory :many
+SELECT id, ticket_id, actor_id, action, from_value, to_value, internal, at FROM helpdesk_history WHERE ticket_id = $1 ORDER BY at, id
+`
+
+func (q *Queries) ListHistory(ctx context.Context, ticketID uuid.UUID) ([]HelpdeskHistory, error) {
+	rows, err := q.db.Query(ctx, listHistory, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HelpdeskHistory
+	for rows.Next() {
+		var i HelpdeskHistory
+		if err := rows.Scan(
+			&i.ID,
+			&i.TicketID,
+			&i.ActorID,
+			&i.Action,
+			&i.FromValue,
+			&i.ToValue,
+			&i.Internal,
+			&i.At,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

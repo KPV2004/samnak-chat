@@ -12,6 +12,51 @@ import (
 	"github.com/google/uuid"
 )
 
+const getTicket = `-- name: GetTicket :one
+SELECT t.id, t.workspace_id, t.queue_id, t.category_id, t.number, t.title, t.description, t.requester_id, t.assignee_id, t.status, t.priority, t.source_channel_id, t.source_message_id, t.message_id, t.queue_message_id, t.resolved_at, t.closed_at, t.created_at, t.updated_at, q.prefix
+FROM helpdesk_tickets t JOIN helpdesk_queues q ON q.id = t.queue_id
+WHERE t.id = $1 AND t.workspace_id = $2
+`
+
+type GetTicketParams struct {
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+}
+
+type GetTicketRow struct {
+	HelpdeskTicket HelpdeskTicket
+	Prefix         string
+}
+
+// The queue's prefix comes with the ticket, so the key can be built.
+func (q *Queries) GetTicket(ctx context.Context, arg GetTicketParams) (GetTicketRow, error) {
+	row := q.db.QueryRow(ctx, getTicket, arg.ID, arg.WorkspaceID)
+	var i GetTicketRow
+	err := row.Scan(
+		&i.HelpdeskTicket.ID,
+		&i.HelpdeskTicket.WorkspaceID,
+		&i.HelpdeskTicket.QueueID,
+		&i.HelpdeskTicket.CategoryID,
+		&i.HelpdeskTicket.Number,
+		&i.HelpdeskTicket.Title,
+		&i.HelpdeskTicket.Description,
+		&i.HelpdeskTicket.RequesterID,
+		&i.HelpdeskTicket.AssigneeID,
+		&i.HelpdeskTicket.Status,
+		&i.HelpdeskTicket.Priority,
+		&i.HelpdeskTicket.SourceChannelID,
+		&i.HelpdeskTicket.SourceMessageID,
+		&i.HelpdeskTicket.MessageID,
+		&i.HelpdeskTicket.QueueMessageID,
+		&i.HelpdeskTicket.ResolvedAt,
+		&i.HelpdeskTicket.ClosedAt,
+		&i.HelpdeskTicket.CreatedAt,
+		&i.HelpdeskTicket.UpdatedAt,
+		&i.Prefix,
+	)
+	return i, err
+}
+
 const insertTicket = `-- name: InsertTicket :exec
 INSERT INTO helpdesk_tickets (
     id, workspace_id, queue_id, category_id, number, title, description, requester_id, assignee_id, status, priority,
@@ -66,6 +111,94 @@ func (q *Queries) InsertTicket(ctx context.Context, arg InsertTicketParams) erro
 		arg.UpdatedAt,
 	)
 	return err
+}
+
+const listTickets = `-- name: ListTickets :many
+SELECT t.id, t.workspace_id, t.queue_id, t.category_id, t.number, t.title, t.description, t.requester_id, t.assignee_id, t.status, t.priority, t.source_channel_id, t.source_message_id, t.message_id, t.queue_message_id, t.resolved_at, t.closed_at, t.created_at, t.updated_at, q.prefix
+FROM helpdesk_tickets t JOIN helpdesk_queues q ON q.id = t.queue_id
+WHERE t.workspace_id = $1
+  AND ($2::boolean
+       OR t.requester_id = $3
+       OR t.queue_id IN (SELECT a.queue_id FROM helpdesk_queue_agents a WHERE a.user_id = $3))
+  AND ($4::uuid IS NULL OR t.queue_id = $4::uuid)
+  AND (cardinality($5::text[]) = 0 OR t.status = ANY($5::text[]))
+  AND ($6::uuid IS NULL OR t.assignee_id = $6::uuid)
+  AND ($7::boolean = false OR t.assignee_id IS NULL)
+  AND ($8::uuid IS NULL OR t.requester_id = $8::uuid)
+  AND ($9::uuid IS NULL OR t.id < $9::uuid)
+ORDER BY t.id DESC
+LIMIT $10
+`
+
+type ListTicketsParams struct {
+	WorkspaceID uuid.UUID
+	IsAdmin     bool
+	UserID      uuid.UUID
+	QueueID     *uuid.UUID
+	Statuses    []string
+	AssigneeID  *uuid.UUID
+	NoAssignee  bool
+	RequesterID *uuid.UUID
+	BeforeID    *uuid.UUID
+	PageSize    int32
+}
+
+type ListTicketsRow struct {
+	HelpdeskTicket HelpdeskTicket
+	Prefix         string
+}
+
+// HD-10: the requester, the agents of the queue and the admins see a ticket.
+func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]ListTicketsRow, error) {
+	rows, err := q.db.Query(ctx, listTickets,
+		arg.WorkspaceID,
+		arg.IsAdmin,
+		arg.UserID,
+		arg.QueueID,
+		arg.Statuses,
+		arg.AssigneeID,
+		arg.NoAssignee,
+		arg.RequesterID,
+		arg.BeforeID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTicketsRow
+	for rows.Next() {
+		var i ListTicketsRow
+		if err := rows.Scan(
+			&i.HelpdeskTicket.ID,
+			&i.HelpdeskTicket.WorkspaceID,
+			&i.HelpdeskTicket.QueueID,
+			&i.HelpdeskTicket.CategoryID,
+			&i.HelpdeskTicket.Number,
+			&i.HelpdeskTicket.Title,
+			&i.HelpdeskTicket.Description,
+			&i.HelpdeskTicket.RequesterID,
+			&i.HelpdeskTicket.AssigneeID,
+			&i.HelpdeskTicket.Status,
+			&i.HelpdeskTicket.Priority,
+			&i.HelpdeskTicket.SourceChannelID,
+			&i.HelpdeskTicket.SourceMessageID,
+			&i.HelpdeskTicket.MessageID,
+			&i.HelpdeskTicket.QueueMessageID,
+			&i.HelpdeskTicket.ResolvedAt,
+			&i.HelpdeskTicket.ClosedAt,
+			&i.HelpdeskTicket.CreatedAt,
+			&i.HelpdeskTicket.UpdatedAt,
+			&i.Prefix,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const nextTicketNumber = `-- name: NextTicketNumber :one

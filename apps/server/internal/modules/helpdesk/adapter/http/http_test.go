@@ -443,3 +443,69 @@ func TestCreateRefusesBadInput(t *testing.T) {
 		})
 	}
 }
+
+func TestListAndDetailFollowTheVisibilityRules(t *testing.T) {
+	e := newEnv(t)
+	cat := e.laptopCategory(t)
+	var tk struct {
+		ID string `json:"id"`
+	}
+	e.call(http.MethodPost, "/helpdesk/tickets", "bob", map[string]any{"category_id": cat, "title": "Printer jams"}).json(t, &tk)
+	if tk.ID == "" {
+		t.Fatal("ticket not created")
+	}
+	// carol becomes the agent of the IT queue.
+	var queues struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	e.call(http.MethodGet, "/helpdesk/queues", "admin", nil).json(t, &queues)
+	if r := e.call(http.MethodPut, "/helpdesk/queues/"+queues.Items[0].ID+"/agents", "admin", map[string]any{"user_ids": []string{e.carol}}); r.Code != http.StatusNoContent {
+		t.Fatalf("set agents = %d", r.Code)
+	}
+
+	var page struct {
+		Items []struct {
+			Key string `json:"key"`
+		} `json:"items"`
+		NextCursor string `json:"next_cursor"`
+	}
+	e.call(http.MethodGet, "/helpdesk/tickets", "carol", nil).json(t, &page)
+	if len(page.Items) != 1 || page.Items[0].Key != "IT-0001" || page.NextCursor != "" {
+		t.Fatalf("agent's list = %+v", page)
+	}
+	if r := e.call(http.MethodGet, "/helpdesk/tickets?status=bogus", "carol", nil); r.Code != http.StatusBadRequest {
+		t.Errorf("bad status filter = %d, want 400", r.Code)
+	}
+	if r := e.call(http.MethodGet, "/helpdesk/tickets?cursor=nope", "carol", nil); r.Code != http.StatusBadRequest {
+		t.Errorf("bad cursor = %d, want 400", r.Code)
+	}
+
+	// Bob is the requester of IT-0001, so his own list shows it.
+	e.call(http.MethodGet, "/helpdesk/tickets", "bob", nil).json(t, &page)
+	if len(page.Items) != 1 {
+		t.Errorf("requester's list = %+v", page)
+	}
+
+	var detail struct {
+		Key     string `json:"key"`
+		History []struct {
+			Action string `json:"action"`
+		} `json:"history"`
+	}
+	r := e.call(http.MethodGet, "/helpdesk/tickets/"+tk.ID, "bob", nil)
+	if r.Code != http.StatusOK {
+		t.Fatalf("requester's detail = %d: %s", r.Code, r.Body.String())
+	}
+	r.json(t, &detail)
+	if detail.Key != "IT-0001" || len(detail.History) != 1 || detail.History[0].Action != "created" {
+		t.Errorf("detail = %+v", detail)
+	}
+	if r := e.call(http.MethodGet, "/helpdesk/tickets/"+tk.ID, "out", nil); r.Code != http.StatusForbidden {
+		t.Errorf("stranger's detail = %d, want 403 (not a member)", r.Code)
+	}
+	if r := e.call(http.MethodGet, "/helpdesk/tickets/"+newID(), "admin", nil); r.Code != http.StatusNotFound {
+		t.Errorf("missing ticket = %d, want 404", r.Code)
+	}
+}
