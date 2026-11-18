@@ -49,3 +49,7 @@ export { createApprovalApi } from "./api/m4-approval";
 export type * from "./api/m4-approval";
 export { newestCard, parseApprovalCard, requestVersion } from "./approval/card";
 export type { ApprovalCardPayload } from "./approval/card";
+export { createHelpdeskApi } from "./api/helpdesk";
+export type * from "./api/helpdesk";
+export { canAssign, canClaim, canEditTicket, canWriteInternal, reopenWindowMs, statusMoves } from "./helpdesk/rules";
+export type { Viewer } from "./helpdesk/rules";
