@@ -29,7 +29,7 @@ describe("message content", () => {
     });
     const bold = await screen.findByText("bold");
     expect(bold.tagName).toBe("STRONG");
-    expect(screen.getByText("@Mali")).toHaveClass("mention", "me");
+    expect(screen.getByText("@Mali")).toHaveAttribute("data-mention", "me");
     expect(screen.getByRole("link", { name: "https://example.com" })).toHaveAttribute("href", "https://example.com");
     expect(document.querySelector("script")).toBeNull();
     expect(screen.getByText(/<script>x<\/script>/)).toBeInTheDocument();

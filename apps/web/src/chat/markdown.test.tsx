@@ -53,16 +53,16 @@ describe("markdown subset", () => {
 
   it("renders mentions with the member's name, and marks mine", () => {
     const out = html("hi <@u2> and <@u1>");
-    expect(out).toContain('<span class="mention">@Somchai</span>');
-    expect(out).toContain('<span class="mention me">@Mali</span>');
+    expect(out).toMatch(/<span data-mention="other" class="[^"]*">@Somchai<\/span>/);
+    expect(out).toMatch(/<span data-mention="me" class="[^"]*">@Mali<\/span>/);
   });
 
   it("shows an unknown mentioned user without leaking the id", () => {
-    expect(html("<@u9>")).toBe('<span class="mention">@Unknown member</span>');
+    expect(html("<@u9>")).toMatch(/^<span data-mention="other" class="[^"]*">@Unknown member<\/span>$/);
   });
 
   it("renders <!channel> as @channel", () => {
-    expect(html("<!channel> standup")).toBe('<span class="mention me">@channel</span> standup');
+    expect(html("<!channel> standup")).toMatch(/^<span data-mention="me" class="[^"]*">@channel<\/span> standup$/);
   });
 
   it("keeps line breaks in the text", () => {

@@ -15,7 +15,8 @@ export function ChatLayout() {
           {t("chat.reconnecting")}
         </p>
       )}
-      <section className="chat-pane">
+      {/* A channel fills the pane (it has its own header and composer); other pages get the padding. */}
+      <section className="row-start-2 min-h-0 min-w-0 overflow-y-auto p-4 has-[[data-channel]]:overflow-hidden has-[[data-channel]]:p-0">
         <Suspense fallback={<RouteFallback />}>
           <Outlet />
         </Suspense>
@@ -26,5 +27,5 @@ export function ChatLayout() {
 
 export function ChatHome() {
   const t = useT();
-  return <p className="muted chat-empty">{t("chat.empty")}</p>;
+  return <p className="p-4 text-muted-foreground">{t("chat.empty")}</p>;
 }

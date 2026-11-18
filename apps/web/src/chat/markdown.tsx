@@ -5,7 +5,7 @@ import { Fragment, type ReactNode } from "react";
  * as HTML), so the styles reach into it from the container.
  */
 export const bodyClass =
-  "whitespace-pre-wrap break-words [&_a]:text-primary [&_a]:underline-offset-4 [&_a:hover]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_.mention]:rounded [&_.mention]:bg-accent [&_.mention]:px-1 [&_.mention]:font-medium [&_.mention.me]:bg-primary/15 [&_.mention.me]:text-primary";
+  "whitespace-pre-wrap break-words [&_a]:text-primary [&_a]:underline-offset-4 [&_a:hover]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]";
 
 // A small subset: **bold**, *italic* or _italic_, `code`, [text](url), bare
 // http(s) URLs, <@user_id> and <!channel>. The text is turned into React
@@ -25,6 +25,10 @@ const pattern = new RegExp(
 );
 
 const trailingPunctuation = /[.,;:!?)\]]+$/;
+
+// A mention of someone else is on the muted surface; a mention of me, or of the whole channel, is tinted.
+const mentionClass = "rounded px-1 font-medium bg-accent text-primary";
+const myMentionClass = "rounded px-1 font-medium bg-primary/15 text-primary";
 
 interface Context {
   nameOf(userId: string): string;
@@ -59,15 +63,16 @@ function render(text: string, ctx: Context): ReactNode[] {
       out.push(<Fragment key={key}>{link(url, url)}</Fragment>);
       if (url.length < m[7].length) out.push(m[7].slice(url.length));
     } else if (m[8] !== undefined) {
+      const mine = m[8] === ctx.me;
       out.push(
-        <span key={key} className={m[8] === ctx.me ? "mention me" : "mention"}>
+        <span key={key} data-mention={mine ? "me" : "other"} className={mine ? myMentionClass : mentionClass}>
           @{ctx.nameOf(m[8])}
         </span>,
       );
     } else {
       // `<!channel>` notifies everyone, me included.
       out.push(
-        <span key={key} className="mention me">
+        <span key={key} data-mention="me" className={myMentionClass}>
           @channel
         </span>,
       );
