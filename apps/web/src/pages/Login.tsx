@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2Icon } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
+import { Button } from "@/components/ui/button";
 import { AuthLayout } from "../components/AuthLayout";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
@@ -64,12 +66,13 @@ export function Login() {
         <FormError
           message={login.isError ? t(errorKey(login.error, { 401: "login.wrong", 429: "login.rateLimited" })) : null}
         />
-        <button type="submit" disabled={login.isPending}>
+        <Button type="submit" className="w-full" disabled={login.isPending}>
+          {login.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
           {t("login.submit")}
-        </button>
+        </Button>
       </form>
-      <p>
-        <Link to="/register" state={location.state}>
+      <p className="m-0 text-center text-sm text-muted-foreground">
+        <Link to="/register" state={location.state} className="font-medium text-primary underline-offset-4 hover:underline">
           {t("login.toRegister")}
         </Link>
       </p>
