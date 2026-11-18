@@ -33,6 +33,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/approval"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/task"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
@@ -155,6 +156,7 @@ func migrate(url string) error {
 		{"notify", notify.Migrations},
 		{"task", task.Migrations},
 		{"approval", approval.Migrations},
+		{"helpdesk", helpdesk.Migrations},
 	}
 	for _, s := range sets {
 		if err := migrations.Run(ctx, db, s.owner, s.fsys); err != nil {
@@ -281,7 +283,7 @@ func newInstanceWith(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client, cfg 
 
 	// Every module is available, as in cmd/server's modules slice; the
 	// enabled list is what MODULES_ENABLED selects.
-	reg := app.NewRegistry(auth.New(), workspace.New(), chat.New(), notify.New(), task.New(), approval.New())
+	reg := app.NewRegistry(auth.New(), workspace.New(), chat.New(), notify.New(), task.New(), approval.New(), helpdesk.New())
 	mods, err := reg.Enable(modulesEnabled)
 	if err != nil {
 		t.Fatal(err)

@@ -72,9 +72,10 @@ route() {
     notify) echo /api/v1/notify/notifications ;;
     task) echo /api/v1/task/items ;;
     approval) echo /api/v1/approval/requests ;;
+    helpdesk) echo /api/v1/helpdesk/queues ;;
   esac
 }
-for mod in notify task approval; do
+for mod in notify task approval helpdesk; do
   code=$(curl -s -o /dev/null -w '%{http_code}' "$base$(route "$mod")")
   if [[ ",$enabled," == *",$mod,"* ]]; then
     # Without a token an enabled route answers 401, which proves it is mounted.
