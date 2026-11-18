@@ -704,14 +704,14 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 
 **Files:** `packages/core/src/` (new `helpdesk/`, `api/`), `apps/web/src/` (new `helpdesk/`, `App.tsx`, `components/AppSidebar.tsx` nav item only, `i18n/` new `helpdesk-messages.ts` and one spread line)
 
-## [ ] M5-05 web: ticket card, message action, attachments and task from ticket (wave 3)
+## [x] M5-05 web: ticket card, message action, attachments and task from ticket (wave 3)
 **SRS:** HD-03, 08, 19 · **Size:** M · **Depends on:** M5-03, M5-04
 
 **Acceptance criteria**
-- [ ] `helpdesk.ticket` card renderer registered from `helpdesk/` with Claim and Open; live updates through `card.updated`
-- [ ] Message menu "Create ticket" opens the new-ticket dialog with the message text and `source_message_id`; attachments in the dialog and on the detail page
-- [ ] "Create task" on the ticket page when `/meta` lists task and the queue has a channel; hidden otherwise
-- [ ] Component tests; build, test and lint pass
+- [x] `helpdesk.ticket` card renderer registered from `helpdesk/` with Claim and Open; live updates through `card.updated`
+- [x] Message menu "Create ticket" opens the new-ticket dialog with the message text and `source_message_id`; attachments in the dialog and on the detail page
+- [x] "Create task" on the ticket page when `/meta` lists task and the queue has a channel; hidden otherwise
+- [x] Component tests; build, test and lint pass
 
 **Files:** `apps/web/src/helpdesk/` (new `register.ts` like `approval/register.ts`), `i18n/helpdesk-messages.ts`, `App.tsx` (one import line), `chat/MessageItem.tsx` (only the "Create ticket" menu item for `helpdesk.create_from_message`, mirroring "Create task")
 
