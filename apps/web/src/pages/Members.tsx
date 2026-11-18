@@ -55,7 +55,7 @@ function MemberList({ workspaceId, myRole }: { workspaceId: string; myRole: Role
     queryKey: ["members", workspaceId],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => session.api.listMembers({ cursor: pageParam, limit: 50 }),
-    getNextPageParam: (page) => page.next_cursor ?? undefined,
+    getNextPageParam: (page) => page.next_cursor || undefined,
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["members", workspaceId] });

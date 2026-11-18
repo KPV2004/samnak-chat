@@ -138,4 +138,13 @@ describe("Members", () => {
     expect(await screen.findByText("Somchai")).toBeInTheDocument();
     expect(app.calls.filter((c) => c.path.endsWith("/members"))).toHaveLength(2);
   });
+
+  it("offers no next page when the last page has an empty cursor", async () => {
+    renderApp({
+      route: "/members",
+      routes: { "GET /api/v1/workspace/members": () => ({ items: [mali, somchai], next_cursor: "" }) },
+    });
+    expect(await screen.findByText("Somchai")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
+  });
 });
