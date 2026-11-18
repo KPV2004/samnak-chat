@@ -21,6 +21,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/adapter/postgres"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/domain"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/migrations"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	dbmigrations "github.com/KPV2004/samnak-chat/apps/server/internal/platform/database/migrations"
 )
 
@@ -84,6 +85,7 @@ func newID() string { return uuid.Must(uuid.NewV7()).String() }
 // fixture is one workspace with a queue, so each test has its own data.
 type fixture struct {
 	ws      string
+	pool    *pgxpool.Pool
 	repo    *postgres.Repo
 	ctx     context.Context
 	t       *testing.T
@@ -93,7 +95,7 @@ type fixture struct {
 func newFixture(t *testing.T) fixture {
 	t.Helper()
 	pool := testPool(t)
-	return fixture{ws: newID(), repo: postgres.New(pool), ctx: context.Background(), t: t, members: []string{newID(), newID(), newID()}}
+	return fixture{ws: newID(), pool: pool, repo: postgres.New(pool), ctx: context.Background(), t: t, members: []string{newID(), newID(), newID()}}
 }
 
 func (f fixture) queue(prefix string) domain.Queue {
@@ -264,5 +266,147 @@ func TestCategoryRoundTripAndArchive(t *testing.T) {
 	}
 	if _, err := f.repo.Category(f.ctx, newID(), c.ID); !errors.Is(err, app.ErrNotFound) {
 		t.Fatalf("other workspace: err = %v, want ErrNotFound", err)
+	}
+}
+
+// ticketIn builds a ticket of q that takes number, without failing the test,
+// so it can be called from a goroutine.
+func ticketIn(ws string, q domain.Queue, categoryID string, number int64) (domain.Ticket, error) {
+	t, err := domain.NewTicket(domain.NewTicketInput{
+		WorkspaceID: ws, QueueID: q.ID, CategoryID: categoryID, RequesterID: newID(), Title: "Printer jams",
+	}, newID(), time.Now())
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+	t.Number, t.Key = number, domain.TicketKey(q.Prefix, number)
+	return t, nil
+}
+
+func TestTicketNumbersAreUniqueUnderConcurrentCreates(t *testing.T) {
+	f := newFixture(t)
+	q := f.queue("IT")
+	cat := f.category(q.ID, false)
+	txm := database.NewTxManager(f.pool)
+
+	const n = 25
+	var wg sync.WaitGroup
+	numbers := make(chan int64, n)
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := txm.Do(f.ctx, func(ctx context.Context) error {
+				prefix, number, err := f.repo.NextTicketNumber(ctx, f.ws, q.ID)
+				if err != nil {
+					return err
+				}
+				if prefix != "IT" {
+					return fmt.Errorf("prefix = %q, want IT", prefix)
+				}
+				tk, err := ticketIn(f.ws, q, cat.ID, number)
+				if err != nil {
+					return err
+				}
+				numbers <- number
+				return f.repo.InsertTicket(ctx, tk)
+			})
+			if err != nil {
+				errs <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(numbers)
+	close(errs)
+	for err := range errs {
+		t.Errorf("concurrent create: %v", err)
+	}
+	seen := map[int64]bool{}
+	for num := range numbers {
+		if seen[num] {
+			t.Errorf("number %d was handed out twice", num)
+		}
+		seen[num] = true
+	}
+	for i := int64(1); i <= n; i++ {
+		if !seen[i] {
+			t.Errorf("number %d was never handed out", i)
+		}
+	}
+}
+
+func TestNumbersCountPerQueueAndStopWhenArchived(t *testing.T) {
+	f := newFixture(t)
+	it := f.queue("IT")
+	hr := f.queue("HR")
+	if _, n, err := f.repo.NextTicketNumber(f.ctx, f.ws, it.ID); err != nil || n != 1 {
+		t.Fatalf("first IT number = %d, %v; want 1", n, err)
+	}
+	if _, n, err := f.repo.NextTicketNumber(f.ctx, f.ws, it.ID); err != nil || n != 2 {
+		t.Fatalf("second IT number = %d, %v; want 2", n, err)
+	}
+	if prefix, n, err := f.repo.NextTicketNumber(f.ctx, f.ws, hr.ID); err != nil || n != 1 || prefix != "HR" {
+		t.Fatalf("first HR number = %s-%d, %v; want HR-1", prefix, n, err)
+	}
+
+	at := time.Now().UTC()
+	it.ArchivedAt = &at
+	if err := f.repo.UpdateQueue(f.ctx, it); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.repo.NextTicketNumber(f.ctx, f.ws, it.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("archived queue: err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestTicketNumberIsUniqueWithinItsQueueOnly(t *testing.T) {
+	f := newFixture(t)
+	it := f.queue("IT")
+	hr := f.queue("HR")
+	cat := f.category(it.ID, false)
+	hrCat := f.category(hr.ID, false)
+
+	first, err := ticketIn(f.ws, it, cat.ID, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.InsertTicket(f.ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	dup, err := ticketIn(f.ws, it, cat.ID, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.InsertTicket(f.ctx, dup); !errors.Is(err, app.ErrConflict) {
+		t.Fatalf("same number in the same queue: err = %v, want ErrConflict", err)
+	}
+	other, err := ticketIn(f.ws, hr, hrCat.ID, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.InsertTicket(f.ctx, other); err != nil {
+		t.Fatalf("same number in another queue: %v", err)
+	}
+}
+
+func TestHistoryLinesAreAddedToATicket(t *testing.T) {
+	f := newFixture(t)
+	q := f.queue("IT")
+	tk, err := ticketIn(f.ws, q, f.category(q.ID, false).ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.InsertTicket(f.ctx, tk); err != nil {
+		t.Fatal(err)
+	}
+	h := domain.HistoryEntry{ID: newID(), TicketID: tk.ID, ActorID: tk.RequesterID, Action: domain.ActionCreated, At: time.Now()}
+	if err := f.repo.InsertHistory(f.ctx, h); err != nil {
+		t.Fatal(err)
+	}
+	orphan := h
+	orphan.ID, orphan.TicketID = newID(), newID()
+	if err := f.repo.InsertHistory(f.ctx, orphan); err == nil {
+		t.Error("a history line for a missing ticket was stored")
 	}
 }

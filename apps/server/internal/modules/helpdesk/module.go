@@ -58,10 +58,21 @@ func (m *Module) Init(d *app.Deps) error {
 			return err
 		}
 	}
-	m.uc = usecase.New(usecase.Deps{
+	deps := usecase.Deps{
 		Tx: d.Tx, Repo: postgres.New(pool), Permissions: permissions{d.Services}, Members: members{d.Services},
-		Log: m.log, Now: time.Now,
-	})
+		Bus: d.Bus, Log: m.log, Now: time.Now,
+	}
+	// Without chat's reader a source message is refused (HD-03), so the
+	// dependency stays nil.
+	if r, ok := app.Lookup[app.MessageReader](d.Services); ok {
+		deps.Messages = r
+	}
+	m.uc = usecase.New(deps)
+	if d.Bus != nil {
+		// These events are published inside transactions, so the outbox must
+		// know how to decode them (PLT-10).
+		d.Bus.Declare(eventTypes...)
+	}
 	return nil
 }
 

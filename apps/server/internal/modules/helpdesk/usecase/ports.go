@@ -38,6 +38,20 @@ type Repository interface {
 	// ClearDefault unsets the default flag of every category in the workspace
 	// except exceptID, so at most one default is left.
 	ClearDefault(ctx context.Context, workspaceID, exceptID string) error
+
+	// NextTicketNumber takes the next number of an active queue in one atomic
+	// step, so concurrent creates never share a number (HD-04). It returns the
+	// number with the queue's prefix. An archived or missing queue is an error
+	// wrapping app.ErrNotFound.
+	NextTicketNumber(ctx context.Context, workspaceID, queueID string) (prefix string, number int64, err error)
+	InsertTicket(ctx context.Context, t domain.Ticket) error
+	InsertHistory(ctx context.Context, h domain.HistoryEntry) error
+}
+
+// Messages reads a chat message for a user who can read its channel (HD-03).
+// It is app.MessageReader; nil when chat does not provide it.
+type Messages interface {
+	ReadMessage(ctx context.Context, workspaceID, messageID, userID string) (app.MessageSnapshot, error)
 }
 
 // Members tells whether a user is an active member of a workspace.

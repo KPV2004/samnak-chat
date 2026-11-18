@@ -4,6 +4,8 @@
 package wire
 
 import (
+	"time"
+
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/domain"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk/usecase"
 )
@@ -55,4 +57,56 @@ func ToQueues(list []usecase.QueueSummary) []HelpdeskQueue {
 // ToCategory converts a stored category.
 func ToCategory(c domain.Category) HelpdeskCategory {
 	return HelpdeskCategory{ID: c.ID, QueueID: c.QueueID, Name: c.Name, IsDefault: c.IsDefault}
+}
+
+// HelpdeskTicket is a ticket as its requester and the queue see it (HD-03).
+type HelpdeskTicket struct {
+	ID              string     `json:"id"`
+	Key             string     `json:"key" doc:"The queue prefix and the number, e.g. IT-0142"`
+	Number          int64      `json:"number"`
+	QueueID         string     `json:"queue_id"`
+	CategoryID      string     `json:"category_id"`
+	Title           string     `json:"title"`
+	Description     string     `json:"description"`
+	RequesterID     string     `json:"requester_id"`
+	AssigneeID      *string    `json:"assignee_id" doc:"null until an agent claims or is assigned the ticket"`
+	Status          string     `json:"status" enum:"new,open,in_progress,waiting,resolved,closed"`
+	Priority        string     `json:"priority" enum:"low,normal,high,urgent"`
+	SourceChannelID *string    `json:"source_channel_id" doc:"The channel of the message the ticket was made from"`
+	SourceMessageID *string    `json:"source_message_id"`
+	MessageID       *string    `json:"message_id" doc:"The card in the requester's channel; null until it is posted"`
+	ResolvedAt      *time.Time `json:"resolved_at"`
+	ClosedAt        *time.Time `json:"closed_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+// ToTicket converts a stored ticket.
+func ToTicket(t domain.Ticket) HelpdeskTicket {
+	out := HelpdeskTicket{
+		ID: t.ID, Key: t.Key, Number: t.Number, QueueID: t.QueueID, CategoryID: t.CategoryID, Title: t.Title,
+		Description: t.Description, RequesterID: t.RequesterID, Status: string(t.Status), Priority: string(t.Priority),
+		ResolvedAt: utcPtr(t.ResolvedAt), ClosedAt: utcPtr(t.ClosedAt), CreatedAt: t.CreatedAt.UTC(), UpdatedAt: t.UpdatedAt.UTC(),
+	}
+	out.AssigneeID = optString(t.AssigneeID)
+	out.SourceChannelID = optString(t.SourceChannelID)
+	out.SourceMessageID = optString(t.SourceMessageID)
+	out.MessageID = optString(t.MessageID)
+	return out
+}
+
+// optString returns nil for the empty string, which means none.
+func optString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func utcPtr(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	u := t.UTC()
+	return &u
 }

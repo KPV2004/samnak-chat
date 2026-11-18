@@ -347,3 +347,86 @@ func (r *Repo) ClearDefault(ctx context.Context, workspaceID, exceptID string) e
 	}
 	return wrap(qs.ClearDefaultCategory(ctx, gen.ClearDefaultCategoryParams{WorkspaceID: ws, ExceptID: except}), "clear default")
 }
+
+// ticketParams turns a ticket into the insert parameters. The IDs are parsed
+// here, so text that is not a UUID is refused before it reaches the database.
+func ticketParams(t domain.Ticket) (gen.InsertTicketParams, error) {
+	var err error
+	p := gen.InsertTicketParams{
+		Number: t.Number, Title: t.Title, Description: t.Description, Status: string(t.Status),
+		Priority: string(t.Priority), ResolvedAt: utc(t.ResolvedAt), ClosedAt: utc(t.ClosedAt),
+		CreatedAt: t.CreatedAt.UTC(), UpdatedAt: t.UpdatedAt.UTC(),
+	}
+	for _, f := range []struct {
+		dst *uuid.UUID
+		src string
+	}{{&p.ID, t.ID}, {&p.WorkspaceID, t.WorkspaceID}, {&p.QueueID, t.QueueID}, {&p.CategoryID, t.CategoryID}, {&p.RequesterID, t.RequesterID}} {
+		if *f.dst, err = id(f.src); err != nil {
+			return gen.InsertTicketParams{}, err
+		}
+	}
+	for _, f := range []struct {
+		dst **uuid.UUID
+		src string
+	}{
+		{&p.AssigneeID, t.AssigneeID}, {&p.SourceChannelID, t.SourceChannelID}, {&p.SourceMessageID, t.SourceMessageID},
+		{&p.MessageID, t.MessageID}, {&p.QueueMessageID, t.QueueMessageID},
+	} {
+		if *f.dst, err = optID(f.src); err != nil {
+			return gen.InsertTicketParams{}, err
+		}
+	}
+	return p, nil
+}
+
+// NextTicketNumber takes the next number of an active queue (HD-04).
+func (r *Repo) NextTicketNumber(ctx context.Context, workspaceID, queueID string) (string, int64, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return "", 0, err
+	}
+	ws, err := id(workspaceID)
+	if err != nil {
+		return "", 0, err
+	}
+	qid, err := id(queueID)
+	if err != nil {
+		return "", 0, err
+	}
+	row, err := qs.NextTicketNumber(ctx, gen.NextTicketNumberParams{ID: qid, WorkspaceID: ws})
+	if err != nil {
+		return "", 0, wrap(err, "queue")
+	}
+	return row.Prefix, row.Number, nil
+}
+
+func (r *Repo) InsertTicket(ctx context.Context, t domain.Ticket) error {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return err
+	}
+	p, err := ticketParams(t)
+	if err != nil {
+		return err
+	}
+	return conflict(qs.InsertTicket(ctx, p), "insert ticket", "ticket number is already taken in this queue")
+}
+
+func (r *Repo) InsertHistory(ctx context.Context, h domain.HistoryEntry) error {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return err
+	}
+	p := gen.InsertHistoryParams{
+		Action: string(h.Action), FromValue: h.From, ToValue: h.To, Internal: h.Internal, At: h.At.UTC(),
+	}
+	for _, f := range []struct {
+		dst *uuid.UUID
+		src string
+	}{{&p.ID, h.ID}, {&p.TicketID, h.TicketID}, {&p.ActorID, h.ActorID}} {
+		if *f.dst, err = id(f.src); err != nil {
+			return err
+		}
+	}
+	return wrap(qs.InsertHistory(ctx, p), "insert history")
+}

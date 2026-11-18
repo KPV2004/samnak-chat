@@ -19,7 +19,13 @@ type Deps struct {
 	Repo        Repository
 	Permissions Permissions
 	Members     Members
-	Log         *slog.Logger
+	// Bus receives the events inside Tx, so they reach their listeners only
+	// after the commit (PLT-10). Nil in tests that do not look at events.
+	Bus app.Publisher
+	// Messages is nil when chat is not available; source_message_id is then
+	// refused (HD-03).
+	Messages Messages
+	Log      *slog.Logger
 	// Now is injected so tests control time.
 	Now func() time.Time
 }
@@ -67,6 +73,14 @@ func (s *Service) requireAdmin(p app.Principal) error {
 		return fmt.Errorf("only owners and admins manage helpdesk: %w", app.ErrForbidden)
 	}
 	return nil
+}
+
+// publish sends evt on the bus when there is one.
+func (s *Service) publish(ctx context.Context, evt app.Event) error {
+	if s.d.Bus == nil {
+		return nil
+	}
+	return s.d.Bus.Publish(ctx, evt)
 }
 
 // active reports whether userID is an active member of the workspace.

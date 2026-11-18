@@ -368,3 +368,78 @@ func TestCategoriesAndTheDefault(t *testing.T) {
 		t.Errorf("member editing a category = %d, want 403", r.Code)
 	}
 }
+
+// laptopCategory makes an IT queue with a Laptop category and returns the
+// category's ID.
+func (e *env) laptopCategory(t *testing.T) string {
+	t.Helper()
+	var q struct {
+		ID string `json:"id"`
+	}
+	e.call(http.MethodPost, "/helpdesk/queues", "admin", map[string]any{"name": "IT", "prefix": "IT"}).json(t, &q)
+	var c struct {
+		ID string `json:"id"`
+	}
+	r := e.call(http.MethodPost, "/helpdesk/categories", "admin", map[string]any{"queue_id": q.ID, "name": "Laptop"})
+	if r.Code != http.StatusCreated {
+		t.Fatalf("create category = %d: %s", r.Code, r.Body.String())
+	}
+	r.json(t, &c)
+	return c.ID
+}
+
+func TestMembersCreateTicketsWithAKeyAndStatusNew(t *testing.T) {
+	e := newEnv(t)
+	cat := e.laptopCategory(t)
+
+	r := e.call(http.MethodPost, "/helpdesk/tickets", "bob", map[string]any{"category_id": cat, "title": "Printer jams"})
+	if r.Code != http.StatusCreated {
+		t.Fatalf("create = %d: %s", r.Code, r.Body.String())
+	}
+	var tk struct {
+		Key         string  `json:"key"`
+		Number      int64   `json:"number"`
+		Status      string  `json:"status"`
+		Priority    string  `json:"priority"`
+		RequesterID string  `json:"requester_id"`
+		AssigneeID  *string `json:"assignee_id"`
+		Description string  `json:"description"`
+	}
+	r.json(t, &tk)
+	if tk.Key != "IT-0001" || tk.Number != 1 || tk.Status != "new" || tk.Priority != "normal" {
+		t.Errorf("ticket = %+v", tk)
+	}
+	if tk.RequesterID != e.bob || tk.AssigneeID != nil || tk.Description != "" {
+		t.Errorf("ticket = %+v; the requester is the caller and nobody is assigned", tk)
+	}
+
+	second := e.call(http.MethodPost, "/helpdesk/tickets", "carol", map[string]any{"category_id": cat, "title": "VPN", "priority": "urgent"})
+	second.json(t, &tk)
+	if tk.Key != "IT-0002" || tk.Priority != "urgent" {
+		t.Errorf("second ticket = %+v, want IT-0002 with urgent priority", tk)
+	}
+}
+
+func TestCreateRefusesBadInput(t *testing.T) {
+	e := newEnv(t)
+	cat := e.laptopCategory(t)
+	cases := []struct {
+		name  string
+		token string
+		body  map[string]any
+		want  int
+	}{
+		{"no category", "bob", map[string]any{"title": "x"}, http.StatusBadRequest},
+		{"blank title", "bob", map[string]any{"category_id": cat, "title": " "}, http.StatusBadRequest},
+		{"unknown priority", "bob", map[string]any{"category_id": cat, "title": "x", "priority": "critical"}, http.StatusBadRequest},
+		{"source message without chat", "bob", map[string]any{"category_id": cat, "title": "x", "source_message_id": newID()}, http.StatusBadRequest},
+		{"not a member", "out", map[string]any{"category_id": cat, "title": "x"}, http.StatusForbidden},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if r := e.call(http.MethodPost, "/helpdesk/tickets", c.token, c.body); r.Code != c.want {
+				t.Errorf("= %d, want %d: %s", r.Code, c.want, r.Body.String())
+			}
+		})
+	}
+}

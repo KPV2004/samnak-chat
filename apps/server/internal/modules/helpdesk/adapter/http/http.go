@@ -49,6 +49,7 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	huma.Register(api, op("helpdesk-update-queue", http.MethodPatch, "/queues/{id}", "Rename, set or clear the channel, or archive a queue; admins only", 0), h.updateQueue)
 	huma.Register(api, op("helpdesk-set-queue-agents", http.MethodPut, "/queues/{id}/agents", "Replace the agents of a queue; admins only; each must be an active member", http.StatusNoContent), h.setAgents)
 	huma.Register(api, op("helpdesk-create-category", http.MethodPost, "/categories", "Create a category in an active queue; admins only", http.StatusCreated), h.createCategory)
+	huma.Register(api, op("helpdesk-create-ticket", http.MethodPost, "/tickets", "Create a ticket in the queue of a category; with source_message_id the message is read as you (HD-03)", http.StatusCreated), h.createTicket)
 	huma.Register(api, op("helpdesk-update-category", http.MethodPatch, "/categories/{id}", "Rename, move, make default or archive a category; admins only", 0), h.updateCategory)
 }
 
@@ -247,4 +248,33 @@ func (h *Handler) updateCategory(ctx context.Context, in *helpdeskCategoryUpdate
 		return nil, h.fail(ctx, err)
 	}
 	return &helpdeskCategoryOutput{Body: wire.ToCategory(c)}, nil
+}
+
+type helpdeskTicketCreateInput struct {
+	Body struct {
+		CategoryID      string `json:"category_id" doc:"The category; its queue takes the ticket"`
+		Title           string `json:"title" doc:"1 to 200 characters"`
+		Description     string `json:"description,omitempty" doc:"Up to 8000 characters; with source_message_id and no description, the message body"`
+		Priority        string `json:"priority,omitempty" enum:"low,normal,high,urgent" doc:"Defaults to normal"`
+		SourceMessageID string `json:"source_message_id,omitempty" doc:"A chat message you can read; needs chat"`
+	}
+}
+
+type helpdeskTicketOutput struct {
+	Body wire.HelpdeskTicket
+}
+
+func (h *Handler) createTicket(ctx context.Context, in *helpdeskTicketCreateInput) (*helpdeskTicketOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	t, err := h.uc.Create(ctx, p, usecase.CreateInput{
+		CategoryID: in.Body.CategoryID, Title: in.Body.Title, Description: in.Body.Description,
+		Priority: domain.Priority(in.Body.Priority), SourceMessageID: in.Body.SourceMessageID,
+	})
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &helpdeskTicketOutput{Body: wire.ToTicket(t)}, nil
 }
