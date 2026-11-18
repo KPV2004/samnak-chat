@@ -1,7 +1,14 @@
 import type { ApprovalAttachment, ApprovalRequestDetail } from "@samnak/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Download as DownloadIcon } from "lucide-react";
 import { Link, useParams } from "react-router";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { FormError } from "../components/FormError";
+import { Page } from "../components/Page";
 import { RequireWorkspace } from "../components/RequireWorkspace";
 import { useCurrentLocale, useT, type T } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
@@ -9,7 +16,7 @@ import { formatDateTime } from "../lib/format";
 import { useMe } from "../state/queries";
 import { useSessionState } from "../state/session";
 import { ApprovalActions } from "./ApprovalActions";
-import { actionKeys, payloadRows, statusKeys, summarize, typeKeys } from "./format";
+import { actionKeys, historyDotTones, payloadRows, statusKeys, statusTones, summarize, typeKeys } from "./format";
 import { useApprovalApi } from "./api";
 import { useNameOf } from "./useMembers";
 
@@ -29,13 +36,22 @@ function RequestView() {
     enabled: workspaceId !== null && requestId !== "",
   });
 
-  if (request.isPending) return <p role="status">{t("loading")}</p>;
+  if (request.isPending) {
+    return (
+      <Page title={t("approval.title")} actions={<BackLink />}>
+        <div role="status" className="grid gap-4">
+          <span className="sr-only">{t("loading")}</span>
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+        </div>
+      </Page>
+    );
+  }
   if (request.isError) {
     return (
-      <section>
-        <BackLink />
+      <Page title={t("approval.title")} actions={<BackLink />}>
         <FormError message={t(errorKey(request.error, { 404: "approval.notFound" }))} />
-      </section>
+      </Page>
     );
   }
   return <Detail request={request.data} />;
@@ -47,78 +63,98 @@ function Detail({ request: r }: { request: ApprovalRequestDetail }) {
   const timeZone = useMe().data?.timezone;
   const nameOf = useNameOf();
   const when = (iso: string) => formatDateTime(iso, locale, timeZone);
+  const tone = statusTones[r.status];
 
   return (
-    <section aria-labelledby="request-heading">
-      <BackLink />
-      <h1 id="request-heading">{summarize(r.type, r.payload, t)}</h1>
-      <p>
-        <span className="badge">{t(statusKeys[r.status])}</span> <small className="muted">{t(typeKeys[r.type])}</small>
-      </p>
-
-      <dl>
-        <dt>{t("approval.requester")}</dt>
-        <dd>{nameOf(r.requester_id)}</dd>
-        <dt>{t("approval.approver")}</dt>
-        <dd>{nameOf(r.approver_id)}</dd>
-        <dt>{t("approval.sentOn")}</dt>
-        <dd>{when(r.created_at)}</dd>
-        {r.decided_at && (
-          <>
-            <dt>{t("approval.decidedOn")}</dt>
-            <dd>{when(r.decided_at)}</dd>
-          </>
-        )}
-        {r.status === "rejected" && r.reason && (
-          <>
-            <dt>{t("approval.rejectedReason")}</dt>
-            <dd>{r.reason}</dd>
-          </>
-        )}
-        {payloadRows(r.type, r.payload, t).map((row) => (
-          <FieldPair key={row.label} label={row.label} value={row.value} multiline={row.multiline} />
-        ))}
-      </dl>
-
-      <ApprovalActions requestId={r.id} requesterId={r.requester_id} approverId={r.approver_id} status={r.status} />
+    <Page
+      title={summarize(r.type, r.payload, t)}
+      description={
+        <span className="inline-flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className={tone.text}>
+            {t(statusKeys[r.status])}
+          </Badge>
+          <span>{t(typeKeys[r.type])}</span>
+        </span>
+      }
+      actions={
+        <>
+          <BackLink />
+          <ApprovalActions requestId={r.id} requesterId={r.requester_id} approverId={r.approver_id} status={r.status} />
+        </>
+      }
+    >
+      <Card className="gap-0 py-5">
+        <CardContent>
+          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <Field label={t("approval.requester")} value={nameOf(r.requester_id)} />
+            <Field label={t("approval.approver")} value={nameOf(r.approver_id)} />
+            <Field label={t("approval.sentOn")} value={when(r.created_at)} />
+            {r.decided_at && <Field label={t("approval.decidedOn")} value={when(r.decided_at)} />}
+            {r.status === "rejected" && r.reason && <Field label={t("approval.rejectedReason")} value={r.reason} multiline />}
+            {payloadRows(r.type, r.payload, t).map((row) => (
+              <Field key={row.label} label={row.label} value={row.value} multiline={row.multiline} />
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
 
       {r.attachments.length > 0 && (
-        <section aria-labelledby="attachments-heading">
-          <h2 id="attachments-heading">{t("approval.attachments")}</h2>
-          <ul className="rows">
-            {r.attachments.map((a) => (
-              <li key={a.id}>
-                <Download attachment={a} t={t} />
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Card className="gap-3 py-5">
+          <CardHeader>
+            <h2 id="attachments-heading" className="text-base font-semibold">
+              {t("approval.attachments")}
+            </h2>
+          </CardHeader>
+          <CardContent>
+            <ul aria-labelledby="attachments-heading" className="m-0 grid list-none gap-2 p-0">
+              {r.attachments.map((a) => (
+                <li key={a.id}>
+                  <Download attachment={a} t={t} />
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
-      <section aria-labelledby="history-heading">
-        <h2 id="history-heading">{t("approval.history")}</h2>
-        <ol aria-label={t("approval.history")}>
-          {r.history.map((h) => (
-            <li key={h.id}>
-              <span>{t(actionKeys[h.action], { name: nameOf(h.actor_id) })}</span>{" "}
-              <time dateTime={h.at}>
-                <small className="muted">{when(h.at)}</small>
-              </time>
-              {h.reason && <p>{h.reason}</p>}
-            </li>
-          ))}
-        </ol>
-      </section>
-    </section>
+      <Card className="gap-3 py-5">
+        <CardHeader>
+          <h2 id="history-heading" className="text-base font-semibold">
+            {t("approval.history")}
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <ol aria-label={t("approval.history")} className="m-0 ml-1.5 grid list-none gap-5 border-l p-0 pl-6">
+            {r.history.map((h) => (
+              <li key={h.id} className="relative grid gap-0.5">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute -left-[30px] top-1.5 size-2.5 rounded-full ring-4 ring-card",
+                    historyDotTones[h.action],
+                  )}
+                />
+                <p className="m-0 text-sm">{t(actionKeys[h.action], { name: nameOf(h.actor_id) })}</p>
+                <time dateTime={h.at} className="text-xs text-muted-foreground">
+                  {when(h.at)}
+                </time>
+                {h.reason && <p className="m-0 text-sm text-muted-foreground">{h.reason}</p>}
+              </li>
+            ))}
+          </ol>
+        </CardContent>
+      </Card>
+    </Page>
   );
 }
 
-function FieldPair({ label, value, multiline }: { label: string; value: string; multiline?: boolean }) {
+/** A label above its value. Long text keeps its line breaks. */
+function Field({ label, value, multiline }: { label: string; value: string; multiline?: boolean }) {
   return (
-    <>
-      <dt>{label}</dt>
-      <dd style={multiline ? { whiteSpace: "pre-wrap" } : undefined}>{value}</dd>
-    </>
+    <div className="grid content-start gap-1">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={cn("m-0 text-sm break-words", multiline && "whitespace-pre-wrap")}>{value}</dd>
+    </div>
   );
 }
 
@@ -132,25 +168,32 @@ function Download({ attachment, t }: { attachment: ApprovalAttachment; t: T }) {
     },
   });
   return (
-    <>
-      <button
+    <div className="grid gap-2">
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
+        className="justify-self-start"
         aria-label={t("approval.download", { name: attachment.file_name })}
         disabled={download.isPending}
         onClick={() => download.mutate()}
       >
-          {attachment.file_name}
-      </button>
+        <DownloadIcon />
+        {attachment.file_name}
+      </Button>
       <FormError message={download.error ? t(errorKey(download.error)) : null} />
-    </>
+    </div>
   );
 }
 
 function BackLink() {
   const t = useT();
   return (
-    <p>
-      <Link to="/approvals">{t("approval.backToList")}</Link>
-    </p>
+    <Button asChild variant="ghost" size="sm">
+      <Link to="/approvals">
+        <ArrowLeft />
+        {t("approval.backToList")}
+      </Link>
+    </Button>
   );
 }
