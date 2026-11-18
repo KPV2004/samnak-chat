@@ -698,9 +698,9 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 **SRS:** HD-01, 02, 05..07, 09, 10, 18 · **Size:** M · **Depends on:** checkpoint F
 
 **Acceptance criteria**
-- [ ] `packages/core`: helpdesk API from the generated schema
-- [ ] "Helpdesk" list with "My requests" and "Queue" tabs and filters; ticket detail with the status actions the viewer may take, claim and assign, public and internal comments (the internal switch only for agents and admins), history; new-ticket dialog without attachments; "Helpdesk settings" for admins
-- [ ] Hidden when `/meta` lacks helpdesk; Thai and English; component tests; shadcn/ui per `docs/ui.md`; `npm run build`, `npm test` and `npm run lint` pass
+- [x] `packages/core`: helpdesk API from the generated schema
+- [x] "Helpdesk" list with "My requests" and "Queue" tabs and filters; ticket detail with the status actions the viewer may take, claim and assign, public and internal comments (the internal switch only for agents and admins), history; new-ticket dialog without attachments; "Helpdesk settings" for admins
+- [x] Hidden when `/meta` lacks helpdesk; Thai and English; component tests; shadcn/ui per `docs/ui.md`; `npm run build`, `npm test` and `npm run lint` pass
 
 **Files:** `packages/core/src/` (new `helpdesk/`, `api/`), `apps/web/src/` (new `helpdesk/`, `App.tsx`, `components/AppSidebar.tsx` nav item only, `i18n/` new `helpdesk-messages.ts` and one spread line)
 
