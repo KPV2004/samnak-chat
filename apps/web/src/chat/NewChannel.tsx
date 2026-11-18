@@ -1,8 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
+import { Page } from "../components/Page";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { useChat } from "../state/chat";
@@ -29,7 +32,10 @@ export function NewChannel() {
       await chat!.store.loadChannels();
       return channel;
     },
-    onSuccess: (channel) => navigate(`/chat/${channel.id}`),
+    onSuccess: (channel) => {
+      toast.success(t("chat.toast.created", { name: channel.name }));
+      navigate(`/chat/${channel.id}`);
+    },
   });
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -44,9 +50,8 @@ export function NewChannel() {
   }
 
   return (
-    <section aria-labelledby="new-channel-heading">
-      <h1 id="new-channel-heading">{t("chat.new.title")}</h1>
-      <form onSubmit={onSubmit} noValidate>
+    <Page title={t("chat.new.title")} width="narrow">
+      <form onSubmit={onSubmit} noValidate className="grid gap-4">
         <Field
           label={t("chat.new.name")}
           name="name"
@@ -63,24 +68,32 @@ export function NewChannel() {
           maxLength={250}
           onChange={(e) => setTopic(e.target.value)}
         />
-        <fieldset>
-          <legend>{t("chat.new.visibility")}</legend>
-          <label>
-            <input type="radio" name="type" checked={type === "public"} onChange={() => setType("public")} />{" "}
-            {t("chat.new.public")}
-          </label>
-          <br />
-          <label>
-            <input type="radio" name="type" checked={type === "private"} onChange={() => setType("private")} />{" "}
-            {t("chat.new.private")}
-          </label>
+        <fieldset className="grid gap-2">
+          <legend className="text-sm font-medium">{t("chat.new.visibility")}</legend>
+          {(["public", "private"] as const).map((option) => (
+            <label
+              key={option}
+              className="flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+            >
+              <input
+                type="radio"
+                name="type"
+                className="mt-0.5 size-4 accent-primary"
+                checked={type === option}
+                onChange={() => setType(option)}
+              />
+              <span>{option === "public" ? t("chat.new.public") : t("chat.new.private")}</span>
+            </label>
+          ))}
         </fieldset>
         <MemberChoice legend={t("chat.new.people")} selected={people} onChange={setPeople} empty={t("chat.dm.empty")} />
         <FormError message={create.isError ? t(errorKey(create.error, { 409: "chat.new.nameTaken" })) : null} />
-        <button type="submit" disabled={create.isPending || !chat}>
-          {t("chat.new.create")}
-        </button>
+        <div>
+          <Button type="submit" disabled={create.isPending || !chat}>
+            {t("chat.new.create")}
+          </Button>
+        </div>
       </form>
-    </section>
+    </Page>
   );
 }
