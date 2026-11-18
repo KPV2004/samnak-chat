@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useParams, useSearchParams } from "react-router";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useT } from "../i18n/useT";
 import { useChat, useChatState } from "../state/chat";
 import { Composer } from "./Composer";
@@ -25,23 +26,49 @@ export function ChannelPage() {
     if (store && known) void store.loadHistory(channelId).catch(() => {});
   }, [store, known, channelId]);
 
+  // The chat area is full height, so it has no page column; `data-page` still switches the old styles off.
   if (!state) {
-    if (!chat || chat.channelsStatus === "loading") return <p role="status">{t("loading")}</p>;
-    return <p role="alert">{t("chat.notFound")}</p>;
+    if (!chat || chat.channelsStatus === "loading") {
+      return (
+        <div data-page className="grid h-full content-start gap-4 p-4">
+          <p role="status" className="text-sm text-muted-foreground">
+            {t("loading")}
+          </p>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex gap-3">
+              <Skeleton className="size-8 shrink-0 rounded-full" />
+              <div className="grid flex-1 gap-2">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div data-page className="flex h-full items-center justify-center p-6">
+        <p role="alert" className="text-center text-sm text-muted-foreground">
+          {t("chat.notFound")}
+        </p>
+      </div>
+    );
   }
   const channel = state.channel;
   return (
-    <div className="chat-channel">
-      <div className="chat-main">
-        <header className="chat-channel-header">
-          <h1>{channelTitle(channel, chat?.userId ?? "", nameOf, t)}</h1>
-          {channel.topic && <p className="muted">{channel.topic}</p>}
-          <small className="muted">{t("chat.members", { n: channel.member_count })}</small>
+    <div data-page className="chat-channel flex h-full min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center gap-3 border-b px-4 py-2.5">
+          <div className="grid min-w-0 flex-1 gap-0.5">
+            <h1 className="text-base font-semibold">{channelTitle(channel, chat?.userId ?? "", nameOf, t)}</h1>
+            {channel.topic && <p className="text-sm text-muted-foreground">{channel.topic}</p>}
+          </div>
+          <small className="shrink-0 text-xs text-muted-foreground">{t("chat.members", { n: channel.member_count })}</small>
         </header>
         <MessageList channelId={channelId} />
         <TypingIndicator channelId={channelId} />
         {channel.archived_at ? (
-          <p className="chat-archived muted">{t("chat.archived")}</p>
+          <p className="border-t px-4 py-3 text-sm text-muted-foreground">{t("chat.archived")}</p>
         ) : (
           <Composer channelId={channelId} />
         )}

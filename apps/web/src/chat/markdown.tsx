@@ -1,5 +1,12 @@
 import { Fragment, type ReactNode } from "react";
 
+/**
+ * Looks of a message body. The markup from `Markdown` has no classes of its own (the tests compare it
+ * as HTML), so the styles reach into it from the container.
+ */
+export const bodyClass =
+  "whitespace-pre-wrap break-words [&_a]:text-primary [&_a]:underline-offset-4 [&_a:hover]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_.mention]:rounded [&_.mention]:bg-accent [&_.mention]:px-1 [&_.mention]:font-medium [&_.mention.me]:bg-primary/15 [&_.mention.me]:text-primary";
+
 // A small subset: **bold**, *italic* or _italic_, `code`, [text](url), bare
 // http(s) URLs, <@user_id> and <!channel>. The text is turned into React
 // elements, never into HTML, so markup in a message shows as text.

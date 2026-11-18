@@ -63,6 +63,26 @@ describe("channel view", () => {
     expect(app.fetch.mock.calls.some((c) => (c[0] as string).includes("before_seq=2"))).toBe(true);
   });
 
+  it("shows one header for a run of messages from one person, and a divider for each day", async () => {
+    const grouped = [
+      message("c1", 1, { body: "first", created_at: "2026-01-01T09:00:00Z" }),
+      message("c1", 2, { body: "second", created_at: "2026-01-01T09:01:00Z" }),
+      message("c1", 3, { body: "next day", created_at: "2026-01-02T09:00:00Z" }),
+    ];
+    renderApp({
+      route: "/chat/c1",
+      routes: routes({ "GET /api/v1/chat/channels/c1/messages": () => ({ items: grouped, has_more: false }) }),
+    });
+    const region = await log();
+    await within(region).findByText("first");
+    const items = within(region).getAllByRole("listitem");
+    expect(items[0]!.querySelector("strong")).toHaveTextContent("Somchai");
+    // The second message continues the first: the name is for screen readers only.
+    expect(items[1]!.querySelector("strong")).toBeNull();
+    expect(items[2]!.querySelector("strong")).toHaveTextContent("Somchai");
+    expect(within(region).getAllByRole("separator")).toHaveLength(2);
+  });
+
   it("says the channel is empty", async () => {
     renderApp({
       route: "/chat/c1",

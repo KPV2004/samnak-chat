@@ -124,10 +124,26 @@ describe("edit and delete", () => {
     const item = (await screen.findByText("my message")).closest("li")!;
     await user.click(within(item).getByRole("button", { name: "Delete" }));
     expect(app.called(`DELETE /api/v1/chat/messages/${mine.id}`)).toHaveLength(0);
-    expect(within(item).getByText("Delete this message?")).toBeInTheDocument();
-    await user.click(within(item).getByRole("button", { name: "Confirm" }));
+    // The question is asked in a dialog, which sits outside the message.
+    const dialog = await screen.findByRole("dialog", { name: "Delete this message?" });
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
     expect(await screen.findByText("This message was deleted.")).toBeInTheDocument();
     expect(app.called(`DELETE /api/v1/chat/messages/${mine.id}`)).toHaveLength(1);
+    expect(await screen.findByText("Message deleted")).toBeInTheDocument();
+  });
+
+  it("keeps the message when the deletion is cancelled", async () => {
+    const user = userEvent.setup();
+    const app = renderApp({
+      route: "/chat/c1",
+      routes: routes([mine], { [`DELETE /api/v1/chat/messages/${mine.id}`]: () => undefined }),
+    });
+    const item = (await screen.findByText("my message")).closest("li")!;
+    await user.click(within(item).getByRole("button", { name: "Delete" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("my message")).toBeInTheDocument();
+    expect(app.called(`DELETE /api/v1/chat/messages/${mine.id}`)).toHaveLength(0);
   });
 
   it("offers a member no edit or delete on someone else's message", async () => {

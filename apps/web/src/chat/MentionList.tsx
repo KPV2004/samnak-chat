@@ -8,9 +8,15 @@ interface Props {
   onPick(option: MentionOption): void;
 }
 
+/** The suggestions above the composer: members after @, commands after /. */
 export function MentionList({ id, label, options, active, onPick }: Props) {
   return (
-    <ul id={id} role="listbox" aria-label={label} className="chat-mentions">
+    <ul
+      id={id}
+      role="listbox"
+      aria-label={label}
+      className="absolute inset-x-0 bottom-full z-10 mb-2 max-h-60 overflow-y-auto rounded-lg border bg-popover p-1 text-sm text-popover-foreground shadow-md"
+    >
       {options.map((o, i) => (
         <li
           key={o.token}
@@ -20,9 +26,10 @@ export function MentionList({ id, label, options, active, onPick }: Props) {
           // Keep the focus in the text box so the caret and the keyboard stay where they were.
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onPick(o)}
+          className="cursor-pointer rounded-md px-2 py-1.5 aria-selected:bg-accent aria-selected:text-accent-foreground"
         >
           {o.label}
-          {o.detail && <small className="muted"> {o.detail}</small>}
+          {o.detail && <small className="ml-1 text-xs text-muted-foreground">{o.detail}</small>}
         </li>
       ))}
     </ul>

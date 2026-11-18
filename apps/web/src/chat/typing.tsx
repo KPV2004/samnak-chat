@@ -61,7 +61,7 @@ export function TypingIndicator({ channelId }: { channelId: string }) {
           ? t("chat.typing.two", { a: a!, b: b! })
           : t("chat.typing.many");
   return (
-    <p className="chat-typing muted" role="status">
+    <p className="min-h-5 px-4 text-xs text-muted-foreground" role="status">
       {text}
     </p>
   );

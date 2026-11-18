@@ -1,7 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { Button } from "@/components/ui/button";
 import { FormError } from "../components/FormError";
+import { Page } from "../components/Page";
 import type { MessageKey } from "../i18n/messages";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
@@ -34,9 +36,8 @@ export function NewDm() {
   }
 
   return (
-    <section aria-labelledby="new-dm-heading">
-      <h1 id="new-dm-heading">{t("chat.dm.title")}</h1>
-      <form onSubmit={onSubmit} noValidate>
+    <Page title={t("chat.dm.title")} width="narrow">
+      <form onSubmit={onSubmit} noValidate className="grid gap-4">
         <MemberChoice
           legend={t("chat.dm.people")}
           hint={t("chat.dm.hint")}
@@ -45,10 +46,12 @@ export function NewDm() {
           empty={t("chat.dm.empty")}
         />
         <FormError message={problem ? t(problem) : open.isError ? t(errorKey(open.error)) : null} />
-        <button type="submit" disabled={open.isPending || !chat}>
-          {t("chat.dm.start")}
-        </button>
+        <div>
+          <Button type="submit" disabled={open.isPending || !chat}>
+            {t("chat.dm.start")}
+          </Button>
+        </div>
       </form>
-    </section>
+    </Page>
   );
 }
