@@ -79,9 +79,15 @@ jobs:
           - label: approval
             modules: approval
             enabled: approval
+          - label: helpdesk
+            modules: helpdesk
+            enabled: helpdesk
           - label: notify,task,approval
             modules: notify,task,approval
             enabled: notify,task,approval
+          - label: notify,task,approval,helpdesk
+            modules: notify,task,approval,helpdesk
+            enabled: notify,task,approval,helpdesk
     name: modules ${{ matrix.label }}
     env:
       DATABASE_URL: postgres://samnak:samnak@localhost:5432/samnak?sslmode=disable
