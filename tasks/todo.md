@@ -694,7 +694,7 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 
 **Files:** `internal/modules/helpdesk/`
 
-## [ ] M5-04 web: helpdesk pages (wave 2)
+## [x] M5-04 web: helpdesk pages (wave 2)
 **SRS:** HD-01, 02, 05..07, 09, 10, 18 · **Size:** M · **Depends on:** checkpoint F
 
 **Acceptance criteria**
