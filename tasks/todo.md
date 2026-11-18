@@ -683,14 +683,14 @@ Planner notes from checkpoint F: workers Claude Haiku 5.5, merged without confli
 
 Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL; new → open only through assign; reopen after 7 days is 409; a new default category demotes the old one; prefixes are upper-cased; moving a ticket to a queue where its assignee is not an agent clears the assignee, and a number collision there is 409; validation errors are 400.
 
-## [ ] M5-03 helpdesk cards, notifications and chat extensions (wave 2)
+## [x] M5-03 helpdesk cards, notifications and chat extensions (wave 2)
 **SRS:** HD-03, 08, 20 · **Size:** M · **Depends on:** checkpoint F
 
 **Acceptance criteria**
-- [ ] Card kind `helpdesk.ticket` registered; requester card for tickets made from chat and agents' card in the queue channel, posted and updated by the module's own event handlers, idempotently, with `version`
-- [ ] Notification rules as in the plan, with their keys
-- [ ] `/ticket <title>` (default category; `no_default_category` 400 otherwise) and `helpdesk.create_from_message` registered when `ChatExtensions` is available
-- [ ] Module tests on the real registry with the in-memory bus for each card and rule; `go build ./... && go vet ./... && go test ./...` pass
+- [x] Card kind `helpdesk.ticket` registered; requester card for tickets made from chat and agents' card in the queue channel, posted and updated by the module's own event handlers, idempotently, with `version`
+- [x] Notification rules as in the plan, with their keys
+- [x] `/ticket <title>` (default category; `no_default_category` 400 otherwise) and `helpdesk.create_from_message` registered when `ChatExtensions` is available
+- [x] Module tests on the real registry with the in-memory bus for each card and rule; `go build ./... && go vet ./... && go test ./...` pass
 
 **Files:** `internal/modules/helpdesk/`
 
