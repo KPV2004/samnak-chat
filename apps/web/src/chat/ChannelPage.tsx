@@ -70,12 +70,13 @@ export function ChannelPage() {
         {channel.archived_at ? (
           <p className="border-t px-4 py-3 text-sm text-muted-foreground">{t("chat.archived")}</p>
         ) : (
-          <Composer channelId={channelId} />
+          // Keyed by channel: opening another channel starts a new draft, with no picked names.
+          <Composer key={channelId} channelId={channelId} />
         )}
       </div>
       {rootId && (
         <ThreadPanel
-          key={rootId}
+          key={`${channelId}/${rootId}`}
           channelId={channelId}
           rootId={rootId}
           onClose={() =>

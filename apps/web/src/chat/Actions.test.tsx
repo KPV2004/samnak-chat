@@ -104,6 +104,42 @@ describe("edit and delete", () => {
     expect(within(item).getByText("(edited)")).toBeInTheDocument();
   });
 
+  it("shows a mention as the name when editing, and keeps the mention on save", async () => {
+    const user = userEvent.setup();
+    const withMention = message("c1", 3, { sender_id: "u1", body: "ask <@u2> about it" });
+    const app = renderApp({
+      route: "/chat/c1",
+      routes: routes([withMention], {
+        [`PATCH /api/v1/chat/messages/${withMention.id}`]: (body) => ({ ...withMention, body: body.body, edited_at: "2026-01-01T11:00:00Z" }),
+      }),
+    });
+    const item = (await screen.findByText("@Somchai")).closest("li")!;
+    await user.click(within(item).getByRole("button", { name: "Edit" }));
+    const box = within(item).getByRole("textbox", { name: "Edit message" });
+    expect(box).toHaveValue("ask @Somchai about it");
+    await user.type(box, " today");
+    await user.click(within(item).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(app.called(`PATCH /api/v1/chat/messages/${withMention.id}`)).toHaveLength(1));
+    expect(app.called(`PATCH /api/v1/chat/messages/${withMention.id}`)[0]!.body).toEqual({ body: "ask <@u2> about it today" });
+  });
+
+  it("saves a message with a mention unchanged when nothing was edited", async () => {
+    const user = userEvent.setup();
+    const withMention = message("c1", 3, { sender_id: "u1", body: "<!channel> and <@u2>" });
+    const app = renderApp({
+      route: "/chat/c1",
+      routes: routes([withMention], {
+        [`PATCH /api/v1/chat/messages/${withMention.id}`]: (body) => ({ ...withMention, body: body.body, edited_at: "2026-01-01T11:00:00Z" }),
+      }),
+    });
+    const item = (await screen.findByText("@Somchai")).closest("li")!;
+    await user.click(within(item).getByRole("button", { name: "Edit" }));
+    expect(within(item).getByRole("textbox", { name: "Edit message" })).toHaveValue("@channel and @Somchai");
+    await user.click(within(item).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(app.called(`PATCH /api/v1/chat/messages/${withMention.id}`)).toHaveLength(1));
+    expect(app.called(`PATCH /api/v1/chat/messages/${withMention.id}`)[0]!.body).toEqual({ body: "<!channel> and <@u2>" });
+  });
+
   it("cancels an edit with Escape", async () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/chat/c1", routes: routes([mine]) });

@@ -39,6 +39,19 @@ describe("create task from a message", () => {
     expect(within(form).getByRole("textbox", { name: "Title" })).toHaveValue("Please prepare the report for Friday");
   });
 
+  it("shows a mention as the name in the title, since a title is plain text", async () => {
+    const user = userEvent.setup();
+    const withMention = message("c1", 1, { body: "<@u2> please prepare the report", sender_id: "u1" });
+    renderApp({
+      route: "/chat/c1",
+      routes: routes(undefined, { "GET /api/v1/chat/channels/c1/messages": () => ({ items: [withMention], has_more: false }) }),
+    });
+    const item = (await screen.findByText("@Somchai")).closest("li")!;
+    await user.click(await within(item).findByRole("button", { name: "Create task" }));
+    const form = screen.getByRole("form", { name: "New task from this message" });
+    expect(within(form).getByRole("textbox", { name: "Title" })).toHaveValue("@Somchai please prepare the report");
+  });
+
   it("creates the task from the message, with the assignee, priority and due date", async () => {
     const user = userEvent.setup();
     const { app, form } = await openForm(user);

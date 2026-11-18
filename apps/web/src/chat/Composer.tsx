@@ -10,7 +10,7 @@ import { errorKey } from "../lib/errors";
 import { useChat } from "../state/chat";
 import { useChatExtensions, useExtensionsApi } from "../task/api";
 import { MentionList } from "./MentionList";
-import { insertMention, mentionAt, type MentionOption } from "./mentions";
+import { addPick, channelText, insertMention, mentionAt, toTokens, type MentionOption, type Picks } from "./mentions";
 import { useNameOf } from "./names";
 
 export const maxLength = 4000;
@@ -25,6 +25,14 @@ interface Props {
   label?: string;
 }
 
+/** What the box holds: the text as the sender sees it, and the mentions picked into it. */
+interface Draft {
+  text: string;
+  picks: Picks;
+}
+
+const emptyDraft: Draft = { text: "", picks: new Map() };
+
 /** What a slash command said back (shown to the sender only), or why it failed. */
 interface Note {
   text: string;
@@ -38,7 +46,8 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   const nameOf = useNameOf();
   const { commands } = useChatExtensions();
   const extensions = useExtensionsApi();
-  const [text, setText] = useState("");
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const { text, picks } = draft;
   const [caret, setCaret] = useState(0);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState(false);
@@ -49,7 +58,9 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   const lastTyping = useRef(0);
   const uid = useId();
 
-  const length = [...text].length;
+  // What is sent: each picked name as its token. The counter and the limit count that.
+  const body = toTokens(text, picks);
+  const length = [...body].length;
   const tooLong = length > maxLength;
   const canSend = text.trim() !== "" && !tooLong && store !== undefined && !running;
 
@@ -72,12 +83,12 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   if (mention) {
     const q = mention.query.toLowerCase();
     if ("channel".startsWith(q)) {
-      options.push({ token: "<!channel>", label: t("chat.mentionChannel"), detail: t("chat.mention.channel") });
+      options.push({ token: "<!channel>", label: t("chat.mentionChannel"), detail: t("chat.mention.channel"), insert: channelText });
     }
     for (const m of members.data ?? []) {
       const name = m.display_name || nameOf(m.user_id);
       if (m.user_id !== chat?.userId && name.toLowerCase().includes(q)) {
-        options.push({ token: `<@${m.user_id}>`, label: name });
+        options.push({ token: `<@${m.user_id}>`, label: name, insert: `@${name}` });
       }
     }
   }
@@ -97,23 +108,24 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   function pick(option: MentionOption) {
     if (slash !== null) {
       nextCaret.current = option.token.length;
-      setText(option.token);
+      setDraft({ text: option.token, picks: new Map() });
       boxRef.current?.focus();
       return;
     }
     if (!mention) return;
-    const next = insertMention(text, caret, mention, option.token);
+    const added = addPick(picks, option.insert ?? option.token, option.token);
+    const next = insertMention(text, caret, mention, added.shown);
     nextCaret.current = next.caret;
-    setText(next.text);
+    setDraft({ text: next.text, picks: added.picks });
     boxRef.current?.focus();
   }
 
   async function submit() {
     if (!canSend) return;
-    const command = commandIn(text, commands);
+    const command = commandIn(body, commands);
     if (!command) {
-      store.send(channelId, text, threadRootId ? { thread_root_id: threadRootId } : {});
-      setText("");
+      store.send(channelId, body, threadRootId ? { thread_root_id: threadRootId } : {});
+      setDraft(emptyDraft);
       setCaret(0);
       boxRef.current?.focus();
       return;
@@ -128,7 +140,7 @@ export function Composer({ channelId, threadRootId, label }: Props) {
         thread_root_id: threadRootId,
       });
       // Clears the box unless the sender has typed something else meanwhile.
-      setText((current) => (current === sent ? "" : current));
+      setDraft((current) => (current.text === sent ? emptyDraft : current));
       if (result.text) setNote({ text: result.text, failed: false });
     } catch (err) {
       setNote({ text: t(errorKey(err)), failed: true });
@@ -138,7 +150,8 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   }
 
   function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setText(e.target.value);
+    const value = e.target.value;
+    setDraft((current) => ({ ...current, text: value }));
     setCaret(e.target.selectionStart);
     setActive(0);
     setDismissed(false);
