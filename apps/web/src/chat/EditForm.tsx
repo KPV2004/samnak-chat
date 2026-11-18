@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useT } from "../i18n/useT";
 import { useChat } from "../state/chat";
 import { maxLength } from "./Composer";
+import { toReadable, toTokens } from "./mentions";
+import { useNameOf } from "./names";
 
 interface Props {
   message: Message;
@@ -15,12 +17,16 @@ interface Props {
 export function EditForm({ message, onDone }: Props) {
   const t = useT();
   const chat = useChat();
+  const nameOf = useNameOf();
   const id = useId();
-  const [text, setText] = useState(message.body);
+  // Mentions show as names; the picks turn them back into tokens on save.
+  const [start] = useState(() => toReadable(message.body, nameOf));
+  const [text, setText] = useState(start.text);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  const length = [...text].length;
+  const body = toTokens(text, start.picks);
+  const length = [...body].length;
   const valid = text.trim() !== "" && length <= maxLength;
 
   async function save() {
@@ -28,7 +34,7 @@ export function EditForm({ message, onDone }: Props) {
     setSaving(true);
     setFailed(false);
     try {
-      chat.store.applyMessage(await chat.api.editMessage(message.id, text));
+      chat.store.applyMessage(await chat.api.editMessage(message.id, body));
       toast.success(t("chat.toast.edited"));
       onDone();
     } catch {
