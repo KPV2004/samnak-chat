@@ -46,6 +46,7 @@ func (m *Module) Provide(s *app.Services) {
 	app.Provide[app.CardRegistry](s, newCardRegistry(m))
 	app.Provide[app.ChatExtensions](s, m.ext)
 	app.Provide[app.ChannelAccess](s, channelAccess{m})
+	app.Provide[app.MessageReader](s, messageReader{m})
 }
 
 // Init builds the use cases. It does no I/O: with no "db" in d.Platform (the

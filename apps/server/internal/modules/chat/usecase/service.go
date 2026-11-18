@@ -95,6 +95,36 @@ func (s *Service) CanRead(ctx context.Context, workspaceID, channelID, userID st
 	return true, nil
 }
 
+// ReadMessage implements app.MessageReader: a message is readable exactly
+// when its channel is (CanRead). A deleted message is not found, and so is
+// one the user cannot read, so the answer does not reveal which it is.
+func (s *Service) ReadMessage(ctx context.Context, workspaceID, messageID, userID string) (MessageView, error) {
+	notFound := fmt.Errorf("message: %w", app.ErrNotFound)
+	for _, id := range []string{workspaceID, messageID, userID} {
+		if _, err := uuid.Parse(id); err != nil {
+			return MessageView{}, notFound
+		}
+	}
+	role, active, err := s.ws.MemberRole(ctx, workspaceID, userID)
+	if err != nil {
+		return MessageView{}, err
+	}
+	if !active {
+		return MessageView{}, notFound
+	}
+	m, err := s.repo.Message(ctx, workspaceID, messageID)
+	if err != nil {
+		return MessageView{}, err
+	}
+	if m.Deleted() {
+		return MessageView{}, notFound
+	}
+	if _, err := s.visibleChannel(ctx, workspaceID, userID, role, m.ChannelID); err != nil {
+		return MessageView{}, err
+	}
+	return m, nil
+}
+
 // memberChannel is channel for actions that need p to be in the channel.
 func (s *Service) memberChannel(ctx context.Context, p app.Principal, channelID string) (ChannelView, error) {
 	v, err := s.channel(ctx, p, channelID)
