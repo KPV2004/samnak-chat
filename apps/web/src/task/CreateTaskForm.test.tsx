@@ -100,6 +100,14 @@ describe("create task from a message", () => {
     expect(app.called("POST /api/v1/task/items")).toHaveLength(0);
   });
 
+  it("closes on Escape without creating anything", async () => {
+    const user = userEvent.setup();
+    const { app } = await openForm(user);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("form", { name: "New task from this message" })).not.toBeInTheDocument();
+    expect(app.called("POST /api/v1/task/items")).toHaveLength(0);
+  });
+
   it("is not offered when /meta lacks task", async () => {
     const app = renderApp({ route: "/chat/c1", routes: routes(["chat"]) });
     const item = (await screen.findByText("Please prepare the report for Friday")).closest("li")!;
