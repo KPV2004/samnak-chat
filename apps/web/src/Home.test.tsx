@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Home } from "./Home";
 import { useLocale } from "./state/locale";
@@ -42,6 +43,20 @@ describe("Home", () => {
     );
     renderHome();
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load server info");
+  });
+
+  it("retries after a failed load", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "internal", message: "boom" } }), { status: 500 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ name: "n", version: "v", modules: ["auth"] }), { status: 200 })),
+    );
+    renderHome();
+    await user.click(await screen.findByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("auth")).toBeInTheDocument();
   });
 
   it("shows an empty state when no modules are enabled", async () => {

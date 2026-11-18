@@ -64,6 +64,8 @@ export const messages = {
     "workspace.nameRequired": "กรอกชื่อ workspace",
     "workspace.slugInvalid": "ใช้ได้เฉพาะ a-z, 0-9 และ - ยาว 3 ถึง 40 ตัวอักษร",
     "workspace.slugTaken": "ชื่อย่อนี้ถูกใช้แล้ว",
+    "workspace.createBody": "แต่ละ workspace มีช่อง สมาชิก และคำเชิญของตัวเอง",
+    "workspace.created": "สร้าง workspace แล้ว",
 
     "profile.title": "โปรไฟล์",
     "profile.language": "ภาษาที่ต้องการ",
@@ -71,6 +73,7 @@ export const messages = {
     "profile.timezoneHint": "เช่น Asia/Bangkok",
     "profile.timezoneInvalid": "ไม่รู้จักเขตเวลานี้",
     "profile.saved": "บันทึกแล้ว",
+    "profile.body": "ชื่อ ภาษา และเขตเวลาของคุณ",
 
     "devices.title": "อุปกรณ์ที่ล็อกอินอยู่",
     "devices.current": "อุปกรณ์นี้",
@@ -78,6 +81,9 @@ export const messages = {
     "devices.revoke": "ยกเลิก",
     "devices.revokeNamed": "ยกเลิกอุปกรณ์ {name}",
     "devices.signOutAll": "ออกจากระบบทุกอุปกรณ์",
+    "devices.body": "อุปกรณ์ที่ลงชื่อเข้าใช้อยู่ การยกเลิกจะจบการใช้งานของอุปกรณ์นั้น",
+    "devices.none": "ไม่มีอุปกรณ์ที่ลงชื่อเข้าใช้",
+    "devices.revoked": "ออกจากระบบอุปกรณ์แล้ว",
 
     "members.title": "สมาชิก",
     "members.role": "บทบาท",
@@ -94,6 +100,11 @@ export const messages = {
     "members.remove": "นำออก",
     "members.removeNamed": "นำ {name} ออก",
     "members.confirmRemove": "ยืนยันการนำ {name} ออก",
+    "members.removeTitle": "นำ {name} ออกจาก workspace นี้ใช่ไหม",
+    "members.removeBody": "สมาชิกจะเข้าถึงช่องของ workspace นี้ไม่ได้อีก เชิญกลับมาได้ภายหลัง",
+    "members.updated": "อัปเดตสมาชิกแล้ว",
+    "members.removed": "นำสมาชิกออกแล้ว",
+    "members.body": "สมาชิกใน workspace นี้และสิทธิ์ของแต่ละคน",
 
     "role.owner": "เจ้าของ",
     "role.admin": "ผู้ดูแล",
@@ -116,6 +127,9 @@ export const messages = {
     "invites.expires": "หมดอายุ {time}",
     "invites.revoke": "ยกเลิก",
     "invites.revokeFor": "ยกเลิกคำเชิญของ {who}",
+    "invites.revoked": "ยกเลิกคำเชิญแล้ว",
+    "invites.emailInvalid": "กรอกอีเมลให้ถูกต้อง",
+    "invites.emptyHint": "สร้างคำเชิญด้านบนเพื่อเชิญคนเข้ามา",
 
     "accept.title": "เข้าร่วม workspace",
     "accept.body": "คุณได้รับเชิญให้เข้าร่วม workspace",
@@ -123,6 +137,7 @@ export const messages = {
     "accept.notFound": "คำเชิญนี้ไม่ถูกต้อง หมดอายุ หรือถูกยกเลิกแล้ว",
     "accept.wrongEmail": "คำเชิญนี้ส่งถึงอีเมลอื่น",
     "accept.alreadyMember": "คุณเป็นสมาชิกของ workspace นี้อยู่แล้ว",
+    "accept.joined": "คุณเข้าร่วม {name} แล้ว",
 
     "error.invalid": "ข้อมูลไม่ถูกต้อง ตรวจสอบแล้วลองอีกครั้ง",
     "error.unauthorized": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
@@ -191,6 +206,8 @@ export const messages = {
     "workspace.nameRequired": "Enter a workspace name",
     "workspace.slugInvalid": "Use only a-z, 0-9 and -, 3 to 40 characters",
     "workspace.slugTaken": "This short name is already taken",
+    "workspace.createBody": "Each workspace has its own channels, members and invites.",
+    "workspace.created": "Workspace created",
 
     "profile.title": "Profile",
     "profile.language": "Preferred language",
@@ -198,6 +215,7 @@ export const messages = {
     "profile.timezoneHint": "For example Asia/Bangkok",
     "profile.timezoneInvalid": "Unknown time zone",
     "profile.saved": "Saved",
+    "profile.body": "Your name, language and time zone.",
 
     "devices.title": "Signed-in devices",
     "devices.current": "This device",
@@ -205,6 +223,9 @@ export const messages = {
     "devices.revoke": "Revoke",
     "devices.revokeNamed": "Revoke device {name}",
     "devices.signOutAll": "Sign out of all devices",
+    "devices.body": "Where you are signed in. Signing a device out ends its session.",
+    "devices.none": "No signed-in devices",
+    "devices.revoked": "Device signed out",
 
     "members.title": "Members",
     "members.role": "Role",
@@ -221,6 +242,11 @@ export const messages = {
     "members.remove": "Remove",
     "members.removeNamed": "Remove {name}",
     "members.confirmRemove": "Confirm removing {name}",
+    "members.removeTitle": "Remove {name} from this workspace?",
+    "members.removeBody": "They lose access to this workspace's channels. You can invite them again later.",
+    "members.updated": "Member updated",
+    "members.removed": "Member removed",
+    "members.body": "People in this workspace and what they can do.",
 
     "role.owner": "Owner",
     "role.admin": "Admin",
@@ -243,6 +269,9 @@ export const messages = {
     "invites.expires": "Expires {time}",
     "invites.revoke": "Revoke",
     "invites.revokeFor": "Revoke invite for {who}",
+    "invites.revoked": "Invite revoked",
+    "invites.emailInvalid": "Enter a valid email",
+    "invites.emptyHint": "Create an invite above to bring people in.",
 
     "accept.title": "Join a workspace",
     "accept.body": "You have been invited to join a workspace.",
@@ -250,6 +279,7 @@ export const messages = {
     "accept.notFound": "This invite is invalid, expired or revoked.",
     "accept.wrongEmail": "This invite was sent to a different email.",
     "accept.alreadyMember": "You are already a member of this workspace.",
+    "accept.joined": "You joined {name}",
 
     "error.invalid": "Some details are not valid. Check them and try again.",
     "error.unauthorized": "Your session has expired. Sign in again.",

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { acme, errorRes, expectAlert, renderApp } from "../test-utils";
@@ -37,6 +37,7 @@ describe("Members", () => {
     await user.selectOptions(screen.getByLabelText("Role of Somchai"), "admin");
     await screen.findByRole("row", { name: /Somchai/ });
     expect(app.called("PATCH /api/v1/workspace/members/u2")[0]!.body).toEqual({ role: "admin" });
+    expect(await screen.findByText("Member updated")).toBeInTheDocument();
   });
 
   it("deactivates and reactivates", async () => {
@@ -61,6 +62,37 @@ describe("Members", () => {
     expect(app.called("DELETE /api/v1/workspace/members/u2")).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "Confirm removing Somchai" }));
     expect(app.called("DELETE /api/v1/workspace/members/u2")).toHaveLength(1);
+    expect(await screen.findByText("Member removed")).toBeInTheDocument();
+  });
+
+  it("names the member in the confirmation and does nothing when cancelled", async () => {
+    const user = userEvent.setup();
+    const app = renderApp({
+      route: "/members",
+      routes: { ...members().routes, "DELETE /api/v1/workspace/members/u2": () => undefined },
+    });
+    await screen.findByText("Somchai");
+    await user.click(within(row("Somchai")).getByRole("button", { name: "Remove Somchai" }));
+    const dialog = screen.getByRole("dialog", { name: "Remove Somchai from this workspace?" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(app.called("DELETE /api/v1/workspace/members/u2")).toHaveLength(0);
+  });
+
+  it("retries when the list fails to load", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    renderApp({
+      route: "/members",
+      routes: {
+        ...members().routes,
+        "GET /api/v1/workspace/members": () =>
+          ++attempts === 1 ? errorRes(500, "internal") : { items: [mali, somchai], next_cursor: null },
+      },
+    });
+    await expectAlert("Something went wrong");
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Somchai")).toBeInTheDocument();
   });
 
   it("shows a translated error, e.g. when the last owner would be lost", async () => {

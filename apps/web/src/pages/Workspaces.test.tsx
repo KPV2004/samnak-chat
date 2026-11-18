@@ -15,8 +15,9 @@ describe("Workspace switcher", () => {
         "GET /api/v1/workspace/members": () => ({ items: [], next_cursor: null }),
       },
     });
+    // The page title shows before the workspace list arrives, so wait for the switcher itself.
     await screen.findByRole("heading", { name: "Members" });
-    await user.selectOptions(screen.getByLabelText("Workspace"), "w2");
+    await user.selectOptions(await screen.findByLabelText("Workspace"), "w2");
 
     await screen.findByRole("heading", { name: "Members" });
     const headers = app.called("GET /api/v1/workspace/members").map((c) => c.headers["X-Workspace-ID"]);
@@ -61,6 +62,7 @@ describe("New workspace", () => {
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     expect(await screen.findByText("My Team 2", { selector: "strong" })).toBeInTheDocument();
+    expect(await screen.findByText("Workspace created")).toBeInTheDocument();
     expect(app.called("POST /api/v1/workspace")[0]!.body).toEqual({ name: "My Team 2", slug: "my-team-2" });
     expect(app.store.load()?.workspaceId).toBe("w9");
   });
@@ -98,6 +100,7 @@ describe("Accept invite", () => {
     });
     await user.click(await screen.findByRole("button", { name: "Join" }));
     expect(await screen.findByText("Beta", { selector: "strong" })).toBeInTheDocument();
+    expect(await screen.findByText("You joined Beta")).toBeInTheDocument();
     expect(app.called("POST /api/v1/workspace/invites/accept")[0]!.body).toEqual({ token: "tok123" });
     expect(app.store.load()?.workspaceId).toBe("w2");
   });

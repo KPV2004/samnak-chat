@@ -1,21 +1,43 @@
 import type { Member, Role } from "@samnak/core";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AccountLoadError, AccountLoading } from "../components/AccountStates";
 import { FormError } from "../components/FormError";
+import { Page } from "../components/Page";
+import { RequireWorkspace } from "../components/RequireWorkspace";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import { canManage, useMe } from "../state/queries";
 import { useSession } from "../state/session";
-import { RequireWorkspace } from "../components/RequireWorkspace";
 
 const roles: Role[] = ["owner", "admin", "manager", "member", "guest"];
 
+const nameOf = (m: Member) => m.display_name || m.email;
+
 export function Members() {
+  const t = useT();
   return (
-    <RequireWorkspace>
-      {(workspace) => <MemberList workspaceId={workspace.id} myRole={workspace.role} />}
-    </RequireWorkspace>
+    <Page width="wide" title={t("members.title")} description={t("members.body")}>
+      <RequireWorkspace>
+        {(workspace) => <MemberList workspaceId={workspace.id} myRole={workspace.role} />}
+      </RequireWorkspace>
+    </Page>
   );
 }
 
@@ -26,6 +48,8 @@ function MemberList({ workspaceId, myRole }: { workspaceId: string; myRole: Role
   const queryClient = useQueryClient();
   const me = useMe();
   const manage = canManage(myRole);
+  // The member whose removal is waiting for confirmation in the dialog.
+  const [removing, setRemoving] = useState<Member | null>(null);
 
   const members = useInfiniteQuery({
     queryKey: ["members", workspaceId],
@@ -38,59 +62,118 @@ function MemberList({ workspaceId, myRole }: { workspaceId: string; myRole: Role
   const update = useMutation({
     mutationFn: (v: { userId: string; patch: { role?: Role; status?: "active" | "deactivated" } }) =>
       session.api.updateMember(v.userId, v.patch),
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.success(t("members.updated"));
+      return refresh();
+    },
   });
   const remove = useMutation({
     mutationFn: (userId: string) => session.api.removeMember(userId),
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.success(t("members.removed"));
+      return refresh();
+    },
   });
 
-  const error = members.error ?? update.error ?? remove.error;
   const busy = update.isPending || remove.isPending;
 
   return (
-    <section aria-labelledby="members-heading">
-      <h1 id="members-heading">{t("members.title")}</h1>
-      {members.isPending && <p role="status">{t("loading")}</p>}
-      <FormError message={error ? t(errorKey(error)) : null} />
+    <>
+      {members.isPending && (
+        <AccountLoading>
+          <div className="divide-y overflow-hidden rounded-lg border">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-44 max-w-full" />
+                <Skeleton className="ml-auto h-4 w-20" />
+              </div>
+            ))}
+          </div>
+        </AccountLoading>
+      )}
+      {members.isError ? (
+        <AccountLoadError message={t(errorKey(members.error))} onRetry={() => void members.refetch()} />
+      ) : (
+        <FormError message={update.error || remove.error ? t(errorKey(update.error ?? remove.error)) : null} />
+      )}
       {members.data && (
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">{t("displayName")}</th>
-              <th scope="col">{t("email")}</th>
-              <th scope="col">{t("members.role")}</th>
-              <th scope="col">{t("members.status")}</th>
-              <th scope="col">{t("members.joined")}</th>
-              {manage && <th scope="col">{t("members.actions")}</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {members.data.pages
-              .flatMap((p) => p.items)
-              .map((m) => (
-                <MemberRow
-                  key={m.user_id}
-                  member={m}
-                  myRole={myRole}
-                  manage={manage}
-                  busy={busy}
-                  joined={formatDateTime(m.joined_at, locale, me.data?.timezone)}
-                  onPatch={(patch) => update.mutate({ userId: m.user_id, patch })}
-                  onRemove={() => remove.mutate(m.user_id)}
-                />
-              ))}
-          </tbody>
-        </table>
+        <div className="overflow-hidden rounded-lg border">
+          <Table aria-label={t("members.title")}>
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">{t("displayName")}</TableHead>
+                <TableHead scope="col">{t("email")}</TableHead>
+                <TableHead scope="col">{t("members.role")}</TableHead>
+                <TableHead scope="col">{t("members.status")}</TableHead>
+                <TableHead scope="col">{t("members.joined")}</TableHead>
+                {manage && (
+                  <TableHead scope="col" className="text-right">
+                    {t("members.actions")}
+                  </TableHead>
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {members.data.pages
+                .flatMap((p) => p.items)
+                .map((m) => (
+                  <MemberRow
+                    key={m.user_id}
+                    member={m}
+                    myRole={myRole}
+                    manage={manage}
+                    busy={busy}
+                    joined={formatDateTime(m.joined_at, locale, me.data?.timezone)}
+                    onPatch={(patch) => update.mutate({ userId: m.user_id, patch })}
+                    onRequestRemove={() => setRemoving(m)}
+                  />
+                ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
       {members.hasNextPage && (
-        <p>
-          <button type="button" disabled={members.isFetchingNextPage} onClick={() => void members.fetchNextPage()}>
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={members.isFetchingNextPage}
+            onClick={() => void members.fetchNextPage()}
+          >
             {t("loadMore")}
-          </button>
-        </p>
+          </Button>
+        </div>
       )}
-    </section>
+      <Dialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{removing ? t("members.removeTitle", { name: nameOf(removing) }) : null}</DialogTitle>
+            <DialogDescription>{t("members.removeBody")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                {t("cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy}
+              aria-label={removing ? t("members.confirmRemove", { name: nameOf(removing) }) : undefined}
+              onClick={() => {
+                if (!removing) return;
+                setRemoving(null);
+                remove.mutate(removing.user_id);
+              }}
+            >
+              {t("confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -101,26 +184,29 @@ interface RowProps {
   busy: boolean;
   joined: string;
   onPatch: (patch: { role?: Role; status?: "active" | "deactivated" }) => void;
-  onRemove: () => void;
+  onRequestRemove: () => void;
 }
 
-function MemberRow({ member, myRole, manage, busy, joined, onPatch, onRemove }: RowProps) {
+function MemberRow({ member, myRole, manage, busy, joined, onPatch, onRequestRemove }: RowProps) {
   const t = useT();
-  const [confirming, setConfirming] = useState(false);
-  const name = member.display_name || member.email;
+  const name = nameOf(member);
   // Only owners grant or remove the owner role, so admins cannot touch an owner.
   const locked = myRole !== "owner" && member.role === "owner";
   const choices = roles.filter((r) => r !== "owner" || myRole === "owner");
   const deactivated = member.status === "deactivated";
 
   return (
-    <tr>
-      <th scope="row">{member.display_name}</th>
-      <td>{member.email}</td>
-      <td>
+    <TableRow>
+      <TableHead scope="row" className="font-medium text-foreground">
+        {member.display_name}
+      </TableHead>
+      <TableCell className="text-muted-foreground">{member.email}</TableCell>
+      <TableCell>
         {manage ? (
-          <select
+          <NativeSelect
+            size="sm"
             aria-label={t("members.roleOf", { name })}
+            containerClassName="min-w-36"
             value={member.role}
             disabled={locked || busy}
             onChange={(e) => onPatch({ role: e.target.value as Role })}
@@ -130,54 +216,44 @@ function MemberRow({ member, myRole, manage, busy, joined, onPatch, onRemove }: 
                 {t(`role.${r}`)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         ) : (
           t(`role.${member.role}`)
         )}
-      </td>
-      <td>{t(deactivated ? "members.deactivated" : "members.active")}</td>
-      <td>{joined}</td>
+      </TableCell>
+      <TableCell>
+        <Badge variant="outline" className={deactivated ? "text-muted-foreground" : "text-success"}>
+          {t(deactivated ? "members.deactivated" : "members.active")}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{joined}</TableCell>
       {manage && (
-        <td className="actions">
-          {confirming ? (
-            <>
-              <button
-                type="button"
-                className="danger"
-                aria-label={t("members.confirmRemove", { name })}
-                onClick={() => {
-                  setConfirming(false);
-                  onRemove();
-                }}
-              >
-                {t("confirm")}
-              </button>
-              <button type="button" onClick={() => setConfirming(false)}>
-                {t("cancel")}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                disabled={locked || busy}
-                aria-label={t(deactivated ? "members.reactivateNamed" : "members.deactivateNamed", { name })}
-                onClick={() => onPatch({ status: deactivated ? "active" : "deactivated" })}
-              >
-                {t(deactivated ? "members.reactivate" : "members.deactivate")}
-              </button>
-              <button
-                type="button"
-                disabled={locked || busy}
-                aria-label={t("members.removeNamed", { name })}
-                onClick={() => setConfirming(true)}
-              >
-                {t("members.remove")}
-              </button>
-            </>
-          )}
-        </td>
+        <TableCell>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={locked || busy}
+              aria-label={t(deactivated ? "members.reactivateNamed" : "members.deactivateNamed", { name })}
+              onClick={() => onPatch({ status: deactivated ? "active" : "deactivated" })}
+            >
+              {t(deactivated ? "members.reactivate" : "members.deactivate")}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={locked || busy}
+              aria-label={t("members.removeNamed", { name })}
+              onClick={onRequestRemove}
+            >
+              {t("members.remove")}
+            </Button>
+          </div>
+        </TableCell>
       )}
-    </tr>
+    </TableRow>
   );
 }

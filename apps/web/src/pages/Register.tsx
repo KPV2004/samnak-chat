@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2Icon } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
+import { Button } from "@/components/ui/button";
 import { AuthLayout } from "../components/AuthLayout";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
@@ -70,12 +72,13 @@ export function Register() {
           error={errors.password && t(errors.password)}
         />
         <FormError message={register.isError ? t(errorKey(register.error, { 409: "register.emailTaken" })) : null} />
-        <button type="submit" disabled={register.isPending}>
+        <Button type="submit" className="w-full" disabled={register.isPending}>
+          {register.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
           {t("register.submit")}
-        </button>
+        </Button>
       </form>
-      <p>
-        <Link to="/login" state={location.state}>
+      <p className="m-0 mt-4 text-center text-sm text-muted-foreground">
+        <Link to="/login" state={location.state} className="font-medium text-primary underline-offset-4 hover:underline">
           {t("register.toLogin")}
         </Link>
       </p>

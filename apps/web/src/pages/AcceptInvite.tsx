@@ -1,6 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2Icon } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { FormError } from "../components/FormError";
+import { Page } from "../components/Page";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { useSession } from "../state/session";
@@ -20,24 +24,26 @@ export function AcceptInvite() {
         workspace,
       ]);
       session.setWorkspaceId(workspace.id);
+      toast.success(t("accept.joined", { name: workspace.name }));
       navigate("/", { replace: true });
     },
   });
 
   return (
-    <section aria-labelledby="accept-heading">
-      <h1 id="accept-heading">{t("accept.title")}</h1>
-      <p>{t("accept.body")}</p>
-      <FormError
-        message={
-          accept.isError
-            ? t(errorKey(accept.error, { 404: "accept.notFound", 403: "accept.wrongEmail", 409: "accept.alreadyMember" }))
-            : null
-        }
-      />
-      <button type="button" disabled={accept.isPending} onClick={() => accept.mutate()}>
-        {t("accept.join")}
-      </button>
-    </section>
+    <Page width="narrow" title={t("accept.title")} description={t("accept.body")}>
+      <div className="grid justify-items-start gap-4">
+        <FormError
+          message={
+            accept.isError
+              ? t(errorKey(accept.error, { 404: "accept.notFound", 403: "accept.wrongEmail", 409: "accept.alreadyMember" }))
+              : null
+          }
+        />
+        <Button type="button" disabled={accept.isPending} onClick={() => accept.mutate()}>
+          {accept.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
+          {t("accept.join")}
+        </Button>
+      </div>
+    </Page>
   );
 }

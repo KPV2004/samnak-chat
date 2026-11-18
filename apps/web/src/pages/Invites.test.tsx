@@ -66,6 +66,35 @@ describe("Invites", () => {
     expect(within(list).getByText("new@example.com")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Revoke invite for new@example.com" }));
     expect(app.called("DELETE /api/v1/workspace/invites/i1")).toHaveLength(1);
+    expect(await screen.findByText("Invite revoked")).toBeInTheDocument();
+  });
+
+  it("checks the email before creating an invite", async () => {
+    const user = userEvent.setup();
+    const app = renderApp({
+      route: "/invites",
+      routes: { "GET /api/v1/workspace/invites": () => ({ items: [] }) },
+    });
+    await screen.findByText("No pending invites");
+    await user.type(screen.getByLabelText("Email (optional)"), "not-an-email");
+    await user.click(screen.getByRole("button", { name: "Create invite" }));
+    expect(screen.getByLabelText("Email (optional)")).toBeInvalid();
+    expect(screen.getByLabelText("Email (optional)")).toHaveAccessibleDescription(/Enter a valid email/);
+    expect(app.called("POST /api/v1/workspace/invites")).toHaveLength(0);
+  });
+
+  it("retries when the list fails to load", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    renderApp({
+      route: "/invites",
+      routes: {
+        "GET /api/v1/workspace/invites": () => (++attempts === 1 ? errorRes(500, "internal") : { items: [pending] }),
+      },
+    });
+    await expectAlert("Something went wrong");
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("list", { name: "Pending invites" })).toBeInTheDocument();
   });
 
   it("explains that only admins manage invites", async () => {
