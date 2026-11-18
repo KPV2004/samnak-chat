@@ -715,13 +715,13 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 
 **Files:** `apps/web/src/helpdesk/` (new `register.ts` like `approval/register.ts`), `i18n/helpdesk-messages.ts`, `App.tsx` (one import line), `chat/MessageItem.tsx` (only the "Create ticket" menu item for `helpdesk.create_from_message`, mirroring "Create task")
 
-## [ ] M5-06 M5 acceptance test (wave 3)
+## [x] M5-06 M5 acceptance test (wave 3)
 **SRS:** 16.3 M5 · **Size:** M · **Depends on:** M5-03
 
 **Acceptance criteria**
-- [ ] `internal/acceptance`: a ticket from a message gets its number and cards; an agent claims it and walks every path in the state table, including waiting and back and a reopen; a forbidden transition is 409 and the wrong person 403; the requester never receives internal comments (API and card); with task disabled helpdesk still works
-- [ ] PLT-12 matrix gains `helpdesk` and `notify,task,approval,helpdesk`
-- [ ] `go test -race ./internal/acceptance/` passes; CI green
+- [x] `internal/acceptance`: a ticket from a message gets its number and cards; an agent claims it and walks every path in the state table, including waiting and back and a reopen; a forbidden transition is 409 and the wrong person 403; the requester never receives internal comments (API and card); with task disabled helpdesk still works
+- [x] PLT-12 matrix gains `helpdesk` and `notify,task,approval,helpdesk`
+- [x] `go test -race ./internal/acceptance/` passes; CI green
 
 **Files:** `internal/acceptance/`, `.github/workflows/ci.yml`, `scripts/check-modules.sh`
 
