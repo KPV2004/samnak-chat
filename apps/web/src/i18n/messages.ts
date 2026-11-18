@@ -1,6 +1,7 @@
 import { approvalEn, approvalTh } from "./approval-messages";
 import { chatEn, chatTh } from "./chat-messages";
 import { groupsEn, groupsTh } from "./groups-messages";
+import { helpdeskEn, helpdeskTh } from "./helpdesk-messages";
 import { notifyEn, notifyTh } from "./notify-messages";
 import { taskEn, taskTh } from "./task-messages";
 import { uiEn, uiTh } from "./ui-messages";
@@ -11,6 +12,7 @@ export const messages = {
     ...notifyTh,
     ...taskTh,
     ...approvalTh,
+    ...helpdeskTh,
     ...groupsTh,
     ...uiTh,
     title: "Samnak Chat",
@@ -153,6 +155,7 @@ export const messages = {
     ...notifyEn,
     ...taskEn,
     ...approvalEn,
+    ...helpdeskEn,
     ...groupsEn,
     ...uiEn,
     title: "Samnak Chat",

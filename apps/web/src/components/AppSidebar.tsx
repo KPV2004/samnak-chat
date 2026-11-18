@@ -5,6 +5,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApprovalNav } from "../approval/ApprovalNav";
 import { Sidebar as ChannelList } from "../chat/Sidebar";
+import { HelpdeskNav } from "../helpdesk/HelpdeskNav";
 import { useT } from "../i18n/useT";
 import { useMe, useWorkspaces } from "../state/queries";
 import { useSession } from "../state/session";
@@ -73,6 +74,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
           </NavItem>
           <TaskNavLink />
           <ApprovalNav />
+          <HelpdeskNav />
           <NavItem to="/members" icon={Users}>
             {t("nav.members")}
           </NavItem>
