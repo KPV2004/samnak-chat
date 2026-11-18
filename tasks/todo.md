@@ -713,7 +713,7 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 - [ ] "Create task" on the ticket page when `/meta` lists task and the queue has a channel; hidden otherwise
 - [ ] Component tests; build, test and lint pass
 
-**Files:** `apps/web/src/helpdesk/`, `i18n/helpdesk-messages.ts`
+**Files:** `apps/web/src/helpdesk/` (new `register.ts` like `approval/register.ts`), `i18n/helpdesk-messages.ts`, `App.tsx` (one import line), `chat/MessageItem.tsx` (only the "Create ticket" menu item for `helpdesk.create_from_message`, mirroring "Create task")
 
 ## [ ] M5-06 M5 acceptance test (wave 3)
 **SRS:** 16.3 M5 · **Size:** M · **Depends on:** M5-03
