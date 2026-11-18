@@ -74,6 +74,15 @@ export const approvalEn = {
   "approval.backToList": "Back to approvals",
   "approval.notFound": "This request does not exist, or you cannot see it.",
   "approval.unknownUser": "Unknown member",
+  "approval.amountRow": "Amount",
+  "approval.newHint": "Choose the type and give the approver what they need to decide.",
+  "approval.rejectTitle": "Reject this request",
+  "approval.rejectHint": "Say why. The requester sees the reason.",
+  "approval.toast.approved": "Request approved",
+  "approval.toast.rejected": "Request rejected",
+  "approval.toast.cancelled": "Request cancelled",
+  "approval.toast.sent": "Request sent",
+  "approval.noAttachments": "No files attached.",
 };
 
 export const approvalTh = {
@@ -149,4 +158,13 @@ export const approvalTh = {
   "approval.backToList": "กลับไปหน้าคำขออนุมัติ",
   "approval.notFound": "ไม่พบคำขอนี้ หรือคุณไม่มีสิทธิ์ดู",
   "approval.unknownUser": "ไม่รู้จักสมาชิกนี้",
+  "approval.amountRow": "จำนวนเงิน",
+  "approval.newHint": "เลือกประเภทและบอกข้อมูลที่ผู้อนุมัติต้องใช้ในการตัดสินใจ",
+  "approval.rejectTitle": "ไม่อนุมัติคำขอนี้",
+  "approval.rejectHint": "ระบุเหตุผล ผู้ขอจะเห็นเหตุผลนี้",
+  "approval.toast.approved": "อนุมัติคำขอแล้ว",
+  "approval.toast.rejected": "ไม่อนุมัติคำขอแล้ว",
+  "approval.toast.cancelled": "ยกเลิกคำขอแล้ว",
+  "approval.toast.sent": "ส่งคำขอแล้ว",
+  "approval.noAttachments": "ไม่มีไฟล์แนบ",
 };
