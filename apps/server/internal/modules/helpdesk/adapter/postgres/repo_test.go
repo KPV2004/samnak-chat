@@ -712,6 +712,11 @@ func TestCardMessagesAreStoredOnce(t *testing.T) {
 	if err := f.repo.InsertTicket(f.ctx, tk); err != nil {
 		t.Fatal(err)
 	}
+	// The stored change time, at the database's microsecond precision.
+	stored, err := f.repo.Ticket(f.ctx, f.ws, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	first, second := newID(), newID()
 
 	for _, store := range []struct {
@@ -744,8 +749,8 @@ func TestCardMessagesAreStoredOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !after.UpdatedAt.Equal(tk.UpdatedAt) {
-		t.Errorf("updated_at moved from %v to %v", tk.UpdatedAt, after.UpdatedAt)
+	if !after.UpdatedAt.Equal(stored.UpdatedAt) {
+		t.Errorf("updated_at moved from %v to %v", stored.UpdatedAt, after.UpdatedAt)
 	}
 	if changed, err := f.repo.SetRequesterCard(f.ctx, newID(), tk.ID, newID()); err != nil || changed {
 		t.Errorf("another workspace stored a card: changed = %v, err = %v; want unchanged", changed, err)
