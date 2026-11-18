@@ -121,9 +121,9 @@ func (s *Service) notifyComment(ctx context.Context, e domain.CommentAdded) ([]a
 	if err != nil || !ok {
 		return nil, err
 	}
-	to := []string{ t.RequesterID }
+	to := []string{t.RequesterID}
 	if e.Internal {
-		to = []string{ t.AssigneeID }
+		to = []string{t.AssigneeID}
 	} else {
 		to = append(to, t.AssigneeID)
 	}

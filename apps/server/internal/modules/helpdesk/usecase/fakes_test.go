@@ -565,7 +565,7 @@ func newEnv(t *testing.T) *env {
 		Tx: fakeTx{}, Repo: repo, Members: members, Bus: e.bus, Messages: e.msgs, Storage: e.store,
 		Permissions: fakePerms{alice: true, admin: true},
 		Cards:       e.cards, Names: e.names,
-		Now:         func() time.Time { return e.now },
+		Now: func() time.Time { return e.now },
 	})
 	return e
 }
