@@ -90,10 +90,23 @@ describe("Approvals page", () => {
     expect(screen.getByText("No request is waiting for you.")).toBeInTheDocument();
   });
 
+  it("opens the new request as a dialog, and Cancel closes it without sending", async () => {
+    const user = userEvent.setup();
+    const app = renderApp({ route: "/approvals", routes: routes() });
+    await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
+    const dialog = await screen.findByRole("dialog", { name: "New request" });
+    await user.type(within(dialog).getByLabelText("Reason"), "Flu");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "New request" })).not.toBeInTheDocument());
+    expect(app.called(create)).toHaveLength(0);
+  });
+
   it("sends a leave request to the default approver", async () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/approvals", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
     await fillLeave(user);
     await user.click(screen.getByRole("button", { name: "Send request" }));
     await waitFor(() => expect(app.called(create)).toHaveLength(1));
@@ -109,6 +122,7 @@ describe("Approvals page", () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/approvals", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
     const picker = screen.getByRole("combobox", { name: "Approver" });
     expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["Automatic: my group's manager", "Somchai"]);
     await user.selectOptions(picker, "u2");
@@ -122,6 +136,7 @@ describe("Approvals page", () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/approvals", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
     await fillLeave(user, { start: "2026-11-20", end: "2026-11-18" });
     await user.click(screen.getByRole("button", { name: "Send request" }));
     expect(await screen.findByText("The end date cannot be before the start date")).toBeInTheDocument();
@@ -132,6 +147,7 @@ describe("Approvals page", () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/approvals", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
     await fillLeave(user, { start: "2026-11-20", end: "2026-11-21" });
     await user.selectOptions(screen.getByRole("combobox", { name: "Half day" }), "morning");
     await user.click(screen.getByRole("button", { name: "Send request" }));
@@ -143,6 +159,7 @@ describe("Approvals page", () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/approvals", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
     await user.type(screen.getByLabelText("Subject"), "Laptop purchase");
     await user.type(screen.getByLabelText("Details"), "For the design team");
@@ -161,6 +178,7 @@ describe("Approvals page", () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/approvals", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
     await user.type(screen.getByLabelText("Subject"), "Team lunch");
     await user.click(screen.getByRole("button", { name: "Send request" }));
@@ -176,6 +194,7 @@ describe("Approvals page", () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/approvals", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
     await user.type(screen.getByLabelText("Subject"), "Laptop");
     await user.type(screen.getByLabelText("Amount (optional)"), "a lot");
@@ -203,6 +222,7 @@ describe("Approvals page", () => {
       }),
     });
     await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
     await user.type(screen.getByLabelText("Subject"), "Laptop");
     const file = new File(["%PDF"], "quote.pdf", { type: "application/pdf" });
@@ -233,6 +253,7 @@ describe("Approvals page", () => {
       }),
     });
     await screen.findByRole("list", { name: "My requests" });
+    await user.click(screen.getByRole("button", { name: "New request" }));
     await user.upload(screen.getByLabelText("Attachments"), new File(["x"], "quote.pdf", { type: "application/pdf" }));
     await user.click(await screen.findByRole("button", { name: "Remove quote.pdf" }));
     expect(screen.queryByText("quote.pdf")).not.toBeInTheDocument();

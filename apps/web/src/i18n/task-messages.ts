@@ -35,6 +35,10 @@ export const taskEn = {
   "task.due.overdue": "Overdue",
   "task.due.today": "Due today",
   "task.due.week": "Due within 7 days",
+  "task.createHint": "The task appears as a card in this channel.",
+  "task.created": "Task created",
+  "task.page.clear": "Clear filters",
+  "task.page.filters": "Filters",
 };
 
 export const taskTh = {
@@ -71,4 +75,8 @@ export const taskTh = {
   "task.due.overdue": "เลยกำหนดแล้ว",
   "task.due.today": "ครบกำหนดวันนี้",
   "task.due.week": "ภายใน 7 วัน",
+  "task.createHint": "งานจะแสดงเป็นการ์ดในช่องนี้",
+  "task.created": "สร้างงานแล้ว",
+  "task.page.clear": "ล้างตัวกรอง",
+  "task.page.filters": "ตัวกรอง",
 };

@@ -14,6 +14,22 @@ export const statusKeys = {
   cancelled: "approval.status.cancelled",
 } as const satisfies Record<ApprovalStatus, MessageKey>;
 
+/** The status colour of a request: the text of its Badge and the bar on its card. Status is the only colour there. */
+export const statusTones = {
+  pending: { text: "text-warning", bar: "border-l-warning" },
+  approved: { text: "text-success", bar: "border-l-success" },
+  rejected: { text: "text-destructive", bar: "border-l-destructive" },
+  cancelled: { text: "text-muted-foreground", bar: "border-l-border" },
+} as const satisfies Record<ApprovalStatus, { text: string; bar: string }>;
+
+/** The dot on a history entry. */
+export const historyDotTones = {
+  created: "bg-muted-foreground",
+  approved: "bg-success",
+  rejected: "bg-destructive",
+  cancelled: "bg-muted-foreground",
+} as const satisfies Record<ApprovalHistoryAction, string>;
+
 export const actionKeys = {
   created: "approval.action.created",
   approved: "approval.action.approved",
@@ -59,7 +75,7 @@ export function payloadRows(type: ApprovalType, payload: Record<string, unknown>
       { label: t("approval.details"), value: textOf(payload.details), multiline: true },
     ];
     if (textOf(payload.amount)) {
-      rows.push({ label: t("approval.amount"), value: `${textOf(payload.amount)} ${textOf(payload.currency)}` });
+      rows.push({ label: t("approval.amountRow"), value: `${textOf(payload.amount)} ${textOf(payload.currency)}` });
     }
     return rows;
   }

@@ -56,10 +56,25 @@ describe("Groups page", () => {
       routes: routes("owner", { "POST /api/v1/workspace/groups": () => ({ id: "g3", name: "Finance", manager_ids: [], member_count: 0 }) }),
     });
     await screen.findByRole("list", { name: "Groups" });
+    await user.click(screen.getByRole("button", { name: "New group" }));
     await user.type(screen.getByLabelText("Group name"), "Finance");
     await user.click(screen.getByRole("button", { name: "Create group" }));
     await waitFor(() => expect(app.called("POST /api/v1/workspace/groups")).toHaveLength(1));
     expect(app.called("POST /api/v1/workspace/groups")[0]!.body).toEqual({ name: "Finance" });
+  });
+
+  it("closes the new group dialog on Cancel, and sends nothing", async () => {
+    const user = userEvent.setup();
+    const app = renderApp({
+      route: "/groups",
+      routes: routes("owner", { "POST /api/v1/workspace/groups": () => ({ id: "g3", name: "Finance", manager_ids: [], member_count: 0 }) }),
+    });
+    await screen.findByRole("list", { name: "Groups" });
+    await user.click(screen.getByRole("button", { name: "New group" }));
+    await user.type(await screen.findByLabelText("Group name"), "Finance");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "New group" })).not.toBeInTheDocument());
+    expect(app.called("POST /api/v1/workspace/groups")).toHaveLength(0);
   });
 
   it("explains a name that is already taken", async () => {
@@ -69,6 +84,7 @@ describe("Groups page", () => {
       routes: routes("owner", { "POST /api/v1/workspace/groups": () => errorRes(409, "conflict") }),
     });
     await screen.findByRole("list", { name: "Groups" });
+    await user.click(screen.getByRole("button", { name: "New group" }));
     await user.type(screen.getByLabelText("Group name"), "Sales");
     await user.click(screen.getByRole("button", { name: "Create group" }));
     expect(await screen.findByText("A group with this name already exists")).toBeInTheDocument();
@@ -81,6 +97,7 @@ describe("Groups page", () => {
       routes: routes("owner", { "PUT /api/v1/workspace/groups/g1/members": () => undefined }),
     });
     await user.click(within(await screen.findByRole("list", { name: "Groups" })).getByRole("button", { name: "Sales" }));
+    await user.click(await screen.findByRole("button", { name: "Edit members" }));
     expect(await screen.findByRole("checkbox", { name: "Mali" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Manager: Mali" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Somchai" })).toBeChecked();
@@ -104,6 +121,7 @@ describe("Groups page", () => {
       routes: routes("owner", { "PUT /api/v1/workspace/groups/g1/members": () => undefined }),
     });
     await user.click(within(await screen.findByRole("list", { name: "Groups" })).getByRole("button", { name: "Sales" }));
+    await user.click(await screen.findByRole("button", { name: "Edit members" }));
     await user.click(await screen.findByRole("checkbox", { name: "Mali" }));
     expect(screen.getByRole("checkbox", { name: "Manager: Mali" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Save members" }));
@@ -120,6 +138,7 @@ describe("Groups page", () => {
       routes: routes("owner", { "PATCH /api/v1/workspace/groups/g1": (b) => ({ ...groups[0], ...b }) }),
     });
     await user.click(within(await screen.findByRole("list", { name: "Groups" })).getByRole("button", { name: "Sales" }));
+    await user.click(await screen.findByRole("button", { name: "Rename" }));
     const rename = await screen.findByLabelText("Rename to");
     await user.clear(rename);
     await user.type(rename, "Sales team");
