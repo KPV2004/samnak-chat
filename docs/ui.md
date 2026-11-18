@@ -6,13 +6,12 @@ How the web app (`apps/web`) looks and how to build a page in it. The look is Sl
 
 | Path | What |
 | --- | --- |
-| `src/index.css` | The only stylesheet entry: font, Tailwind, tokens, and `styles.css` in the `legacy` layer |
+| `src/index.css` | The only stylesheet: font, Tailwind, tokens and the base rules (focus ring, body) |
 | `src/components/ui/` | shadcn components. Import as `@/components/ui/button` |
-| `src/components/` | App components built on them: `Page`, `Field`, `FormError`, `EmptyState`, `NavItem`, `UserAvatar`, `ThemeToggle`, `AppSidebar`, `AuthLayout` |
+| `src/components/` | App components built on them: `Page`, `Field`, `FormError`, `EmptyState`, `AccountStates` (loading and load error), `RouteFallback`, `NavItem`, `UserAvatar`, `ThemeToggle`, `AppSidebar`, `AuthLayout` |
 | `src/pages/Shell.tsx` | The frame: sidebar, top bar, content. Below `md` the sidebar is a Sheet |
 | `src/state/theme.ts` | Light, dark or system, kept in `localStorage` (`samnak.theme`) |
 | `src/i18n/ui-messages.ts` | Strings of the frame and shared components |
-| `src/styles.css` | Old styles for pages not yet redesigned. Delete rules as pages move |
 
 `@/` means `src/`. Use it for `components/ui` and `lib/utils`; relative imports are fine elsewhere.
 
@@ -39,8 +38,6 @@ Colours are CSS variables in `index.css` (oklch, light in `:root`, dark in `.dar
 Radius is `rounded-md` for controls and `rounded-lg` for cards and dialogs.
 
 Dark mode is the `dark` class on `<html>`. `dark:` works in classes, but tokens already switch, so you rarely need it. The toggle (`ThemeToggle`, in the top bar and on the auth pages) follows the system until the user picks, then remembers the pick.
-
-The old names `--bg --fg --muted --line --accent --accent-fg --danger --surface` still exist so `styles.css`, `notify.css` and `task.css` follow the theme. Do not use them in new code. Note that `--muted` and `--accent` are not what `bg-muted` and `bg-accent` read.
 
 ## Type and spacing
 
@@ -77,9 +74,9 @@ The old names `--bg --fg --muted --line --accent --accent-fg --danger --surface`
 | Person | `UserAvatar` next to the name |
 | Divider | `Separator` |
 | Long area with its own scroll | `ScrollArea` |
-| Loading | `Skeleton` shaped like the content, plus the text in a `role="status"` element |
+| Loading | `AccountLoading` with `Skeleton` blocks shaped like the content (it adds the `role="status"` text) |
 | Empty list or page | `EmptyState` (what is missing, and the action that fills it) |
-| Load error | `role="alert"` text and a `Button variant="outline"` to retry |
+| Load error | `AccountLoadError` (`role="alert"` text, and a `Button variant="outline"` to retry when given `onRetry`) |
 | Result of an action that stays on the page ("Saved", "Copied") | `toast.success(t("…"))` from `sonner`. The `Toaster` is in the shell |
 
 Errors that belong to a form stay in the form (`FormError`, `Field error`). Toasts are for confirmations and for failures with nowhere else to go; they disappear, so never put the only copy of an important message in one.
@@ -88,7 +85,7 @@ Errors that belong to a form stay in the form (`FormError`, `Field error`). Toas
 
 ## Building a page
 
-Start the page from `Page`; it gives the column, the title (`h1`), the description and the action slot, and it switches the old `styles.css` rules off for that page.
+Start the page from `Page`; it gives the column, the title (`h1`), the description and the action slot.
 
 ```tsx
 <Page title={t("members.title")} actions={<Button>…</Button>}>
@@ -96,7 +93,7 @@ Start the page from `Page`; it gives the column, the title (`h1`), the descripti
 </Page>
 ```
 
-A page not wrapped in `Page` is still in the old frame: the shell wraps it in `.legacy-scope` and `.legacy-column`, and `styles.css` restores browser defaults (paragraph margins, list bullets, link underline, bare button and input looks) there. Tailwind's reset removed those, so a new element placed inside an unredesigned page needs its margins stated.
+Bare HTML has no default look: Tailwind's reset removes paragraph margins, list bullets and link underlines. Give every `p`, `ul`, `a` and `h1` its classes. Content outside a `Page` (a loading or gate state) sits in the shell's column, which gives it the page's width and padding; a `Page` brings its own, and the shell drops its padding when one is inside.
 
 `Page` supports `width` (`narrow` forms, `default`, `wide` tables). Chat is full height and does not use it.
 
@@ -112,7 +109,7 @@ Run `npx shadcn@latest add <name>` from `apps/web`. The CLI still adds an npm pa
 
 ## Checklist for a page
 
-- [ ] Starts from `Page` and builds from `components/ui`. No new classes in `styles.css`, no new `.css` file, no inline `style`.
+- [ ] Starts from `Page` and builds from `components/ui`. No new `.css` file, no inline `style`.
 - [ ] Colours, radius and spacing come from tokens and the scale above. No hex or `oklch` in components.
 - [ ] Every string goes through `useT()` and exists in both Thai and English. Long Thai text wraps (no fixed widths on text, no `truncate` on content people need to read).
 - [ ] Looks right in dark mode (open it with the toggle) and at 390px wide. Tables scroll inside their own box; nothing makes the page scroll sideways.
