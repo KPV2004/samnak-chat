@@ -71,7 +71,7 @@ export function Login() {
           {t("login.submit")}
         </Button>
       </form>
-      <p className="m-0 text-center text-sm text-muted-foreground">
+      <p className="m-0 mt-4 text-center text-sm text-muted-foreground">
         <Link to="/register" state={location.state} className="font-medium text-primary underline-offset-4 hover:underline">
           {t("login.toRegister")}
         </Link>
