@@ -47,3 +47,15 @@ UPDATE helpdesk_tickets
 SET queue_id = @queue_id, category_id = @category_id, assignee_id = @assignee_id, status = @status,
     priority = @priority, resolved_at = @resolved_at, closed_at = @closed_at, updated_at = @updated_at
 WHERE id = @id AND workspace_id = @workspace_id;
+
+-- name: SetRequesterCard :execrows
+-- HD-08: the card in the requester's channel is stored once. A redelivered
+-- event finds it set and changes nothing (PLT-10). updated_at stays: a card
+-- is not a change of the ticket.
+UPDATE helpdesk_tickets SET message_id = @message_id
+WHERE id = @id AND workspace_id = @workspace_id AND message_id IS NULL;
+
+-- name: SetQueueCard :execrows
+-- HD-08: the card in the agents' channel, stored once like SetRequesterCard.
+UPDATE helpdesk_tickets SET queue_message_id = @message_id
+WHERE id = @id AND workspace_id = @workspace_id AND queue_message_id IS NULL;

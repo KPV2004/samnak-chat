@@ -593,6 +593,70 @@ func (r *Repo) UpdateTicket(ctx context.Context, t domain.Ticket) error {
 	return nil
 }
 
+// SetRequesterCard stores the requester card's message when none is stored
+// (HD-08). changed=false means a card is already stored.
+func (r *Repo) SetRequesterCard(ctx context.Context, workspaceID, ticketID, messageID string) (bool, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return false, err
+	}
+	ws, tid, msg, err := cardIDs(workspaceID, ticketID, messageID)
+	if err != nil {
+		return false, err
+	}
+	n, err := qs.SetRequesterCard(ctx, gen.SetRequesterCardParams{MessageID: &msg, ID: tid, WorkspaceID: ws})
+	if err != nil {
+		return false, wrap(err, "requester card")
+	}
+	return n == 1, nil
+}
+
+// SetQueueCard stores the agents' card's message when none is stored (HD-08).
+func (r *Repo) SetQueueCard(ctx context.Context, workspaceID, ticketID, messageID string) (bool, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return false, err
+	}
+	ws, tid, msg, err := cardIDs(workspaceID, ticketID, messageID)
+	if err != nil {
+		return false, err
+	}
+	n, err := qs.SetQueueCard(ctx, gen.SetQueueCardParams{MessageID: &msg, ID: tid, WorkspaceID: ws})
+	if err != nil {
+		return false, wrap(err, "queue card")
+	}
+	return n == 1, nil
+}
+
+// cardIDs parses the IDs of a card update.
+func cardIDs(workspaceID, ticketID, messageID string) (ws, tid, msg uuid.UUID, err error) {
+	if ws, err = id(workspaceID); err != nil {
+		return ws, tid, msg, err
+	}
+	if tid, err = id(ticketID); err != nil {
+		return ws, tid, msg, err
+	}
+	msg, err = id(messageID)
+	return ws, tid, msg, err
+}
+
+// DefaultCategory returns the workspace's default category (HD-03).
+func (r *Repo) DefaultCategory(ctx context.Context, workspaceID string) (domain.Category, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return domain.Category{}, err
+	}
+	ws, err := id(workspaceID)
+	if err != nil {
+		return domain.Category{}, err
+	}
+	row, err := qs.GetDefaultCategory(ctx, ws)
+	if err != nil {
+		return domain.Category{}, wrap(err, "default category")
+	}
+	return toCategory(row), nil
+}
+
 func (r *Repo) InsertComment(ctx context.Context, c domain.Comment) error {
 	qs, err := r.q(ctx)
 	if err != nil {

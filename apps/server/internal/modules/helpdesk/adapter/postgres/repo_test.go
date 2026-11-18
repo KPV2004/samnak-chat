@@ -698,3 +698,75 @@ func TestAttachmentsLinkOnceToATicket(t *testing.T) {
 		t.Fatalf("ticket files = %+v", files)
 	}
 }
+
+// HD-08: each card of a ticket is stored once. The first message wins and a
+// second store changes nothing, so a redelivered event cannot post a second
+// card's ID over the first.
+func TestCardMessagesAreStoredOnce(t *testing.T) {
+	f := newFixture(t)
+	q := f.queue("IT")
+	tk, err := ticketIn(f.ws, q, f.category(q.ID, false).ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.InsertTicket(f.ctx, tk); err != nil {
+		t.Fatal(err)
+	}
+	first, second := newID(), newID()
+
+	for _, store := range []struct {
+		name string
+		set  func(ctx context.Context, ws, ticketID, messageID string) (bool, error)
+		read func(domain.Ticket) string
+	}{
+		{"requester", f.repo.SetRequesterCard, func(t domain.Ticket) string { return t.MessageID }},
+		{"queue", f.repo.SetQueueCard, func(t domain.Ticket) string { return t.QueueMessageID }},
+	} {
+		changed, err := store.set(f.ctx, f.ws, tk.ID, first)
+		if err != nil || !changed {
+			t.Fatalf("%s: first store = %v, %v; want stored", store.name, changed, err)
+		}
+		changed, err = store.set(f.ctx, f.ws, tk.ID, second)
+		if err != nil || changed {
+			t.Fatalf("%s: second store = %v, %v; want unchanged", store.name, changed, err)
+		}
+		got, err := f.repo.Ticket(f.ctx, f.ws, tk.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if read := store.read(got); read != first {
+			t.Errorf("%s card = %q, want the first %q", store.name, read, first)
+		}
+	}
+
+	// Storing a card does not touch the ticket's own change time.
+	after, err := f.repo.Ticket(f.ctx, f.ws, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.UpdatedAt.Equal(tk.UpdatedAt) {
+		t.Errorf("updated_at moved from %v to %v", tk.UpdatedAt, after.UpdatedAt)
+	}
+	if changed, err := f.repo.SetRequesterCard(f.ctx, newID(), tk.ID, newID()); err != nil || changed {
+		t.Errorf("another workspace stored a card: changed = %v, err = %v; want unchanged", changed, err)
+	}
+}
+
+func TestDefaultCategoryIsTheActiveOneOfTheWorkspace(t *testing.T) {
+	f := newFixture(t)
+	q := f.queue("IT")
+	if _, err := f.repo.DefaultCategory(f.ctx, f.ws); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("no default yet: err = %v, want ErrNotFound", err)
+	}
+	c := f.category(q.ID, true)
+	got, err := f.repo.DefaultCategory(f.ctx, f.ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != c.ID || !got.IsDefault {
+		t.Errorf("default = %+v, want %s", got, c.ID)
+	}
+	if _, err := f.repo.DefaultCategory(f.ctx, newID()); !errors.Is(err, app.ErrNotFound) {
+		t.Errorf("another workspace: err = %v, want ErrNotFound", err)
+	}
+}

@@ -421,6 +421,49 @@ func (r *memRepo) defaults(workspaceID string) []string {
 	return ids
 }
 
+// SetRequesterCard stores the requester card's message, only when none is stored.
+func (r *memRepo) SetRequesterCard(_ context.Context, workspaceID, ticketID, messageID string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	t, ok := r.tickets[ticketID]
+	if !ok || t.WorkspaceID != workspaceID {
+		return false, notFound("ticket")
+	}
+	if t.MessageID != "" {
+		return false, nil
+	}
+	t.MessageID = messageID
+	r.tickets[ticketID] = t
+	return true, nil
+}
+
+// SetQueueCard stores the agents' card's message, only when none is stored.
+func (r *memRepo) SetQueueCard(_ context.Context, workspaceID, ticketID, messageID string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	t, ok := r.tickets[ticketID]
+	if !ok || t.WorkspaceID != workspaceID {
+		return false, notFound("ticket")
+	}
+	if t.QueueMessageID != "" {
+		return false, nil
+	}
+	t.QueueMessageID = messageID
+	r.tickets[ticketID] = t
+	return true, nil
+}
+
+func (r *memRepo) DefaultCategory(_ context.Context, workspaceID string) (domain.Category, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, c := range r.categories {
+		if c.WorkspaceID == workspaceID && c.IsDefault && c.ArchivedAt == nil {
+			return c, nil
+		}
+	}
+	return domain.Category{}, notFound("default category")
+}
+
 func newID() string { return uuid.Must(uuid.NewV7()).String() }
 
 // fakeStore presigns without a network and knows which objects exist.
@@ -495,6 +538,8 @@ type env struct {
 	bus   *recordingBus
 	msgs  fakeMessages
 	store *fakeStore
+	cards *fakeCards
+	names fakeNames
 	p     map[string]app.Principal
 	// now is the clock; a test moves it forward to test time limits.
 	now time.Time
@@ -504,7 +549,11 @@ func newEnv(t *testing.T) *env {
 	t.Helper()
 	repo := newMemRepo()
 	members := fakeMembers{ws + "/" + alice: true, ws + "/" + bob: true, ws + "/" + carol: true, ws + "/" + admin: true}
-	e := &env{repo: repo, bus: &recordingBus{}, msgs: fakeMessages{}, store: &fakeStore{objects: map[string]int64{}}, p: map[string]app.Principal{}, now: t0}
+	e := &env{
+		repo: repo, bus: &recordingBus{}, msgs: fakeMessages{}, store: &fakeStore{objects: map[string]int64{}},
+		cards: &fakeCards{}, names: fakeNames{alice: "Alice", bob: "Bob", carol: "Carol", admin: "Admin"},
+		p: map[string]app.Principal{}, now: t0,
+	}
 	for name, id := range map[string]string{"alice": alice, "bob": bob, "carol": carol, "admin": admin, "outside": outside} {
 		role := app.RoleMember
 		if name == "alice" || name == "admin" {
@@ -515,7 +564,81 @@ func newEnv(t *testing.T) *env {
 	e.svc = usecase.New(usecase.Deps{
 		Tx: fakeTx{}, Repo: repo, Members: members, Bus: e.bus, Messages: e.msgs, Storage: e.store,
 		Permissions: fakePerms{alice: true, admin: true},
+		Cards:       e.cards, Names: e.names,
 		Now:         func() time.Time { return e.now },
 	})
 	return e
+}
+
+// fakeNames answers display names from a table; unknown IDs are left out.
+type fakeNames map[string]string
+
+func (f fakeNames) Names(_ context.Context, ids []string) map[string]string {
+	out := map[string]string{}
+	for _, id := range ids {
+		if n, ok := f[id]; ok {
+			out[id] = n
+		}
+	}
+	return out
+}
+
+// cardUpdate is one call to Update.
+type cardUpdate struct {
+	MessageID string
+	Payload   usecase.CardPayload
+}
+
+// fakeCards is chat's card registry: it keeps what was posted and updated.
+// onPost, when set, runs before Post returns, so a test can store a card first.
+type fakeCards struct {
+	mu      sync.Mutex
+	posts   []app.Card
+	updates []cardUpdate
+	onPost  func(c app.Card)
+	err     error
+}
+
+func (f *fakeCards) Post(_ context.Context, c app.Card) (string, error) {
+	f.mu.Lock()
+	hook, err := f.onPost, f.err
+	f.mu.Unlock()
+	if err != nil {
+		return "", err
+	}
+	if hook != nil {
+		hook(c)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.posts = append(f.posts, c)
+	return newID(), nil
+}
+
+func (f *fakeCards) Update(_ context.Context, _, messageID string, payload any) error {
+	p, ok := payload.(usecase.CardPayload)
+	if !ok {
+		return fmt.Errorf("payload is %T", payload)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.updates = append(f.updates, cardUpdate{MessageID: messageID, Payload: p})
+	return nil
+}
+
+// posted returns the cards posted so far.
+func (f *fakeCards) posted() []app.Card {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]app.Card(nil), f.posts...)
+}
+
+// lastUpdate returns the latest update, and whether there was one.
+func (f *fakeCards) lastUpdate() (cardUpdate, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.updates) == 0 {
+		return cardUpdate{}, false
+	}
+	return f.updates[len(f.updates)-1], true
 }

@@ -271,6 +271,48 @@ func (q *Queries) NextTicketNumber(ctx context.Context, arg NextTicketNumberPara
 	return i, err
 }
 
+const setQueueCard = `-- name: SetQueueCard :execrows
+UPDATE helpdesk_tickets SET queue_message_id = $1
+WHERE id = $2 AND workspace_id = $3 AND queue_message_id IS NULL
+`
+
+type SetQueueCardParams struct {
+	MessageID   *uuid.UUID
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+}
+
+// HD-08: the card in the agents' channel, stored once like SetRequesterCard.
+func (q *Queries) SetQueueCard(ctx context.Context, arg SetQueueCardParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setQueueCard, arg.MessageID, arg.ID, arg.WorkspaceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setRequesterCard = `-- name: SetRequesterCard :execrows
+UPDATE helpdesk_tickets SET message_id = $1
+WHERE id = $2 AND workspace_id = $3 AND message_id IS NULL
+`
+
+type SetRequesterCardParams struct {
+	MessageID   *uuid.UUID
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+}
+
+// HD-08: the card in the requester's channel is stored once. A redelivered
+// event finds it set and changes nothing (PLT-10). updated_at stays: a card
+// is not a change of the ticket.
+func (q *Queries) SetRequesterCard(ctx context.Context, arg SetRequesterCardParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setRequesterCard, arg.MessageID, arg.ID, arg.WorkspaceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateTicket = `-- name: UpdateTicket :execrows
 UPDATE helpdesk_tickets
 SET queue_id = $1, category_id = $2, assignee_id = $3, status = $4,
