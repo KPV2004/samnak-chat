@@ -92,7 +92,15 @@ export function Shell() {
             </div>
           </header>
           <div className={cn("min-h-0 flex-1", isChat ? "overflow-hidden" : "overflow-y-auto")}>
-            <main id="main" tabIndex={-1} className={cn("legacy-scope outline-none", isChat ? "h-full" : "legacy-column")}>
+            {/* Content outside a Page (loading and gate states) gets the page frame; a Page brings its own padding. */}
+            <main
+              id="main"
+              tabIndex={-1}
+              className={cn(
+                "outline-none",
+                isChat ? "h-full" : "mx-auto w-full max-w-6xl p-4 md:p-6 has-[[data-page]]:p-0",
+              )}
+            >
               <Suspense fallback={<RouteFallback />}>
                 <Outlet />
               </Suspense>

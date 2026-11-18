@@ -5,8 +5,8 @@ const widths = { narrow: "max-w-xl", default: "max-w-4xl", wide: "max-w-6xl" } a
 
 /**
  * The frame of a redesigned page: a centred column, the page title and room for page-level actions.
- * Rendering it also switches the old styles.css rules off for this page (the `data-page` attribute),
- * so use it as the page's root element and build the rest from components/ui.
+ * It sets `data-page`, which drops the bottom margin of the fields and errors inside it and tells the
+ * shell not to pad the page twice. Use it as the page's root element and build the rest from components/ui.
  */
 export function Page({
   title,

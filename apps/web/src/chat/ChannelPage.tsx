@@ -26,7 +26,7 @@ export function ChannelPage() {
     if (store && known) void store.loadHistory(channelId).catch(() => {});
   }, [store, known, channelId]);
 
-  // The chat area is full height, so it has no page column; `data-page` still switches the old styles off.
+  // The chat area is full height, so it has no page column. `data-page` still drops the field margins inside it.
   if (!state) {
     if (!chat || chat.channelsStatus === "loading") {
       return (

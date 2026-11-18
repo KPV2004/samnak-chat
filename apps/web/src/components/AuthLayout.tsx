@@ -25,8 +25,7 @@ export function AuthLayout({ title, children }: { title: string; children: React
           <CardHeader>
             <h1 className="text-xl leading-tight font-semibold tracking-tight">{title}</h1>
           </CardHeader>
-          {/* The sign-in and sign-up forms still use the old element styles. */}
-          <CardContent className="legacy-scope">{children}</CardContent>
+          <CardContent>{children}</CardContent>
         </Card>
         <footer className="flex items-center justify-center gap-1">
           <LanguageSelect />
