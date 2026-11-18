@@ -53,6 +53,7 @@ type memRepo struct {
 	categories map[string]domain.Category
 	tickets    map[string]domain.Ticket
 	history    []domain.HistoryEntry
+	comments   []domain.Comment
 	// next is the number the next ticket of each queue takes.
 	next map[string]int64
 }
@@ -189,6 +190,25 @@ func (r *memRepo) IsAgent(_ context.Context, workspaceID, queueID, userID string
 	defer r.mu.Unlock()
 	q, ok := r.queues[queueID]
 	return ok && q.WorkspaceID == workspaceID && q.IsAgent(userID), nil
+}
+
+func (r *memRepo) InsertComment(_ context.Context, c domain.Comment) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.comments = append(r.comments, c)
+	return nil
+}
+
+func (r *memRepo) Comments(_ context.Context, ticketID string) ([]domain.Comment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []domain.Comment
+	for _, c := range r.comments {
+		if c.TicketID == ticketID {
+			out = append(out, c)
+		}
+	}
+	return out, nil
 }
 
 func (r *memRepo) History(_ context.Context, ticketID string) ([]domain.HistoryEntry, error) {

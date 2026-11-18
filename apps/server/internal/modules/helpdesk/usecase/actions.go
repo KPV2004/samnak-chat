@@ -33,6 +33,48 @@ func (s *Service) lockVisible(ctx context.Context, p app.Principal, id string) (
 	return t, a, nil
 }
 
+// CommentInput is a comment to write. Internal makes it visible to agents and
+// admins only (HD-07).
+type CommentInput struct {
+	Body     string
+	Internal bool
+}
+
+// AddComment writes a comment on a ticket the caller may see, and records and
+// publishes it (HD-07, HD-18). The requester may only write public comments.
+func (s *Service) AddComment(ctx context.Context, p app.Principal, id string, in CommentInput) (domain.Comment, error) {
+	var out domain.Comment
+	err := s.d.Tx.Do(ctx, func(ctx context.Context) error {
+		t, a, err := s.lockVisible(ctx, p, id)
+		if err != nil {
+			return err
+		}
+		if err := t.CheckComment(a, in.Internal); err != nil {
+			return err
+		}
+		now := s.clock()
+		c, err := domain.NewComment(domain.NewCommentInput{TicketID: t.ID, AuthorID: p.UserID, Body: in.Body, Internal: in.Internal}, newID(), now)
+		if err != nil {
+			return err
+		}
+		if err := s.d.Repo.InsertComment(ctx, c); err != nil {
+			return err
+		}
+		if err := s.record(ctx, t, p.UserID, domain.ActionCommented, "", "", c.Internal, now); err != nil {
+			return err
+		}
+		if err := s.publish(ctx, domain.CommentAdded{TicketRef: ref(t), CommentID: c.ID, AuthorID: p.UserID, Internal: c.Internal}); err != nil {
+			return err
+		}
+		out = c
+		return nil
+	})
+	if err != nil {
+		return domain.Comment{}, err
+	}
+	return out, nil
+}
+
 // record adds a line to the ticket's history (HD-18).
 func (s *Service) record(ctx context.Context, t domain.Ticket, actorID string, action domain.Action, from, to string, internal bool, at time.Time) error {
 	return s.d.Repo.InsertHistory(ctx, domain.HistoryEntry{

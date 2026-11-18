@@ -122,15 +122,41 @@ type HelpdeskHistoryEntry struct {
 	At       time.Time `json:"at"`
 }
 
-// HelpdeskTicketDetail is a ticket with its history, for the ticket's page.
-type HelpdeskTicketDetail struct {
-	HelpdeskTicket
-	History []HelpdeskHistoryEntry `json:"history" nullable:"false" doc:"Oldest first"`
+// HelpdeskComment is a comment on a ticket (HD-07).
+type HelpdeskComment struct {
+	ID        string    `json:"id"`
+	TicketID  string    `json:"ticket_id"`
+	AuthorID  string    `json:"author_id"`
+	Body      string    `json:"body"`
+	Internal  bool      `json:"internal" doc:"Only agents and admins see internal comments"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
-// ToDetail converts a ticket with its history.
+// ToComment converts a stored comment.
+func ToComment(c domain.Comment) HelpdeskComment {
+	return HelpdeskComment{
+		ID: c.ID, TicketID: c.TicketID, AuthorID: c.AuthorID, Body: c.Body, Internal: c.Internal, CreatedAt: c.CreatedAt.UTC(),
+	}
+}
+
+// HelpdeskTicketDetail is a ticket with its comments and history, for the
+// ticket's page.
+type HelpdeskTicketDetail struct {
+	HelpdeskTicket
+	Comments []HelpdeskComment      `json:"comments" nullable:"false" doc:"Oldest first; internal ones only for agents and admins"`
+	History  []HelpdeskHistoryEntry `json:"history" nullable:"false" doc:"Oldest first; internal lines only for agents and admins"`
+}
+
+// ToDetail converts a ticket with its comments and history.
 func ToDetail(d usecase.Detail) HelpdeskTicketDetail {
-	out := HelpdeskTicketDetail{HelpdeskTicket: ToTicket(d.Ticket), History: make([]HelpdeskHistoryEntry, len(d.History))}
+	out := HelpdeskTicketDetail{
+		HelpdeskTicket: ToTicket(d.Ticket),
+		Comments:       make([]HelpdeskComment, len(d.Comments)),
+		History:        make([]HelpdeskHistoryEntry, len(d.History)),
+	}
+	for i, c := range d.Comments {
+		out.Comments[i] = ToComment(c)
+	}
 	for i, h := range d.History {
 		out.History[i] = HelpdeskHistoryEntry{
 			ID: h.ID, ActorID: h.ActorID, Action: string(h.Action), From: h.From, To: h.To, Internal: h.Internal, At: h.At.UTC(),

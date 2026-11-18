@@ -15,10 +15,12 @@ const (
 	MaxLimit     = 100
 )
 
-// Detail is a ticket with its history (HD-18), for the ticket's page.
+// Detail is a ticket with its comments and history, for the ticket's page.
+// Internal comments and history lines are left out for the requester (HD-07).
 type Detail struct {
-	Ticket  domain.Ticket
-	History []domain.HistoryEntry
+	Ticket   domain.Ticket
+	Comments []domain.Comment
+	History  []domain.HistoryEntry
 }
 
 // actor says who the caller is for the rules of one ticket: admin, agent of its
@@ -50,11 +52,26 @@ func (s *Service) Get(ctx context.Context, p app.Principal, id string) (Detail, 
 	if !t.Visible(a) {
 		return Detail{}, fmt.Errorf("ticket: %w", app.ErrNotFound)
 	}
+	comments, err := s.d.Repo.Comments(ctx, t.ID)
+	if err != nil {
+		return Detail{}, err
+	}
 	hist, err := s.d.Repo.History(ctx, t.ID)
 	if err != nil {
 		return Detail{}, err
 	}
-	return Detail{Ticket: t, History: hist}, nil
+	d := Detail{Ticket: t, Comments: []domain.Comment{}, History: []domain.HistoryEntry{}}
+	for _, c := range comments {
+		if !c.Internal || a.SeesInternal() {
+			d.Comments = append(d.Comments, c)
+		}
+	}
+	for _, h := range hist {
+		if !h.Internal || a.SeesInternal() {
+			d.History = append(d.History, h)
+		}
+	}
+	return d, nil
 }
 
 // ListQuery filters the tickets the caller may see (HD-10). Status is a

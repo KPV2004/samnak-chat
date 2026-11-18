@@ -63,6 +63,10 @@ type Repository interface {
 	IsAgent(ctx context.Context, workspaceID, queueID, userID string) (bool, error)
 	// History returns a ticket's lines, oldest first.
 	History(ctx context.Context, ticketID string) ([]domain.HistoryEntry, error)
+
+	InsertComment(ctx context.Context, c domain.Comment) error
+	// Comments returns a ticket's comments, oldest first.
+	Comments(ctx context.Context, ticketID string) ([]domain.Comment, error)
 }
 
 // TicketFilter selects the tickets of a list. The visibility rule (requester,

@@ -592,3 +592,43 @@ func (r *Repo) UpdateTicket(ctx context.Context, t domain.Ticket) error {
 	}
 	return nil
 }
+
+func (r *Repo) InsertComment(ctx context.Context, c domain.Comment) error {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return err
+	}
+	p := gen.InsertCommentParams{Body: c.Body, Internal: c.Internal, CreatedAt: c.CreatedAt.UTC()}
+	for _, f := range []struct {
+		dst *uuid.UUID
+		src string
+	}{{&p.ID, c.ID}, {&p.TicketID, c.TicketID}, {&p.AuthorID, c.AuthorID}} {
+		if *f.dst, err = id(f.src); err != nil {
+			return err
+		}
+	}
+	return wrap(qs.InsertComment(ctx, p), "insert comment")
+}
+
+func (r *Repo) Comments(ctx context.Context, ticketID string) ([]domain.Comment, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tid, err := id(ticketID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := qs.ListComments(ctx, tid)
+	if err != nil {
+		return nil, wrap(err, "list comments")
+	}
+	out := make([]domain.Comment, len(rows))
+	for i, row := range rows {
+		out[i] = domain.Comment{
+			ID: row.ID.String(), TicketID: row.TicketID.String(), AuthorID: row.AuthorID.String(),
+			Body: row.Body, Internal: row.Internal, CreatedAt: row.CreatedAt.UTC(),
+		}
+	}
+	return out, nil
+}

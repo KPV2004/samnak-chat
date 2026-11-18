@@ -595,3 +595,66 @@ func TestClaimMoveAndEditOverHTTP(t *testing.T) {
 		}
 	}
 }
+
+func TestCommentsAndTheirVisibilityOverHTTP(t *testing.T) {
+	e := newEnv(t)
+	cat := e.laptopCategory(t)
+	var tk struct {
+		ID string `json:"id"`
+	}
+	e.call(http.MethodPost, "/helpdesk/tickets", "bob", map[string]any{"category_id": cat, "title": "Printer jams"}).json(t, &tk)
+	base := "/helpdesk/tickets/" + tk.ID + "/comments"
+
+	if r := e.call(http.MethodPost, base, "bob", map[string]any{"body": "Still jams"}); r.Code != http.StatusCreated {
+		t.Fatalf("public comment = %d: %s", r.Code, r.Body.String())
+	}
+	if r := e.call(http.MethodPost, base, "bob", map[string]any{"body": "secret", "internal": true}); r.Code != http.StatusForbidden {
+		t.Errorf("requester internal = %d, want 403", r.Code)
+	}
+	if r := e.call(http.MethodPost, base, "bob", map[string]any{"body": "  "}); r.Code != http.StatusBadRequest {
+		t.Errorf("blank comment = %d, want 400", r.Code)
+	}
+	if r := e.call(http.MethodPost, base, "carol", map[string]any{"body": "Who?"}); r.Code != http.StatusNotFound {
+		t.Errorf("a member who may not see the ticket = %d, want 404", r.Code)
+	}
+
+	// Make carol the agent, then she may write an internal note.
+	var queues struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	e.call(http.MethodGet, "/helpdesk/queues", "admin", nil).json(t, &queues)
+	e.call(http.MethodPut, "/helpdesk/queues/"+queues.Items[0].ID+"/agents", "admin", map[string]any{"user_ids": []string{e.carol}})
+	if r := e.call(http.MethodPost, base, "carol", map[string]any{"body": "Check the driver", "internal": true}); r.Code != http.StatusCreated {
+		t.Fatalf("agent internal = %d: %s", r.Code, r.Body.String())
+	}
+
+	var asRequester struct {
+		Comments []struct {
+			Body     string `json:"body"`
+			Internal bool   `json:"internal"`
+		} `json:"comments"`
+		History []struct {
+			Internal bool `json:"internal"`
+		} `json:"history"`
+	}
+	e.call(http.MethodGet, "/helpdesk/tickets/"+tk.ID, "bob", nil).json(t, &asRequester)
+	if len(asRequester.Comments) != 1 || asRequester.Comments[0].Body != "Still jams" {
+		t.Errorf("requester's comments = %+v", asRequester.Comments)
+	}
+	for _, h := range asRequester.History {
+		if h.Internal {
+			t.Errorf("requester sees an internal history line")
+		}
+	}
+	var asAgent struct {
+		Comments []struct {
+			Internal bool `json:"internal"`
+		} `json:"comments"`
+	}
+	e.call(http.MethodGet, "/helpdesk/tickets/"+tk.ID, "carol", nil).json(t, &asAgent)
+	if len(asAgent.Comments) != 2 {
+		t.Errorf("agent's comments = %+v, want both", asAgent.Comments)
+	}
+}

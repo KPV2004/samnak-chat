@@ -54,6 +54,7 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	huma.Register(api, op("helpdesk-assign-ticket", http.MethodPost, "/tickets/{id}/assign", "Claim a ticket for yourself (an agent of its queue) or assign an agent of the queue (admins); a new ticket becomes open", 0), h.assignTicket)
 	huma.Register(api, op("helpdesk-change-ticket-status", http.MethodPost, "/tickets/{id}/status", "Move a ticket along its status table; wrong moves are 409, the wrong person is 403", 0), h.changeStatus)
 	huma.Register(api, op("helpdesk-edit-ticket", http.MethodPatch, "/tickets/{id}", "Change the priority or the category of a ticket; agents and admins only", 0), h.editTicket)
+	huma.Register(api, op("helpdesk-add-comment", http.MethodPost, "/tickets/{id}/comments", "Comment on a ticket; internal comments are for agents and admins only", http.StatusCreated), h.addComment)
 	huma.Register(api, op("helpdesk-create-ticket", http.MethodPost, "/tickets", "Create a ticket in the queue of a category; with source_message_id the message is read as you (HD-03)", http.StatusCreated), h.createTicket)
 	huma.Register(api, op("helpdesk-update-category", http.MethodPatch, "/categories/{id}", "Rename, move, make default or archive a category; admins only", 0), h.updateCategory)
 }
@@ -398,4 +399,28 @@ func (h *Handler) editTicket(ctx context.Context, in *helpdeskTicketEditInput) (
 		return nil, h.fail(ctx, err)
 	}
 	return &helpdeskTicketOutput{Body: wire.ToTicket(t)}, nil
+}
+
+type helpdeskCommentInput struct {
+	ID   string `path:"id"`
+	Body struct {
+		Body     string `json:"body" doc:"1 to 8000 characters"`
+		Internal bool   `json:"internal,omitempty" doc:"Only agents and admins may write internal comments"`
+	}
+}
+
+type helpdeskCommentOutput struct {
+	Body wire.HelpdeskComment
+}
+
+func (h *Handler) addComment(ctx context.Context, in *helpdeskCommentInput) (*helpdeskCommentOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	c, err := h.uc.AddComment(ctx, p, in.ID, usecase.CommentInput{Body: in.Body.Body, Internal: in.Body.Internal})
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &helpdeskCommentOutput{Body: wire.ToComment(c)}, nil
 }

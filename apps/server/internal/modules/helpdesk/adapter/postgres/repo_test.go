@@ -600,3 +600,38 @@ func TestUpdateTicketPersistsStateAndRefusesATakenNumber(t *testing.T) {
 		t.Fatalf("move onto a taken number: err = %v, want ErrConflict", err)
 	}
 }
+
+func TestCommentsRoundTripWithTheirInternalFlag(t *testing.T) {
+	f := newFixture(t)
+	q := f.queue("IT")
+	tk, err := ticketIn(f.ws, q, f.category(q.ID, false).ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.InsertTicket(f.ctx, tk); err != nil {
+		t.Fatal(err)
+	}
+	public, err := domain.NewComment(domain.NewCommentInput{TicketID: tk.ID, AuthorID: newID(), Body: "Public"}, newID(), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	internal, err := domain.NewComment(domain.NewCommentInput{TicketID: tk.ID, AuthorID: newID(), Body: "Internal", Internal: true}, newID(), time.Now().Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []domain.Comment{public, internal} {
+		if err := f.repo.InsertComment(f.ctx, c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := f.repo.Comments(f.ctx, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Body != "Public" || got[0].Internal || got[1].Body != "Internal" || !got[1].Internal {
+		t.Fatalf("comments = %+v", got)
+	}
+	if _, err := f.repo.Comments(f.ctx, newID()); err != nil {
+		t.Fatalf("no comments: %v", err)
+	}
+}
