@@ -1,6 +1,9 @@
 package app
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // ChatExtensions lets modules add slash commands and message actions to chat
 // (CHAT-16). chat provides it in Provide; look it up in Init and skip
@@ -50,4 +53,34 @@ type MessageAction struct {
 // such as tasks, only to people who can see the channel.
 type ChannelAccess interface {
 	CanRead(ctx context.Context, workspaceID, channelID, userID string) (bool, error)
+}
+
+// MessageReader reads one message for a user who can read its channel, so a
+// module can build something from it, such as a helpdesk ticket from a
+// message with its attachments (HD-03). chat provides it.
+type MessageReader interface {
+	// ReadMessage returns an error wrapping ErrNotFound when the message does
+	// not exist in the workspace, is deleted, or userID cannot read its channel.
+	ReadMessage(ctx context.Context, workspaceID, messageID, userID string) (MessageSnapshot, error)
+}
+
+// MessageSnapshot is a message as MessageReader returns it.
+type MessageSnapshot struct {
+	ID          string
+	ChannelID   string
+	SenderID    string
+	Kind        string // "text" or a card kind
+	Body        string // Markdown with <@user_id> and <!channel> tokens
+	Attachments []MessageAttachment
+	CreatedAt   time.Time
+}
+
+// MessageAttachment is a file on a message. ObjectKey is chat's key in
+// object storage; another module may presign downloads of it but never
+// writes or deletes it.
+type MessageAttachment struct {
+	FileName  string
+	MimeType  string
+	Size      int64
+	ObjectKey string
 }

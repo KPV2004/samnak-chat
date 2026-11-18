@@ -388,6 +388,99 @@ CI starts the server with `MODULES_ENABLED` unset, empty, `task`, `approval` and
 | 3 | M4-08 acceptance test and PLT-12 CI matrix | 1 worker |
 | Checkpoint M4 | SRS 16.3 M4 acceptance in two browsers | Planner |
 
+## M5: helpdesk v1 (SRS HD-01..10, 18..20)
+
+### Contracts the planner fixed before M5
+
+- `app.MessageReader.ReadMessage(ctx, workspaceID, messageID, userID)` with `app.MessageSnapshot` and `app.MessageAttachment` (`internal/app/chat.go`), provided by chat. It returns `ErrNotFound` for a missing or deleted message and when the user cannot read its channel (HD-03).
+- Unchanged and used: `app.CardRegistry`, `app.ChatExtensions`, `app.ChannelAccess`, `app.EventBus` with the outbox rule, `app.TxManager`, `auth.Directory`, `workspace.Authorizer` and `ActionRegistry`, `Deps.Notifications`, `Deps.Storage`.
+- helpdesk follows the M4 "Rules for modules that own cards" exactly (row + event in one transaction; cards posted and updated by the module's own handlers after commit, idempotently; `version` in every payload).
+
+### Decisions
+
+- **Roles.** Admin = whoever the action `helpdesk.admin` allows (owner and admin, registered by helpdesk with `ActionRegistry`). Agent = a member listed in a queue's agents. A ticket is visible to its requester, the agents of its queue and admins; anyone else gets 404.
+- **Attachments from a message** keep chat's object key (read only; helpdesk presigns downloads of it). New files from the ticket form are uploaded under `helpdesk/{workspace_id}/{attachment_id}`.
+- **Cards.** A ticket made from chat (the `/ticket` command or the message action) gets a requester card in that channel, sent as the requester. A queue may name an agents' channel; every new ticket of the queue gets an agents' card there, sent as the requester. Both cards show the same payload and are updated by every event. A ticket made from the form with no queue channel has no card.
+- **Create a task from a ticket (HD-19)** is web only: the ticket page calls `POST /task/items` with the queue channel and a description that names the ticket. It shows only when `/meta` lists task and the queue has a channel. helpdesk never imports task.
+- **SLA, auto-close, intake channels, round robin, ratings and reports** (HD-11..17) are P4. `resolved_at` is stored so HD-13 can be added later.
+
+### States (HD-05; the SRS diagram, enforced in `domain`)
+
+| From | To | Who | Notes |
+| --- | --- | --- | --- |
+| new | open | an agent of the queue claiming it, or an admin assigning an agent of the queue | `POST .../assign`; sets the assignee |
+| open | in_progress | the assignee or an admin | |
+| in_progress | waiting | the assignee or an admin | waiting for the requester or for parts |
+| waiting | in_progress | the assignee or an admin | |
+| in_progress | resolved | the assignee or an admin | sets `resolved_at` |
+| resolved | closed | the requester or an admin | sets `closed_at` |
+| resolved | open | the requester, within 7 days of `resolved_at` | reopen; clears `resolved_at`; keeps the assignee |
+
+Any other transition is 409 `invalid_transition`; the right transition by the wrong person is 403. Re-assigning (admin, or an agent claiming an unassigned ticket) works in any state except closed and does not change the status, except new → open.
+
+### helpdesk module (`internal/modules/helpdesk`)
+
+Tables:
+- `helpdesk_queues (id, workspace_id, name, prefix (2-6 upper case letters, unique per workspace), channel_id null, next_number, archived_at, created_at, updated_at)`
+- `helpdesk_queue_agents (queue_id, user_id, added_at)`
+- `helpdesk_categories (id, workspace_id, queue_id, name, is_default, archived_at, created_at)`; at most one default per workspace
+- `helpdesk_tickets (id, workspace_id, queue_id, category_id, number, title, description, requester_id, assignee_id, status new|open|in_progress|waiting|resolved|closed, priority low|normal|high|urgent, source_channel_id, source_message_id, message_id, queue_message_id, resolved_at, closed_at, created_at, updated_at)`; unique `(queue_id, number)`
+- `helpdesk_comments (id, ticket_id, author_id, body, internal, created_at)`
+- `helpdesk_history (id, ticket_id, actor_id, action created|assigned|status_changed|priority_changed|category_changed|commented, from, to, internal, at)` (HD-18)
+- `helpdesk_attachments (id, ticket_id null until submit, workspace_id, uploader_id, object_key, file_name, size, mime_type, from_message boolean, created_at)`
+
+Numbering (HD-04): in the create transaction `UPDATE helpdesk_queues SET next_number = next_number + 1 ... RETURNING`; the key is `{prefix}-{number}` zero-padded to 4 digits (`IT-0142`, then `IT-10000`).
+
+Admin API (all `helpdesk.admin` except the reads):
+
+| Method and path | Body | Response |
+| --- | --- | --- |
+| `GET /helpdesk/queues` | | `{items: [{id, name, prefix, channel_id, agent_ids, categories: [{id, name, is_default}]}]}`; every member (the new-ticket form needs it); archived ones hidden |
+| `POST /helpdesk/queues` | `{name, prefix, channel_id?}` | 201 queue; duplicate prefix 409 |
+| `PATCH /helpdesk/queues/{id}` | `{name?, channel_id? (null clears), archived?}` | queue |
+| `PUT /helpdesk/queues/{id}/agents` | `{user_ids}` (active members only, 400 otherwise) | 204 |
+| `POST /helpdesk/categories` | `{queue_id, name, is_default?}` | 201 category |
+| `PATCH /helpdesk/categories/{id}` | `{name?, queue_id?, is_default?, archived?}` | category |
+
+Ticket API:
+
+| Method and path | Body or query | Response |
+| --- | --- | --- |
+| `POST /helpdesk/tickets` | `{category_id, title (1-200), description? (≤ 8000), priority? (normal), source_message_id?, attachment_ids?}` | 201 `Ticket`; the category's queue; with `source_message_id` the message is read through `MessageReader` as the caller (404 if unreadable), its body becomes the description when none is given and its attachments are attached (HD-03) |
+| `GET /helpdesk/tickets` | `?queue_id=`, `?status=new,open`, `?assignee=me\|none\|<user_id>`, `?requester=me`, `?cursor=&limit=` (≤ 100) | `{items: Ticket[], next_cursor}` (empty string on the last page); only visible tickets (HD-10) |
+| `GET /helpdesk/tickets/{id}` | | `Ticket` + `comments`, `history`, `attachments`; internal comments and their history rows only for agents and admins (HD-07) |
+| `POST /helpdesk/tickets/{id}/assign` | `{assignee_id}` (an agent of the queue; agents may only assign themselves) | `Ticket` |
+| `POST /helpdesk/tickets/{id}/status` | `{status}` | `Ticket`; rules in "States" |
+| `PATCH /helpdesk/tickets/{id}` | `{priority?, category_id?}` (agents and admins; a category in another queue moves the ticket but keeps its number) | `Ticket` |
+| `POST /helpdesk/tickets/{id}/comments` | `{body (1-8000), internal? (false)}` | 201 comment; the requester cannot post internal (403) |
+| `POST /helpdesk/uploads` | `{file_name, size (≤ 50 MB), mime_type}` | 201 `{attachment_id, upload}` like approval |
+| `GET /helpdesk/attachments/{id}` | | `{url, expires_at}` for anyone who can see the ticket |
+
+`Ticket {id, key, number, queue_id, category_id, title, description, requester_id, assignee_id, status, priority, source_channel_id, source_message_id, message_id, resolved_at, closed_at, created_at, updated_at}`.
+
+- Events (`helpdesk/events.go`, published in the transaction, declared; HD-20): `helpdesk.ticket_created {workspace_id, ticket_id, queue_id, key, requester_id}`, `helpdesk.ticket_assigned {.., assignee_id, actor_id}`, `helpdesk.status_changed {.., from, to, actor_id}`, `helpdesk.ticket_resolved {.., requester_id, actor_id}` (with the status change to resolved), `helpdesk.ticket_updated {.., ticket_id}` (priority, category), `helpdesk.comment_added {.., comment_id, author_id, internal}`.
+- Card kind `helpdesk.ticket`; payload `{ticket_id, key, title, status, priority, queue_name, requester_id, requester_name, assignee_id, assignee_name, can_claim_queue_id, version}` (HD-08; the web shows "Claim" to agents of `can_claim_queue_id` while unassigned). Fallback `Ticket {key}: {title} ({status})`. Every event updates both cards. Internal comments never appear in a card.
+- Notification rules: created → the queue's agents (`helpdesk.ticket_created`); assigned → the assignee unless they claimed it; status changed to waiting or resolved → the requester; public comment → the requester and the assignee, not the author; internal comment → the assignee, not the author. Keys `helpdesk:{ticket_id}:{event}:{updated_at or comment_id}:{user_id}`.
+- Chat extensions: command `/ticket <title>` creates a ticket in the default category with the title, in the caller's channel (400 `no_default_category` with a hint to use the form when there is none); message action `helpdesk.create_from_message` (the web opens the new-ticket form with the message text and `source_message_id`).
+
+### Web
+
+- Card `helpdesk.ticket` in the card registry: key, title, status and priority badges, queue, requester, assignee, "Claim" for agents while unassigned, "Open" to the ticket page.
+- Pages: "Helpdesk" (`/helpdesk`: tabs "My requests" and, for agents and admins, "Queue" with filters queue, status, assignee), ticket detail (`/helpdesk/:id`: fields, status actions allowed for the viewer, assign for admins, claim for agents, comments with a public/internal switch for agents, history, attachments, "Create task" per HD-19), new ticket (dialog from the list and from the message action: category, title, description, priority, attachments), admin "Helpdesk settings" (queues with prefix, channel and agents; categories with default).
+- Hidden when `/meta` lacks helpdesk; Thai and English; shadcn/ui per `docs/ui.md`.
+
+### M5 waves
+
+| Wave | Tasks | Run as |
+| --- | --- | --- |
+| 0 | M5-00 contracts (this section) | Planner |
+| 1 | M5-01 helpdesk core, M5-02 chat `MessageReader` | 2 parallel workers |
+| Checkpoint F | Planner merges, registers helpdesk in `cmd/server` and `cmd/migrate`, regenerates OpenAPI and web types | Planner |
+| 2 | M5-03 helpdesk cards, events, rules and chat extensions; M5-04 web helpdesk pages | 2 parallel workers |
+| Checkpoint G | Planner merges and regenerates types | Planner |
+| 3 | M5-05 web: ticket card, message action, attachments, task from ticket; M5-06 M5 acceptance test | 2 parallel workers |
+| Checkpoint M5 | SRS 16.3 M5 acceptance in two browsers | Planner |
+
 ## Later milestones (to be broken down at each checkpoint)
 
 | Milestone | Scope | SRS IDs |

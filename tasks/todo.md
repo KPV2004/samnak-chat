@@ -637,3 +637,89 @@ Planner notes from checkpoint E:
 - [ ] Create a task from a message, then change its status from the card
 - [ ] Send a leave request; the manager approves from the card; the requester's card changes at once
 - [ ] A non-approver who presses approve gets 403
+
+# M5: helpdesk v1
+
+Plan: `tasks/plan.md` section "M5" (states, APIs, payloads, events, card rules; canonical). Contracts are fixed in M5-00; workers do not change `internal/app` or another module's `api.go`/`events.go`.
+
+## [x] M5-00 contracts (planner)
+- [x] `app.MessageReader`, `app.MessageSnapshot`, `app.MessageAttachment`
+- [x] Plan section M5 and these tasks
+
+## [ ] M5-01 helpdesk core (wave 1)
+**SRS:** HD-01..07, 09, 10, 18 · **Size:** L (commit in slices: migrations and admin API, create with numbering, list and detail, assign and status with the state table, comments and history, uploads and attachments) · **Depends on:** M5-00
+
+Build `internal/modules/helpdesk` like task and approval (`domain`, `usecase`, `adapter/postgres` with sqlc via `go tool sqlc`, `adapter/http`, `migrations`, `module.go`, `api.go`, `events.go`), exactly as the plan's "helpdesk module" and "States".
+
+**Acceptance criteria**
+- [ ] Migrations; the admin API with `helpdesk.admin` registered for owner and admin; prefixes unique per workspace; one default category
+- [ ] `POST /helpdesk/tickets` with per-queue numbering in the transaction (concurrent creates never share a number); `source_message_id` read through `app.MessageReader` when it is available (400 when it is not)
+- [ ] List filters, visibility (requester, queue agents, admins; others 404) and cursor paging with an empty cursor on the last page
+- [ ] Every transition in the plan's table allowed for the right people, every other one 409, the wrong person 403, reopen only within 7 days; all as table-driven `domain` tests
+- [ ] Public and internal comments; the requester never sees internal comments or their history rows; every change written to `helpdesk_history`
+- [ ] Events from `events.go` published in the transaction and declared (handlers come in M5-03)
+- [ ] Uploads and attachment downloads through `Deps.Storage`; message attachments keep chat's key
+- [ ] Unit tests with fakes, handler tests with `humatest`, repository tests on testcontainers, a module test on the real registry; `go build ./... && go vet ./... && go test ./...` pass
+
+**Files:** `internal/modules/helpdesk/` (new). Do not edit `cmd/`; the planner registers the module.
+
+## [ ] M5-02 chat: MessageReader (wave 1)
+**SRS:** HD-03 · **Size:** S · **Depends on:** M5-00
+
+**Acceptance criteria**
+- [ ] chat provides `app.MessageReader` in `Provide`
+- [ ] Returns body, kind, sender, channel, creation time and attachments with their object keys; `ErrNotFound` for a missing message, another workspace, a deleted message, or a user who cannot read the channel (same rules as `ChannelAccess`)
+- [ ] Tests for each case; existing chat tests pass; `go build ./... && go vet ./... && go test ./...` pass
+
+**Files:** `internal/modules/chat/` except `api.go` and `events.go`
+
+## [ ] Checkpoint F: after M5 wave 1 (planner)
+- [ ] Branches merged; helpdesk registered in `cmd/server` and `cmd/migrate`; OpenAPI and `schema.d.ts` regenerated; no schema name collisions
+- [ ] All checks pass; CI green; a live API run of create, claim, every transition and comments
+
+## [ ] M5-03 helpdesk cards, notifications and chat extensions (wave 2)
+**SRS:** HD-03, 08, 20 · **Size:** M · **Depends on:** checkpoint F
+
+**Acceptance criteria**
+- [ ] Card kind `helpdesk.ticket` registered; requester card for tickets made from chat and agents' card in the queue channel, posted and updated by the module's own event handlers, idempotently, with `version`
+- [ ] Notification rules as in the plan, with their keys
+- [ ] `/ticket <title>` (default category; `no_default_category` 400 otherwise) and `helpdesk.create_from_message` registered when `ChatExtensions` is available
+- [ ] Module tests on the real registry with the in-memory bus for each card and rule; `go build ./... && go vet ./... && go test ./...` pass
+
+**Files:** `internal/modules/helpdesk/`
+
+## [ ] M5-04 web: helpdesk pages (wave 2)
+**SRS:** HD-01, 02, 05..07, 09, 10, 18 · **Size:** M · **Depends on:** checkpoint F
+
+**Acceptance criteria**
+- [ ] `packages/core`: helpdesk API from the generated schema
+- [ ] "Helpdesk" list with "My requests" and "Queue" tabs and filters; ticket detail with the status actions the viewer may take, claim and assign, public and internal comments (the internal switch only for agents and admins), history; new-ticket dialog without attachments; "Helpdesk settings" for admins
+- [ ] Hidden when `/meta` lacks helpdesk; Thai and English; component tests; shadcn/ui per `docs/ui.md`; `npm run build`, `npm test` and `npm run lint` pass
+
+**Files:** `packages/core/src/` (new `helpdesk/`, `api/`), `apps/web/src/` (new `helpdesk/`, `App.tsx`, `components/AppSidebar.tsx` nav item only, `i18n/` new `helpdesk-messages.ts` and one spread line)
+
+## [ ] M5-05 web: ticket card, message action, attachments and task from ticket (wave 3)
+**SRS:** HD-03, 08, 19 · **Size:** M · **Depends on:** M5-03, M5-04
+
+**Acceptance criteria**
+- [ ] `helpdesk.ticket` card renderer registered from `helpdesk/` with Claim and Open; live updates through `card.updated`
+- [ ] Message menu "Create ticket" opens the new-ticket dialog with the message text and `source_message_id`; attachments in the dialog and on the detail page
+- [ ] "Create task" on the ticket page when `/meta` lists task and the queue has a channel; hidden otherwise
+- [ ] Component tests; build, test and lint pass
+
+**Files:** `apps/web/src/helpdesk/`, `i18n/helpdesk-messages.ts`
+
+## [ ] M5-06 M5 acceptance test (wave 3)
+**SRS:** 16.3 M5 · **Size:** M · **Depends on:** M5-03
+
+**Acceptance criteria**
+- [ ] `internal/acceptance`: a ticket from a message gets its number and cards; an agent claims it and walks every path in the state table, including waiting and back and a reopen; a forbidden transition is 409 and the wrong person 403; the requester never receives internal comments (API and card); with task disabled helpdesk still works
+- [ ] PLT-12 matrix gains `helpdesk` and `notify,task,approval,helpdesk`
+- [ ] `go test -race ./internal/acceptance/` passes; CI green
+
+**Files:** `internal/acceptance/`, `.github/workflows/ci.yml`, `scripts/check-modules.sh`
+
+## [ ] Checkpoint M5: SRS 16.3 acceptance (planner)
+- [ ] Open a ticket from a message; an agent claims it and changes status along every path in the diagram
+- [ ] The requester does not see internal notes
+- [ ] With task turned off, helpdesk still works
