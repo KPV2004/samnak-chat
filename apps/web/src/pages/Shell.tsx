@@ -86,10 +86,7 @@ export function Shell() {
             </Sheet>
             <Brand className="md:hidden" />
             <div className="ml-auto flex items-center gap-1">
-              {/* The bell still uses the old styles (notify.css), so it sits in a legacy scope. */}
-              <div className="legacy-scope">
-                <NotificationBell />
-              </div>
+              <NotificationBell />
               <LanguageSelect />
               <ThemeToggle />
             </div>
