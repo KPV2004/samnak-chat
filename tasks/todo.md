@@ -805,7 +805,7 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 - [ ] Pages `/verify-email?token=`, `/forgot-password`, `/reset-password?token=` with success, expired and invalid states; "Forgot password?" link on sign-in; banner with "Resend" for unverified users
 - [ ] Core API client from the generated schema; Thai and English; component tests; build, test and lint pass
 
-**Files:** `packages/core/src/api/` (auth only), `apps/web/src/pages/` (new pages, `SignIn.tsx` link), `apps/web/src/App.tsx` (routes), `apps/web/src/components/` (new banner), `apps/web/src/i18n/`
+**Files:** `packages/core/src/api/` (auth only), `apps/web/src/pages/` (new pages, `Login.tsx` link), `apps/web/src/App.tsx` (routes), `apps/web/src/components/` (new banner), `apps/web/src/i18n/`
 
 ## [ ] M6-07 web: audit log and notification settings (wave 2)
 **SRS:** WSP-10, NOTI-07 · **Size:** M · **Depends on:** Checkpoint H
@@ -815,7 +815,7 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 - [ ] "Notifications" settings: switch per kind, do-not-disturb start and end, muted channels list; "Mute channel" in the channel header menu; quiet frames show no toast
 - [ ] Core API clients; Thai and English; component tests; build, test and lint pass
 
-**Files:** `packages/core/src/api/` (workspace audit and notify preferences only), `apps/web/src/pages/` (new pages), `apps/web/src/notify/`, `apps/web/src/chat/ChannelHeader*` (mute item only), `apps/web/src/App.tsx`, `apps/web/src/components/AppSidebar.tsx` (nav items only), `apps/web/src/i18n/`
+**Files:** `packages/core/src/api/` (workspace audit and notify preferences only), `apps/web/src/pages/` (new pages), `apps/web/src/notify/`, `apps/web/src/chat/ChannelPage.tsx` (mute item in the header only), `apps/web/src/App.tsx`, `apps/web/src/components/AppSidebar.tsx` (nav items only), `apps/web/src/i18n/`
 
 ## [ ] M6-08 self-hosting stack and multi-arch images (wave 2)
 **SRS:** NFR-05, NFR-11, NFR-15 · **Size:** M · **Depends on:** Checkpoint H
