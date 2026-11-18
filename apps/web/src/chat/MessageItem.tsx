@@ -110,13 +110,13 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
           m.status === "pending" && "opacity-60",
         )}
       >
-        <div className="w-8 shrink-0 pt-0.5">
+        <div className="w-12 shrink-0 pt-0.5">
           {continued ? (
             sent && (
               <time
                 dateTime={m.created_at}
                 title={formatDateTime(m.created_at, locale)}
-                className="invisible block text-right text-[11px] text-muted-foreground group-focus-within:visible group-hover:visible"
+                className="invisible block text-right text-[11px] whitespace-nowrap text-muted-foreground group-focus-within:visible group-hover:visible"
               >
                 {formatMessageTime(m.created_at, locale)}
               </time>
