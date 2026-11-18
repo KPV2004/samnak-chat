@@ -17,8 +17,8 @@ export function CardBody({ message }: { message: Message }) {
   const Known = cardRenderers[message.kind];
   if (Known) return <Known message={message} />;
   return (
-    <div className="chat-card">
-      <small className="muted">{t("chat.card")}</small>
+    <div className="grid gap-1 rounded-lg border bg-card px-3 py-2 text-sm text-card-foreground">
+      <small className="text-xs text-muted-foreground">{t("chat.card")}</small>
       <div>{message.fallback_text || message.body}</div>
     </div>
   );
