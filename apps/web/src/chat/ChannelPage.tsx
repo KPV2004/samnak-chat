@@ -26,7 +26,7 @@ export function ChannelPage() {
     if (store && known) void store.loadHistory(channelId).catch(() => {});
   }, [store, known, channelId]);
 
-  // The chat area is full height, so it has no page column; `data-page` still switches the old styles off.
+  // The chat area is full height, so it has no page column. `data-page` still drops the field margins inside it.
   if (!state) {
     if (!chat || chat.channelsStatus === "loading") {
       return (
@@ -56,7 +56,7 @@ export function ChannelPage() {
   }
   const channel = state.channel;
   return (
-    <div data-page className="chat-channel flex h-full min-w-0">
+    <div data-page data-channel className="flex h-full min-w-0">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center gap-3 border-b px-4 py-2.5">
           <div className="grid min-w-0 flex-1 gap-0.5">

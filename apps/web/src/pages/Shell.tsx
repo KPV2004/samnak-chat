@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Menu } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { AppSidebar } from "../components/AppSidebar";
 import { Brand } from "../components/Brand";
 import { LanguageSelect } from "../components/LanguageSelect";
+import { RouteFallback } from "../components/RouteFallback";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { NotificationBell } from "../notify/NotificationBell";
 import { ChatProvider } from "../state/chat";
@@ -85,17 +86,24 @@ export function Shell() {
             </Sheet>
             <Brand className="md:hidden" />
             <div className="ml-auto flex items-center gap-1">
-              {/* The bell still uses the old styles (notify.css), so it sits in a legacy scope. */}
-              <div className="legacy-scope">
-                <NotificationBell />
-              </div>
+              <NotificationBell />
               <LanguageSelect />
               <ThemeToggle />
             </div>
           </header>
           <div className={cn("min-h-0 flex-1", isChat ? "overflow-hidden" : "overflow-y-auto")}>
-            <main id="main" tabIndex={-1} className={cn("legacy-scope outline-none", isChat ? "h-full" : "legacy-column")}>
-              <Outlet />
+            {/* Content outside a Page (loading and gate states) gets the page frame; a Page brings its own padding. */}
+            <main
+              id="main"
+              tabIndex={-1}
+              className={cn(
+                "outline-none",
+                isChat ? "h-full" : "mx-auto w-full max-w-6xl p-4 md:p-6 has-[[data-page]]:p-0",
+              )}
+            >
+              <Suspense fallback={<RouteFallback />}>
+                <Outlet />
+              </Suspense>
             </main>
           </div>
         </div>

@@ -1,18 +1,11 @@
 /*
- * The one stylesheet entry (imported by main.tsx): fonts, Tailwind, the theme tokens
- * and the old styles. docs/ui.md explains how to use the tokens.
- *
- * Layer order, lowest to highest: Tailwind's theme and base (preflight), then `legacy`
- * (styles.css, for pages not yet moved to components/ui), then components and utilities.
- * Utilities therefore always beat a legacy rule, and legacy rules beat the preflight reset.
+ * The one stylesheet entry (imported by main.tsx): fonts, Tailwind, the theme tokens and the
+ * base rules. docs/ui.md explains how to use the tokens.
  */
-@layer theme, base, legacy, components, utilities;
-
 @import "@fontsource/ibm-plex-sans-thai/400.css";
 @import "@fontsource/ibm-plex-sans-thai/500.css";
 @import "@fontsource/ibm-plex-sans-thai/600.css";
 @import "tailwindcss";
-@import "./styles.css" layer(legacy);
 
 /* Dark mode is the `dark` class on <html>, set by state/theme.ts. */
 @custom-variant dark (&:is(.dark *));
@@ -37,8 +30,7 @@
   --secondary: oklch(0.96 0.005 265);
   --secondary-foreground: oklch(0.25 0.015 265);
 
-  /* `bg-muted` and `bg-accent` read these two. They are not named --muted and --accent
-     because styles.css and the module stylesheets still use those names for other things (below). */
+  /* `bg-muted` and `bg-accent` read these two. */
   --muted-surface: oklch(0.965 0.004 265);
   --muted-foreground: oklch(0.48 0.02 265);
   --accent-surface: oklch(0.94 0.006 265);
@@ -110,21 +102,6 @@
   --chart-5: oklch(0.7 0.18 25);
 }
 
-/*
- * Old names. styles.css and the module stylesheets (notify.css, task.css) are written against
- * these, so they follow the theme without being edited. New code uses the Tailwind classes.
- */
-:root {
-  --bg: var(--background);
-  --fg: var(--foreground);
-  --muted: var(--muted-foreground);
-  --line: var(--border);
-  --accent: var(--primary);
-  --accent-fg: var(--primary-foreground);
-  --danger: var(--destructive);
-  --surface: var(--muted-surface);
-}
-
 @theme inline {
   --font-sans: "IBM Plex Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
 
@@ -182,5 +159,11 @@
     margin: 0;
     /* Thai has tone marks above and vowels below the line, so it needs more room than Latin. */
     line-height: 1.6;
+  }
+
+  /* Anything without a focus style of its own (links, plain elements). shadcn controls draw their own ring. */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 }
