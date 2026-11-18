@@ -99,7 +99,7 @@ function InviteManager({ workspaceId }: { workspaceId: string }) {
     <div className="grid gap-6">
       <form onSubmit={onSubmit} noValidate>
         <Card>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="grid gap-4 md:grid-cols-2 md:items-start">
             <Field
               label={t("invites.email")}
               name="email"

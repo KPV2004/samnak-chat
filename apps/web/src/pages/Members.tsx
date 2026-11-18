@@ -206,6 +206,7 @@ function MemberRow({ member, myRole, manage, busy, joined, onPatch, onRequestRem
           <NativeSelect
             size="sm"
             aria-label={t("members.roleOf", { name })}
+            containerClassName="min-w-36"
             value={member.role}
             disabled={locked || busy}
             onChange={(e) => onPatch({ role: e.target.value as Role })}
