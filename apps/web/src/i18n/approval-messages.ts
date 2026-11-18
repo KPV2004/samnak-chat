@@ -82,7 +82,6 @@ export const approvalEn = {
   "approval.toast.rejected": "Request rejected",
   "approval.toast.cancelled": "Request cancelled",
   "approval.toast.sent": "Request sent",
-  "approval.noAttachments": "No files attached.",
 };
 
 export const approvalTh = {
@@ -166,5 +165,4 @@ export const approvalTh = {
   "approval.toast.rejected": "ไม่อนุมัติคำขอแล้ว",
   "approval.toast.cancelled": "ยกเลิกคำขอแล้ว",
   "approval.toast.sent": "ส่งคำขอแล้ว",
-  "approval.noAttachments": "ไม่มีไฟล์แนบ",
 };
