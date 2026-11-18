@@ -51,6 +51,9 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	huma.Register(api, op("helpdesk-create-category", http.MethodPost, "/categories", "Create a category in an active queue; admins only", http.StatusCreated), h.createCategory)
 	huma.Register(api, op("helpdesk-list-tickets", http.MethodGet, "/tickets", "List the tickets you may see, newest first; filter by queue, status, assignee or requester", 0), h.listTickets)
 	huma.Register(api, op("helpdesk-get-ticket", http.MethodGet, "/tickets/{id}", "Get a ticket with its history; only its requester, the agents of its queue and admins", 0), h.getTicket)
+	huma.Register(api, op("helpdesk-assign-ticket", http.MethodPost, "/tickets/{id}/assign", "Claim a ticket for yourself (an agent of its queue) or assign an agent of the queue (admins); a new ticket becomes open", 0), h.assignTicket)
+	huma.Register(api, op("helpdesk-change-ticket-status", http.MethodPost, "/tickets/{id}/status", "Move a ticket along its status table; wrong moves are 409, the wrong person is 403", 0), h.changeStatus)
+	huma.Register(api, op("helpdesk-edit-ticket", http.MethodPatch, "/tickets/{id}", "Change the priority or the category of a ticket; agents and admins only", 0), h.editTicket)
 	huma.Register(api, op("helpdesk-create-ticket", http.MethodPost, "/tickets", "Create a ticket in the queue of a category; with source_message_id the message is read as you (HD-03)", http.StatusCreated), h.createTicket)
 	huma.Register(api, op("helpdesk-update-category", http.MethodPatch, "/categories/{id}", "Rename, move, make default or archive a category; admins only", 0), h.updateCategory)
 }
@@ -332,4 +335,67 @@ func (h *Handler) getTicket(ctx context.Context, in *helpdeskTicketIDInput) (*he
 		return nil, h.fail(ctx, err)
 	}
 	return &helpdeskTicketDetailOutput{Body: wire.ToDetail(d)}, nil
+}
+
+type helpdeskTicketAssignInput struct {
+	ID   string `path:"id"`
+	Body struct {
+		AssigneeID string `json:"assignee_id" doc:"An agent of the queue; an agent may only name themselves"`
+	}
+}
+
+func (h *Handler) assignTicket(ctx context.Context, in *helpdeskTicketAssignInput) (*helpdeskTicketOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	t, err := h.uc.Assign(ctx, p, in.ID, in.Body.AssigneeID)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &helpdeskTicketOutput{Body: wire.ToTicket(t)}, nil
+}
+
+type helpdeskTicketStatusInput struct {
+	ID   string `path:"id"`
+	Body struct {
+		Status string `json:"status" enum:"new,open,in_progress,waiting,resolved,closed"`
+	}
+}
+
+func (h *Handler) changeStatus(ctx context.Context, in *helpdeskTicketStatusInput) (*helpdeskTicketOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	t, err := h.uc.ChangeStatus(ctx, p, in.ID, domain.Status(in.Body.Status))
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &helpdeskTicketOutput{Body: wire.ToTicket(t)}, nil
+}
+
+type helpdeskTicketEditInput struct {
+	ID   string `path:"id"`
+	Body struct {
+		Priority   *string `json:"priority,omitempty" enum:"low,normal,high,urgent"`
+		CategoryID *string `json:"category_id,omitempty" doc:"A category; a category in another queue moves the ticket and keeps its number"`
+	}
+}
+
+func (h *Handler) editTicket(ctx context.Context, in *helpdeskTicketEditInput) (*helpdeskTicketOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	edit := usecase.EditInput{CategoryID: in.Body.CategoryID}
+	if in.Body.Priority != nil {
+		pr := domain.Priority(*in.Body.Priority)
+		edit.Priority = &pr
+	}
+	t, err := h.uc.Edit(ctx, p, in.ID, edit)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &helpdeskTicketOutput{Body: wire.ToTicket(t)}, nil
 }

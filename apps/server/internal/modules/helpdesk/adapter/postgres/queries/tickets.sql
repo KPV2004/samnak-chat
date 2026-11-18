@@ -35,3 +35,15 @@ WHERE t.workspace_id = @workspace_id
   AND (sqlc.narg('before_id')::uuid IS NULL OR t.id < sqlc.narg('before_id')::uuid)
 ORDER BY t.id DESC
 LIMIT @page_size;
+
+-- name: GetTicketForUpdate :one
+SELECT sqlc.embed(t), q.prefix
+FROM helpdesk_tickets t JOIN helpdesk_queues q ON q.id = t.queue_id
+WHERE t.id = @id AND t.workspace_id = @workspace_id
+FOR UPDATE OF t;
+
+-- name: UpdateTicket :execrows
+UPDATE helpdesk_tickets
+SET queue_id = @queue_id, category_id = @category_id, assignee_id = @assignee_id, status = @status,
+    priority = @priority, resolved_at = @resolved_at, closed_at = @closed_at, updated_at = @updated_at
+WHERE id = @id AND workspace_id = @workspace_id;

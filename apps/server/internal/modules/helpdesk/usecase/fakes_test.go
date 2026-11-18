@@ -110,6 +110,26 @@ func (r *memRepo) Ticket(_ context.Context, workspaceID, id string) (domain.Tick
 	return t, nil
 }
 
+func (r *memRepo) LockTicket(ctx context.Context, workspaceID, id string) (domain.Ticket, error) {
+	return r.Ticket(ctx, workspaceID, id)
+}
+
+func (r *memRepo) UpdateTicket(_ context.Context, t domain.Ticket) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	have, ok := r.tickets[t.ID]
+	if !ok || have.WorkspaceID != t.WorkspaceID {
+		return notFound("ticket")
+	}
+	for id, other := range r.tickets {
+		if id != t.ID && other.QueueID == t.QueueID && other.Number == t.Number {
+			return fmt.Errorf("number is taken in the queue: %w", app.ErrConflict)
+		}
+	}
+	r.tickets[t.ID] = t
+	return nil
+}
+
 func (r *memRepo) ListTickets(_ context.Context, f usecase.TicketFilter) ([]domain.Ticket, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -366,13 +386,15 @@ type env struct {
 	bus  *recordingBus
 	msgs fakeMessages
 	p    map[string]app.Principal
+	// now is the clock; a test moves it forward to test time limits.
+	now time.Time
 }
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	repo := newMemRepo()
 	members := fakeMembers{ws + "/" + alice: true, ws + "/" + bob: true, ws + "/" + carol: true, ws + "/" + admin: true}
-	e := &env{repo: repo, bus: &recordingBus{}, msgs: fakeMessages{}, p: map[string]app.Principal{}}
+	e := &env{repo: repo, bus: &recordingBus{}, msgs: fakeMessages{}, p: map[string]app.Principal{}, now: t0}
 	for name, id := range map[string]string{"alice": alice, "bob": bob, "carol": carol, "admin": admin, "outside": outside} {
 		role := app.RoleMember
 		if name == "alice" || name == "admin" {
@@ -383,7 +405,7 @@ func newEnv(t *testing.T) *env {
 	e.svc = usecase.New(usecase.Deps{
 		Tx: fakeTx{}, Repo: repo, Members: members, Bus: e.bus, Messages: e.msgs,
 		Permissions: fakePerms{alice: true, admin: true},
-		Now:         func() time.Time { return t0 },
+		Now:         func() time.Time { return e.now },
 	})
 	return e
 }

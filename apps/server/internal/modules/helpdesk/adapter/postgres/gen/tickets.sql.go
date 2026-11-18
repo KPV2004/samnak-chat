@@ -57,6 +57,51 @@ func (q *Queries) GetTicket(ctx context.Context, arg GetTicketParams) (GetTicket
 	return i, err
 }
 
+const getTicketForUpdate = `-- name: GetTicketForUpdate :one
+SELECT t.id, t.workspace_id, t.queue_id, t.category_id, t.number, t.title, t.description, t.requester_id, t.assignee_id, t.status, t.priority, t.source_channel_id, t.source_message_id, t.message_id, t.queue_message_id, t.resolved_at, t.closed_at, t.created_at, t.updated_at, q.prefix
+FROM helpdesk_tickets t JOIN helpdesk_queues q ON q.id = t.queue_id
+WHERE t.id = $1 AND t.workspace_id = $2
+FOR UPDATE OF t
+`
+
+type GetTicketForUpdateParams struct {
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+}
+
+type GetTicketForUpdateRow struct {
+	HelpdeskTicket HelpdeskTicket
+	Prefix         string
+}
+
+func (q *Queries) GetTicketForUpdate(ctx context.Context, arg GetTicketForUpdateParams) (GetTicketForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getTicketForUpdate, arg.ID, arg.WorkspaceID)
+	var i GetTicketForUpdateRow
+	err := row.Scan(
+		&i.HelpdeskTicket.ID,
+		&i.HelpdeskTicket.WorkspaceID,
+		&i.HelpdeskTicket.QueueID,
+		&i.HelpdeskTicket.CategoryID,
+		&i.HelpdeskTicket.Number,
+		&i.HelpdeskTicket.Title,
+		&i.HelpdeskTicket.Description,
+		&i.HelpdeskTicket.RequesterID,
+		&i.HelpdeskTicket.AssigneeID,
+		&i.HelpdeskTicket.Status,
+		&i.HelpdeskTicket.Priority,
+		&i.HelpdeskTicket.SourceChannelID,
+		&i.HelpdeskTicket.SourceMessageID,
+		&i.HelpdeskTicket.MessageID,
+		&i.HelpdeskTicket.QueueMessageID,
+		&i.HelpdeskTicket.ResolvedAt,
+		&i.HelpdeskTicket.ClosedAt,
+		&i.HelpdeskTicket.CreatedAt,
+		&i.HelpdeskTicket.UpdatedAt,
+		&i.Prefix,
+	)
+	return i, err
+}
+
 const insertTicket = `-- name: InsertTicket :exec
 INSERT INTO helpdesk_tickets (
     id, workspace_id, queue_id, category_id, number, title, description, requester_id, assignee_id, status, priority,
@@ -224,4 +269,43 @@ func (q *Queries) NextTicketNumber(ctx context.Context, arg NextTicketNumberPara
 	var i NextTicketNumberRow
 	err := row.Scan(&i.Prefix, &i.Number)
 	return i, err
+}
+
+const updateTicket = `-- name: UpdateTicket :execrows
+UPDATE helpdesk_tickets
+SET queue_id = $1, category_id = $2, assignee_id = $3, status = $4,
+    priority = $5, resolved_at = $6, closed_at = $7, updated_at = $8
+WHERE id = $9 AND workspace_id = $10
+`
+
+type UpdateTicketParams struct {
+	QueueID     uuid.UUID
+	CategoryID  uuid.UUID
+	AssigneeID  *uuid.UUID
+	Status      string
+	Priority    string
+	ResolvedAt  *time.Time
+	ClosedAt    *time.Time
+	UpdatedAt   time.Time
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+}
+
+func (q *Queries) UpdateTicket(ctx context.Context, arg UpdateTicketParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateTicket,
+		arg.QueueID,
+		arg.CategoryID,
+		arg.AssigneeID,
+		arg.Status,
+		arg.Priority,
+		arg.ResolvedAt,
+		arg.ClosedAt,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.WorkspaceID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

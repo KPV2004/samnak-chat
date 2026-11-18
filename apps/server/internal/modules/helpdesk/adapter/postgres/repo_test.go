@@ -547,3 +547,56 @@ func TestListTicketsFiltersAndPagesNewestFirst(t *testing.T) {
 		t.Fatalf("paging returned %d tickets, want %d", len(seen), len(ids))
 	}
 }
+
+func TestUpdateTicketPersistsStateAndRefusesATakenNumber(t *testing.T) {
+	f := newFixture(t)
+	it := f.queue("IT")
+	hr := f.queue("HR")
+	itCat := f.category(it.ID, false)
+	hrCat := f.category(hr.ID, false)
+	tk, err := ticketIn(f.ws, it, itCat.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.InsertTicket(f.ctx, tk); err != nil {
+		t.Fatal(err)
+	}
+	taken, err := ticketIn(f.ws, hr, hrCat.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.InsertTicket(f.ctx, taken); err != nil {
+		t.Fatal(err)
+	}
+
+	locked, err := f.repo.LockTicket(f.ctx, f.ws, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if locked.Key != "IT-0001" {
+		t.Fatalf("key = %q", locked.Key)
+	}
+	agent := newID()
+	locked.AssigneeID = agent
+	locked.Status = domain.StatusResolved
+	at := time.Now().UTC().Truncate(time.Microsecond)
+	locked.ResolvedAt = &at
+	locked.Priority = domain.PriorityUrgent
+	if err := f.repo.UpdateTicket(f.ctx, locked); err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.repo.Ticket(f.ctx, f.ws, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AssigneeID != agent || got.Status != domain.StatusResolved || got.Priority != domain.PriorityUrgent ||
+		got.ResolvedAt == nil || !got.ResolvedAt.Equal(at) {
+		t.Fatalf("after update: %+v", got)
+	}
+
+	moved := got
+	moved.QueueID, moved.CategoryID = hr.ID, hrCat.ID
+	if err := f.repo.UpdateTicket(f.ctx, moved); !errors.Is(err, app.ErrConflict) {
+		t.Fatalf("move onto a taken number: err = %v, want ErrConflict", err)
+	}
+}

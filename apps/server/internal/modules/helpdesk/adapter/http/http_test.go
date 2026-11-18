@@ -509,3 +509,89 @@ func TestListAndDetailFollowTheVisibilityRules(t *testing.T) {
 		t.Errorf("missing ticket = %d, want 404", r.Code)
 	}
 }
+
+func TestClaimMoveAndEditOverHTTP(t *testing.T) {
+	e := newEnv(t)
+	cat := e.laptopCategory(t)
+	var list struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	e.call(http.MethodGet, "/helpdesk/queues", "admin", nil).json(t, &list)
+	queue := list.Items[0].ID
+	if r := e.call(http.MethodPut, "/helpdesk/queues/"+queue+"/agents", "admin", map[string]any{"user_ids": []string{e.carol}}); r.Code != http.StatusNoContent {
+		t.Fatalf("set agents = %d", r.Code)
+	}
+	var tk struct {
+		ID string `json:"id"`
+	}
+	e.call(http.MethodPost, "/helpdesk/tickets", "bob", map[string]any{"category_id": cat, "title": "Printer jams"}).json(t, &tk)
+	base := "/helpdesk/tickets/" + tk.ID
+
+	if r := e.call(http.MethodPost, base+"/assign", "bob", map[string]any{"assignee_id": e.bob}); r.Code != http.StatusForbidden {
+		t.Errorf("requester claiming = %d, want 403", r.Code)
+	}
+	var claimed struct {
+		Status     string  `json:"status"`
+		AssigneeID *string `json:"assignee_id"`
+	}
+	r := e.call(http.MethodPost, base+"/assign", "carol", map[string]any{"assignee_id": e.carol})
+	if r.Code != http.StatusOK {
+		t.Fatalf("claim = %d: %s", r.Code, r.Body.String())
+	}
+	r.json(t, &claimed)
+	if claimed.Status != "open" || claimed.AssigneeID == nil || *claimed.AssigneeID != e.carol {
+		t.Fatalf("claimed = %+v", claimed)
+	}
+	if r := e.call(http.MethodPost, base+"/status", "carol", map[string]any{"status": "in_progress"}); r.Code != http.StatusOK {
+		t.Fatalf("start work = %d: %s", r.Code, r.Body.String())
+	}
+	if r := e.call(http.MethodPost, base+"/status", "bob", map[string]any{"status": "waiting"}); r.Code != http.StatusForbidden {
+		t.Errorf("requester putting it on hold = %d, want 403", r.Code)
+	}
+	if r := e.call(http.MethodPost, base+"/status", "carol", map[string]any{"status": "closed"}); r.Code != http.StatusConflict {
+		t.Errorf("in_progress -> closed = %d, want 409", r.Code)
+	}
+	if r := e.call(http.MethodPost, base+"/status", "carol", map[string]any{"status": "bogus"}); r.Code != http.StatusBadRequest {
+		t.Errorf("bogus status = %d, want 400", r.Code)
+	}
+	if r := e.call(http.MethodPatch, base, "bob", map[string]any{"priority": "high"}); r.Code != http.StatusForbidden {
+		t.Errorf("requester editing = %d, want 403", r.Code)
+	}
+	var edited struct {
+		Priority string `json:"priority"`
+	}
+	e.call(http.MethodPatch, base, "carol", map[string]any{"priority": "high"}).json(t, &edited)
+	if edited.Priority != "high" {
+		t.Errorf("priority = %q", edited.Priority)
+	}
+	if r := e.call(http.MethodPost, base+"/status", "carol", map[string]any{"status": "resolved"}); r.Code != http.StatusOK {
+		t.Fatalf("resolve = %d", r.Code)
+	}
+	if r := e.call(http.MethodPost, base+"/status", "bob", map[string]any{"status": "closed"}); r.Code != http.StatusOK {
+		t.Fatalf("requester closes = %d: %s", r.Code, r.Body.String())
+	}
+	if r := e.call(http.MethodPost, base+"/status", "bob", map[string]any{"status": "open"}); r.Code != http.StatusConflict {
+		t.Errorf("reopen a closed ticket = %d, want 409", r.Code)
+	}
+	if r := e.call(http.MethodPost, base+"/assign", "outside-member-token", map[string]any{"assignee_id": e.carol}); r.Code != http.StatusUnauthorized {
+		t.Errorf("unknown token = %d, want 401", r.Code)
+	}
+
+	var detail struct {
+		History []struct {
+			Action string `json:"action"`
+		} `json:"history"`
+	}
+	e.call(http.MethodGet, base, "bob", nil).json(t, &detail)
+	actions := map[string]bool{}
+	for _, h := range detail.History {
+		actions[h.Action] = true
+	}
+	for _, want := range []string{"created", "assigned", "status_changed", "priority_changed"} {
+		if !actions[want] {
+			t.Errorf("history has no %s line: %+v", want, detail.History)
+		}
+	}
+}

@@ -49,6 +49,13 @@ type Repository interface {
 	// Ticket returns one ticket with its key. A missing one is an error
 	// wrapping app.ErrNotFound.
 	Ticket(ctx context.Context, workspaceID, id string) (domain.Ticket, error)
+	// LockTicket is Ticket, and holds the row until the transaction ends, so
+	// two changes to one ticket cannot overwrite each other.
+	LockTicket(ctx context.Context, workspaceID, id string) (domain.Ticket, error)
+	// UpdateTicket writes the changeable fields of a ticket: queue, category,
+	// assignee, status, priority, resolved_at, closed_at and updated_at. A
+	// queue and number already taken there is a conflict (409).
+	UpdateTicket(ctx context.Context, t domain.Ticket) error
 	// ListTickets returns up to f.Limit tickets the filter selects, newest
 	// first (by ID, which is a UUIDv7). BeforeID pages back from that ticket.
 	ListTickets(ctx context.Context, f TicketFilter) ([]domain.Ticket, error)

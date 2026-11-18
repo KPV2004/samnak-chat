@@ -542,3 +542,53 @@ func (r *Repo) History(ctx context.Context, ticketID string) ([]domain.HistoryEn
 	}
 	return out, nil
 }
+
+func (r *Repo) LockTicket(ctx context.Context, workspaceID, ticketID string) (domain.Ticket, error) {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+	ws, err := id(workspaceID)
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+	tid, err := id(ticketID)
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+	row, err := qs.GetTicketForUpdate(ctx, gen.GetTicketForUpdateParams{ID: tid, WorkspaceID: ws})
+	if err != nil {
+		return domain.Ticket{}, wrap(err, "ticket")
+	}
+	return toTicket(row.HelpdeskTicket, row.Prefix), nil
+}
+
+func (r *Repo) UpdateTicket(ctx context.Context, t domain.Ticket) error {
+	qs, err := r.q(ctx)
+	if err != nil {
+		return err
+	}
+	p := gen.UpdateTicketParams{
+		Status: string(t.Status), Priority: string(t.Priority), ResolvedAt: utc(t.ResolvedAt), ClosedAt: utc(t.ClosedAt),
+		UpdatedAt: t.UpdatedAt.UTC(),
+	}
+	for _, f := range []struct {
+		dst *uuid.UUID
+		src string
+	}{{&p.ID, t.ID}, {&p.WorkspaceID, t.WorkspaceID}, {&p.QueueID, t.QueueID}, {&p.CategoryID, t.CategoryID}} {
+		if *f.dst, err = id(f.src); err != nil {
+			return err
+		}
+	}
+	if p.AssigneeID, err = optID(t.AssigneeID); err != nil {
+		return err
+	}
+	n, err := qs.UpdateTicket(ctx, p)
+	if err != nil {
+		return conflict(err, "update ticket", "ticket number is already taken in the target queue")
+	}
+	if n == 0 {
+		return fmt.Errorf("ticket: %w", app.ErrNotFound)
+	}
+	return nil
+}
