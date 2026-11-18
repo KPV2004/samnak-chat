@@ -23,6 +23,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/approval"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/task"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
@@ -54,6 +55,7 @@ var modules = []app.Module{
 	notify.New(),
 	task.New(),
 	approval.New(),
+	helpdesk.New(),
 }
 
 func main() {

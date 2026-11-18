@@ -510,6 +510,213 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/helpdesk/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a presigned download URL for a file of a ticket you may see, or your own file before a ticket takes it */
+        get: operations["helpdesk-get-attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/helpdesk/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a category in an active queue; admins only */
+        post: operations["helpdesk-create-category"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/helpdesk/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename, move, make default or archive a category; admins only */
+        patch: operations["helpdesk-update-category"];
+        trace?: never;
+    };
+    "/helpdesk/queues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the active queues with their agents and categories (every member) */
+        get: operations["helpdesk-list-queues"];
+        put?: never;
+        /** Create a queue; admins only */
+        post: operations["helpdesk-create-queue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/helpdesk/queues/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename, set or clear the channel, or archive a queue; admins only */
+        patch: operations["helpdesk-update-queue"];
+        trace?: never;
+    };
+    "/helpdesk/queues/{id}/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace the agents of a queue; admins only; each must be an active member */
+        put: operations["helpdesk-set-queue-agents"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/helpdesk/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the tickets you may see, newest first; filter by queue, status, assignee or requester */
+        get: operations["helpdesk-list-tickets"];
+        put?: never;
+        /** Create a ticket in the queue of a category; with source_message_id the message is read as you (HD-03) */
+        post: operations["helpdesk-create-ticket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/helpdesk/tickets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a ticket with its history; only its requester, the agents of its queue and admins */
+        get: operations["helpdesk-get-ticket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change the priority or the category of a ticket; agents and admins only */
+        patch: operations["helpdesk-edit-ticket"];
+        trace?: never;
+    };
+    "/helpdesk/tickets/{id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim a ticket for yourself (an agent of its queue) or assign an agent of the queue (admins); a new ticket becomes open */
+        post: operations["helpdesk-assign-ticket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/helpdesk/tickets/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Comment on a ticket; internal comments are for agents and admins only */
+        post: operations["helpdesk-add-comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/helpdesk/tickets/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move a ticket along its status table; wrong moves are 409, the wrong person is 403 */
+        post: operations["helpdesk-change-ticket-status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/helpdesk/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Presign the upload of a file of at most 50 MB for a ticket; upload it with PUT before creating the ticket */
+        post: operations["helpdesk-request-upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/meta": {
         parameters: {
             query?: never;
@@ -1095,6 +1302,238 @@ export interface components {
         GroupNameBody: {
             /** @description 1 to 100 characters, unique in the workspace ignoring case */
             name: string;
+        };
+        HelpdeskAttachment: {
+            /** Format: date-time */
+            created_at: string;
+            file_name: string;
+            /** @description Copied from the source chat message */
+            from_message: boolean;
+            id: string;
+            mime_type: string;
+            /** Format: int64 */
+            size: number;
+        };
+        HelpdeskAttachmentURLOutputBody: {
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Presigned download URL; opening it saves the file under its name */
+            url: string;
+        };
+        HelpdeskCategory: {
+            id: string;
+            /** @description The category new tickets from chat take; one per workspace */
+            is_default: boolean;
+            name: string;
+            queue_id: string;
+        };
+        HelpdeskCategoryCreateInputBody: {
+            /** @description Takes the default from the category that had it */
+            is_default?: boolean;
+            /** @description 1 to 100 characters */
+            name: string;
+            queue_id: string;
+        };
+        HelpdeskCategoryUpdateInputBody: {
+            archived?: boolean;
+            is_default?: boolean;
+            /** @description 1 to 100 characters */
+            name?: string;
+            /** @description Move the category to another active queue */
+            queue_id?: string;
+        };
+        HelpdeskComment: {
+            author_id: string;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+            id: string;
+            /** @description Only agents and admins see internal comments */
+            internal: boolean;
+            ticket_id: string;
+        };
+        HelpdeskCommentInputBody: {
+            /** @description 1 to 8000 characters */
+            body: string;
+            /** @description Only agents and admins may write internal comments */
+            internal?: boolean;
+        };
+        HelpdeskHistoryEntry: {
+            /** @enum {string} */
+            action: "created" | "assigned" | "status_changed" | "priority_changed" | "category_changed" | "commented";
+            actor_id: string;
+            /** Format: date-time */
+            at: string;
+            /** @description The value before the change; empty when there was none */
+            from: string;
+            id: string;
+            /** @description Only agents and admins see internal lines */
+            internal: boolean;
+            /** @description The value after the change */
+            to: string;
+        };
+        HelpdeskPresignedUpload: {
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Send exactly these headers; the URL is signed for them */
+            headers: {
+                [key: string]: string;
+            };
+            method: string;
+            /** @description Presigned URL; send the file bytes to it */
+            url: string;
+        };
+        HelpdeskQueue: {
+            agent_ids: string[];
+            categories: components["schemas"]["HelpdeskCategory"][];
+            /** @description The agents' channel; null when the queue has none */
+            channel_id: string | null;
+            id: string;
+            name: string;
+            /** @description The ticket key prefix, e.g. IT for IT-0142 */
+            prefix: string;
+        };
+        HelpdeskQueueAgentsInputBody: {
+            /** @description The new agents; an empty list removes them all */
+            user_ids: string[];
+        };
+        HelpdeskQueueCreateInputBody: {
+            /** @description The agents' channel; new tickets of this queue get a card there */
+            channel_id?: string;
+            /** @description 1 to 100 characters */
+            name: string;
+            /** @description 2 to 6 letters A to Z, unique in the workspace; stored upper case */
+            prefix: string;
+        };
+        HelpdeskQueueUpdateInputBody: {
+            /** @description true hides the queue and its categories; false restores it */
+            archived?: boolean;
+            /** @description null clears the channel */
+            channel_id?: string | null;
+            /** @description 1 to 100 characters */
+            name?: string;
+        };
+        HelpdeskQueuesOutputBody: {
+            items: components["schemas"]["HelpdeskQueue"][];
+        };
+        HelpdeskTicket: {
+            /** @description null until an agent claims or is assigned the ticket */
+            assignee_id: string | null;
+            category_id: string;
+            /** Format: date-time */
+            closed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            description: string;
+            id: string;
+            /** @description The queue prefix and the number, e.g. IT-0142 */
+            key: string;
+            /** @description The card in the requester's channel; null until it is posted */
+            message_id: string | null;
+            /** Format: int64 */
+            number: number;
+            /** @enum {string} */
+            priority: "low" | "normal" | "high" | "urgent";
+            queue_id: string;
+            requester_id: string;
+            /** Format: date-time */
+            resolved_at: string | null;
+            /** @description The channel of the message the ticket was made from */
+            source_channel_id: string | null;
+            source_message_id: string | null;
+            /** @enum {string} */
+            status: "new" | "open" | "in_progress" | "waiting" | "resolved" | "closed";
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        HelpdeskTicketAssignInputBody: {
+            /** @description An agent of the queue; an agent may only name themselves */
+            assignee_id: string;
+        };
+        HelpdeskTicketCreateInputBody: {
+            /** @description Files from POST /helpdesk/uploads that you uploaded; each can be used once */
+            attachment_ids?: string[] | null;
+            /** @description The category; its queue takes the ticket */
+            category_id: string;
+            /** @description Up to 8000 characters; with source_message_id and no description, the message body */
+            description?: string;
+            /**
+             * @description Defaults to normal
+             * @enum {string}
+             */
+            priority?: "low" | "normal" | "high" | "urgent";
+            /** @description A chat message you can read; needs chat */
+            source_message_id?: string;
+            /** @description 1 to 200 characters */
+            title: string;
+        };
+        HelpdeskTicketDetail: {
+            /** @description null until an agent claims or is assigned the ticket */
+            assignee_id: string | null;
+            attachments: components["schemas"]["HelpdeskAttachment"][];
+            category_id: string;
+            /** Format: date-time */
+            closed_at: string | null;
+            /** @description Oldest first; internal ones only for agents and admins */
+            comments: components["schemas"]["HelpdeskComment"][];
+            /** Format: date-time */
+            created_at: string;
+            description: string;
+            /** @description Oldest first; internal lines only for agents and admins */
+            history: components["schemas"]["HelpdeskHistoryEntry"][];
+            id: string;
+            /** @description The queue prefix and the number, e.g. IT-0142 */
+            key: string;
+            /** @description The card in the requester's channel; null until it is posted */
+            message_id: string | null;
+            /** Format: int64 */
+            number: number;
+            /** @enum {string} */
+            priority: "low" | "normal" | "high" | "urgent";
+            queue_id: string;
+            requester_id: string;
+            /** Format: date-time */
+            resolved_at: string | null;
+            /** @description The channel of the message the ticket was made from */
+            source_channel_id: string | null;
+            source_message_id: string | null;
+            /** @enum {string} */
+            status: "new" | "open" | "in_progress" | "waiting" | "resolved" | "closed";
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        HelpdeskTicketEditInputBody: {
+            /** @description A category; a category in another queue moves the ticket and keeps its number */
+            category_id?: string;
+            /** @enum {string} */
+            priority?: "low" | "normal" | "high" | "urgent";
+        };
+        HelpdeskTicketListOutputBody: {
+            items: components["schemas"]["HelpdeskTicket"][];
+            /** @description Empty on the last page */
+            next_cursor: string;
+        };
+        HelpdeskTicketStatusInputBody: {
+            /** @enum {string} */
+            status: "new" | "open" | "in_progress" | "waiting" | "resolved" | "closed";
+        };
+        HelpdeskUploadInputBody: {
+            file_name: string;
+            /** @example application/pdf */
+            mime_type: string;
+            /**
+             * Format: int64
+             * @description Bytes, at most 50 MB
+             */
+            size: number;
+        };
+        HelpdeskUploadOutputBody: {
+            /** @description Pass it in attachment_ids when creating the ticket */
+            attachment_id: string;
+            /** @description Upload with PUT before creating the ticket; expires after 15 minutes */
+            upload: components["schemas"]["HelpdeskPresignedUpload"];
         };
         Invite: {
             /** Format: date-time */
@@ -2782,6 +3221,514 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-get-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskAttachmentURLOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-create-category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskCategoryCreateInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskCategory"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-update-category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskCategoryUpdateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskCategory"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-list-queues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskQueuesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-create-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskQueueCreateInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskQueue"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-update-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskQueueUpdateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskQueue"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-set-queue-agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskQueueAgentsInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-list-tickets": {
+        parameters: {
+            query?: {
+                /** @description Only tickets of this queue */
+                queue_id?: string;
+                /** @description Comma-separated: new, open, in_progress, waiting, resolved, closed */
+                status?: string;
+                /** @description me, none, or a user ID */
+                assignee?: string;
+                /** @description me: the tickets I opened */
+                requester?: "me";
+                /** @description next_cursor of the previous page */
+                cursor?: string;
+                /** @description Page size */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskTicketListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-create-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskTicketCreateInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskTicket"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-get-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskTicketDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-edit-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskTicketEditInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskTicket"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-assign-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskTicketAssignInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskTicket"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-add-comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskCommentInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskComment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-change-ticket-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskTicketStatusInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskTicket"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "helpdesk-request-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpdeskUploadInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskUploadOutputBody"];
                 };
             };
             /** @description Error */

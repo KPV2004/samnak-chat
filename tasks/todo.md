@@ -634,9 +634,11 @@ Planner notes from checkpoint E:
 **Files:** `internal/acceptance/`, `.github/workflows/`
 
 ## Checkpoint M4: SRS 16.3 acceptance (planner)
-- [ ] Create a task from a message, then change its status from the card
-- [ ] Send a leave request; the manager approves from the card; the requester's card changes at once
-- [ ] A non-approver who presses approve gets 403
+- [x] Create a task from a message, then change its status from the card
+- [x] Send a leave request; the manager approves from the card; the requester's card changes at once
+- [x] A non-approver who presses approve gets 403
+
+Planner notes from checkpoint M4: checked on the redesigned UI with two browser contexts (Playwright). The status change reached the other user's card in 31 ms and the approval in 51-67 ms over three rounds; a third member calling approve got 403 and the request stayed pending (no card reaches them, so only the API path applies). Follow-ups: the new-request dialog clips its submit button at 1366x900; a 404 page waits ~8 s on react-query retries; a double space after a picked mention; the 403 text ends in ": forbidden"; two unexplained 500s (`/notify/unread-count`, `/chat/channels`) right after one login, not reproduced in 15 tries and with no ERROR log.
 
 # M5: helpdesk v1
 
@@ -646,36 +648,40 @@ Plan: `tasks/plan.md` section "M5" (states, APIs, payloads, events, card rules; 
 - [x] `app.MessageReader`, `app.MessageSnapshot`, `app.MessageAttachment`
 - [x] Plan section M5 and these tasks
 
-## [ ] M5-01 helpdesk core (wave 1)
+## [x] M5-01 helpdesk core (wave 1)
 **SRS:** HD-01..07, 09, 10, 18 · **Size:** L (commit in slices: migrations and admin API, create with numbering, list and detail, assign and status with the state table, comments and history, uploads and attachments) · **Depends on:** M5-00
 
 Build `internal/modules/helpdesk` like task and approval (`domain`, `usecase`, `adapter/postgres` with sqlc via `go tool sqlc`, `adapter/http`, `migrations`, `module.go`, `api.go`, `events.go`), exactly as the plan's "helpdesk module" and "States".
 
 **Acceptance criteria**
-- [ ] Migrations; the admin API with `helpdesk.admin` registered for owner and admin; prefixes unique per workspace; one default category
-- [ ] `POST /helpdesk/tickets` with per-queue numbering in the transaction (concurrent creates never share a number); `source_message_id` read through `app.MessageReader` when it is available (400 when it is not)
-- [ ] List filters, visibility (requester, queue agents, admins; others 404) and cursor paging with an empty cursor on the last page
-- [ ] Every transition in the plan's table allowed for the right people, every other one 409, the wrong person 403, reopen only within 7 days; all as table-driven `domain` tests
-- [ ] Public and internal comments; the requester never sees internal comments or their history rows; every change written to `helpdesk_history`
-- [ ] Events from `events.go` published in the transaction and declared (handlers come in M5-03)
-- [ ] Uploads and attachment downloads through `Deps.Storage`; message attachments keep chat's key
-- [ ] Unit tests with fakes, handler tests with `humatest`, repository tests on testcontainers, a module test on the real registry; `go build ./... && go vet ./... && go test ./...` pass
+- [x] Migrations; the admin API with `helpdesk.admin` registered for owner and admin; prefixes unique per workspace; one default category
+- [x] `POST /helpdesk/tickets` with per-queue numbering in the transaction (concurrent creates never share a number); `source_message_id` read through `app.MessageReader` when it is available (400 when it is not)
+- [x] List filters, visibility (requester, queue agents, admins; others 404) and cursor paging with an empty cursor on the last page
+- [x] Every transition in the plan's table allowed for the right people, every other one 409, the wrong person 403, reopen only within 7 days; all as table-driven `domain` tests
+- [x] Public and internal comments; the requester never sees internal comments or their history rows; every change written to `helpdesk_history`
+- [x] Events from `events.go` published in the transaction and declared (handlers come in M5-03)
+- [x] Uploads and attachment downloads through `Deps.Storage`; message attachments keep chat's key
+- [x] Unit tests with fakes, handler tests with `humatest`, repository tests on testcontainers, a module test on the real registry; `go build ./... && go vet ./... && go test ./...` pass
 
 **Files:** `internal/modules/helpdesk/` (new). Do not edit `cmd/`; the planner registers the module.
 
-## [ ] M5-02 chat: MessageReader (wave 1)
+## [x] M5-02 chat: MessageReader (wave 1)
 **SRS:** HD-03 · **Size:** S · **Depends on:** M5-00
 
 **Acceptance criteria**
-- [ ] chat provides `app.MessageReader` in `Provide`
-- [ ] Returns body, kind, sender, channel, creation time and attachments with their object keys; `ErrNotFound` for a missing message, another workspace, a deleted message, or a user who cannot read the channel (same rules as `ChannelAccess`)
-- [ ] Tests for each case; existing chat tests pass; `go build ./... && go vet ./... && go test ./...` pass
+- [x] chat provides `app.MessageReader` in `Provide`
+- [x] Returns body, kind, sender, channel, creation time and attachments with their object keys; `ErrNotFound` for a missing message, another workspace, a deleted message, or a user who cannot read the channel (same rules as `ChannelAccess`)
+- [x] Tests for each case; existing chat tests pass; `go build ./... && go vet ./... && go test ./...` pass
 
 **Files:** `internal/modules/chat/` except `api.go` and `events.go`
 
-## [ ] Checkpoint F: after M5 wave 1 (planner)
-- [ ] Branches merged; helpdesk registered in `cmd/server` and `cmd/migrate`; OpenAPI and `schema.d.ts` regenerated; no schema name collisions
-- [ ] All checks pass; CI green; a live API run of create, claim, every transition and comments
+## [x] Checkpoint F: after M5 wave 1 (planner)
+- [x] Branches merged; helpdesk registered in `cmd/server` and `cmd/migrate`; OpenAPI and `schema.d.ts` regenerated; no schema name collisions
+- [x] All checks pass; CI green; a live API run of create, claim, every transition and comments
+
+Planner notes from checkpoint F: workers Claude Haiku 5.5, merged without conflicts; helpdesk registered in `cmd/server` and `cmd/migrate`; OpenAPI regenerated, no new numbered schema names (`ListMembersOutputBody1` predates M5). `go vet`, `golangci-lint` (0 issues), `go test ./...` and the web build, test and lint pass. Live API run 26/26: queue with prefix `it` → `IT`, duplicate prefix 409, a member managing queues 403, ticket `IT-0001` in `new`, new → in_progress 409, an agent assigning someone else 403, claim → open, the requester moving it 403, every path in the state table including waiting and back, resolved → closed by the requester after a reopen, closed → open 409, the requester posting internal 403 and seeing only public comments and no internal history rows, an empty `next_cursor` on the last page.
+
+Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL; new → open only through assign; reopen after 7 days is 409; a new default category demotes the old one; prefixes are upper-cased; moving a ticket to a queue where its assignee is not an agent clears the assignee, and a number collision there is 409; validation errors are 400.
 
 ## [ ] M5-03 helpdesk cards, notifications and chat extensions (wave 2)
 **SRS:** HD-03, 08, 20 · **Size:** M · **Depends on:** checkpoint F

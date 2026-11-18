@@ -682,6 +682,594 @@ components:
       required:
         - name
       type: object
+    HelpdeskAttachment:
+      additionalProperties: false
+      properties:
+        created_at:
+          format: date-time
+          type: string
+        file_name:
+          type: string
+        from_message:
+          description: Copied from the source chat message
+          type: boolean
+        id:
+          type: string
+        mime_type:
+          type: string
+        size:
+          format: int64
+          type: integer
+      required:
+        - id
+        - file_name
+        - size
+        - mime_type
+        - from_message
+        - created_at
+      type: object
+    HelpdeskAttachmentURLOutputBody:
+      additionalProperties: false
+      properties:
+        expires_at:
+          format: date-time
+          type: string
+        url:
+          description: Presigned download URL; opening it saves the file under its name
+          type: string
+      required:
+        - url
+        - expires_at
+      type: object
+    HelpdeskCategory:
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        is_default:
+          description: The category new tickets from chat take; one per workspace
+          type: boolean
+        name:
+          type: string
+        queue_id:
+          type: string
+      required:
+        - id
+        - queue_id
+        - name
+        - is_default
+      type: object
+    HelpdeskCategoryCreateInputBody:
+      additionalProperties: false
+      properties:
+        is_default:
+          description: Takes the default from the category that had it
+          type: boolean
+        name:
+          description: 1 to 100 characters
+          type: string
+        queue_id:
+          type: string
+      required:
+        - queue_id
+        - name
+      type: object
+    HelpdeskCategoryUpdateInputBody:
+      additionalProperties: false
+      properties:
+        archived:
+          type: boolean
+        is_default:
+          type: boolean
+        name:
+          description: 1 to 100 characters
+          type: string
+        queue_id:
+          description: Move the category to another active queue
+          type: string
+      type: object
+    HelpdeskComment:
+      additionalProperties: false
+      properties:
+        author_id:
+          type: string
+        body:
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        id:
+          type: string
+        internal:
+          description: Only agents and admins see internal comments
+          type: boolean
+        ticket_id:
+          type: string
+      required:
+        - id
+        - ticket_id
+        - author_id
+        - body
+        - internal
+        - created_at
+      type: object
+    HelpdeskCommentInputBody:
+      additionalProperties: false
+      properties:
+        body:
+          description: 1 to 8000 characters
+          type: string
+        internal:
+          description: Only agents and admins may write internal comments
+          type: boolean
+      required:
+        - body
+      type: object
+    HelpdeskHistoryEntry:
+      additionalProperties: false
+      properties:
+        action:
+          enum:
+            - created
+            - assigned
+            - status_changed
+            - priority_changed
+            - category_changed
+            - commented
+          type: string
+        actor_id:
+          type: string
+        at:
+          format: date-time
+          type: string
+        from:
+          description: The value before the change; empty when there was none
+          type: string
+        id:
+          type: string
+        internal:
+          description: Only agents and admins see internal lines
+          type: boolean
+        to:
+          description: The value after the change
+          type: string
+      required:
+        - id
+        - actor_id
+        - action
+        - from
+        - to
+        - internal
+        - at
+      type: object
+    HelpdeskPresignedUpload:
+      additionalProperties: false
+      properties:
+        expires_at:
+          format: date-time
+          type: string
+        headers:
+          additionalProperties:
+            type: string
+          description: Send exactly these headers; the URL is signed for them
+          type: object
+        method:
+          type: string
+        url:
+          description: Presigned URL; send the file bytes to it
+          type: string
+      required:
+        - url
+        - method
+        - headers
+        - expires_at
+      type: object
+    HelpdeskQueue:
+      additionalProperties: false
+      properties:
+        agent_ids:
+          items:
+            type: string
+          type: array
+        categories:
+          items:
+            $ref: "#/components/schemas/HelpdeskCategory"
+          type: array
+        channel_id:
+          description: The agents' channel; null when the queue has none
+          type:
+            - string
+            - "null"
+        id:
+          type: string
+        name:
+          type: string
+        prefix:
+          description: The ticket key prefix, e.g. IT for IT-0142
+          type: string
+      required:
+        - id
+        - name
+        - prefix
+        - channel_id
+        - agent_ids
+        - categories
+      type: object
+    HelpdeskQueueAgentsInputBody:
+      additionalProperties: false
+      properties:
+        user_ids:
+          description: The new agents; an empty list removes them all
+          items:
+            type: string
+          type: array
+      required:
+        - user_ids
+      type: object
+    HelpdeskQueueCreateInputBody:
+      additionalProperties: false
+      properties:
+        channel_id:
+          description: The agents' channel; new tickets of this queue get a card there
+          type: string
+        name:
+          description: 1 to 100 characters
+          type: string
+        prefix:
+          description: 2 to 6 letters A to Z, unique in the workspace; stored upper case
+          type: string
+      required:
+        - name
+        - prefix
+      type: object
+    HelpdeskQueueUpdateInputBody:
+      additionalProperties: false
+      properties:
+        archived:
+          description: true hides the queue and its categories; false restores it
+          type: boolean
+        channel_id:
+          description: null clears the channel
+          type:
+            - string
+            - "null"
+        name:
+          description: 1 to 100 characters
+          type: string
+      type: object
+    HelpdeskQueuesOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/HelpdeskQueue"
+          type: array
+      required:
+        - items
+      type: object
+    HelpdeskTicket:
+      additionalProperties: false
+      properties:
+        assignee_id:
+          description: null until an agent claims or is assigned the ticket
+          type:
+            - string
+            - "null"
+        category_id:
+          type: string
+        closed_at:
+          format: date-time
+          type:
+            - string
+            - "null"
+        created_at:
+          format: date-time
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        key:
+          description: The queue prefix and the number, e.g. IT-0142
+          type: string
+        message_id:
+          description: The card in the requester's channel; null until it is posted
+          type:
+            - string
+            - "null"
+        number:
+          format: int64
+          type: integer
+        priority:
+          enum:
+            - low
+            - normal
+            - high
+            - urgent
+          type: string
+        queue_id:
+          type: string
+        requester_id:
+          type: string
+        resolved_at:
+          format: date-time
+          type:
+            - string
+            - "null"
+        source_channel_id:
+          description: The channel of the message the ticket was made from
+          type:
+            - string
+            - "null"
+        source_message_id:
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - new
+            - open
+            - in_progress
+            - waiting
+            - resolved
+            - closed
+          type: string
+        title:
+          type: string
+        updated_at:
+          format: date-time
+          type: string
+      required:
+        - id
+        - key
+        - number
+        - queue_id
+        - category_id
+        - title
+        - description
+        - requester_id
+        - assignee_id
+        - status
+        - priority
+        - source_channel_id
+        - source_message_id
+        - message_id
+        - resolved_at
+        - closed_at
+        - created_at
+        - updated_at
+      type: object
+    HelpdeskTicketAssignInputBody:
+      additionalProperties: false
+      properties:
+        assignee_id:
+          description: An agent of the queue; an agent may only name themselves
+          type: string
+      required:
+        - assignee_id
+      type: object
+    HelpdeskTicketCreateInputBody:
+      additionalProperties: false
+      properties:
+        attachment_ids:
+          description: Files from POST /helpdesk/uploads that you uploaded; each can be used once
+          items:
+            type: string
+          maxItems: 10
+          type:
+            - array
+            - "null"
+        category_id:
+          description: The category; its queue takes the ticket
+          type: string
+        description:
+          description: Up to 8000 characters; with source_message_id and no description, the message body
+          type: string
+        priority:
+          description: Defaults to normal
+          enum:
+            - low
+            - normal
+            - high
+            - urgent
+          type: string
+        source_message_id:
+          description: A chat message you can read; needs chat
+          type: string
+        title:
+          description: 1 to 200 characters
+          type: string
+      required:
+        - category_id
+        - title
+      type: object
+    HelpdeskTicketDetail:
+      additionalProperties: false
+      properties:
+        assignee_id:
+          description: null until an agent claims or is assigned the ticket
+          type:
+            - string
+            - "null"
+        attachments:
+          items:
+            $ref: "#/components/schemas/HelpdeskAttachment"
+          type: array
+        category_id:
+          type: string
+        closed_at:
+          format: date-time
+          type:
+            - string
+            - "null"
+        comments:
+          description: Oldest first; internal ones only for agents and admins
+          items:
+            $ref: "#/components/schemas/HelpdeskComment"
+          type: array
+        created_at:
+          format: date-time
+          type: string
+        description:
+          type: string
+        history:
+          description: Oldest first; internal lines only for agents and admins
+          items:
+            $ref: "#/components/schemas/HelpdeskHistoryEntry"
+          type: array
+        id:
+          type: string
+        key:
+          description: The queue prefix and the number, e.g. IT-0142
+          type: string
+        message_id:
+          description: The card in the requester's channel; null until it is posted
+          type:
+            - string
+            - "null"
+        number:
+          format: int64
+          type: integer
+        priority:
+          enum:
+            - low
+            - normal
+            - high
+            - urgent
+          type: string
+        queue_id:
+          type: string
+        requester_id:
+          type: string
+        resolved_at:
+          format: date-time
+          type:
+            - string
+            - "null"
+        source_channel_id:
+          description: The channel of the message the ticket was made from
+          type:
+            - string
+            - "null"
+        source_message_id:
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - new
+            - open
+            - in_progress
+            - waiting
+            - resolved
+            - closed
+          type: string
+        title:
+          type: string
+        updated_at:
+          format: date-time
+          type: string
+      required:
+        - comments
+        - history
+        - attachments
+        - id
+        - key
+        - number
+        - queue_id
+        - category_id
+        - title
+        - description
+        - requester_id
+        - assignee_id
+        - status
+        - priority
+        - source_channel_id
+        - source_message_id
+        - message_id
+        - resolved_at
+        - closed_at
+        - created_at
+        - updated_at
+      type: object
+    HelpdeskTicketEditInputBody:
+      additionalProperties: false
+      properties:
+        category_id:
+          description: A category; a category in another queue moves the ticket and keeps its number
+          type: string
+        priority:
+          enum:
+            - low
+            - normal
+            - high
+            - urgent
+          type: string
+      type: object
+    HelpdeskTicketListOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/HelpdeskTicket"
+          type: array
+        next_cursor:
+          description: Empty on the last page
+          type: string
+      required:
+        - items
+        - next_cursor
+      type: object
+    HelpdeskTicketStatusInputBody:
+      additionalProperties: false
+      properties:
+        status:
+          enum:
+            - new
+            - open
+            - in_progress
+            - waiting
+            - resolved
+            - closed
+          type: string
+      required:
+        - status
+      type: object
+    HelpdeskUploadInputBody:
+      additionalProperties: false
+      properties:
+        file_name:
+          maxLength: 1024
+          type: string
+        mime_type:
+          examples:
+            - application/pdf
+          maxLength: 255
+          type: string
+        size:
+          description: Bytes, at most 50 MB
+          format: int64
+          maximum: 52428800
+          minimum: 1
+          type: integer
+      required:
+        - file_name
+        - size
+        - mime_type
+      type: object
+    HelpdeskUploadOutputBody:
+      additionalProperties: false
+      properties:
+        attachment_id:
+          description: Pass it in attachment_ids when creating the ticket
+          type: string
+        upload:
+          $ref: "#/components/schemas/HelpdeskPresignedUpload"
+          description: Upload with PUT before creating the ticket; expires after 15 minutes
+      required:
+        - attachment_id
+        - upload
+      type: object
     Invite:
       additionalProperties: false
       properties:
@@ -2685,6 +3273,483 @@ paths:
       summary: Presign the upload of a file of at most 50 MB
       tags:
         - chat
+  /helpdesk/attachments/{id}:
+    get:
+      operationId: helpdesk-get-attachment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskAttachmentURLOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Get a presigned download URL for a file of a ticket you may see, or your own file before a ticket takes it
+      tags:
+        - helpdesk
+  /helpdesk/categories:
+    post:
+      operationId: helpdesk-create-category
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskCategoryCreateInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskCategory"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Create a category in an active queue; admins only
+      tags:
+        - helpdesk
+  /helpdesk/categories/{id}:
+    patch:
+      operationId: helpdesk-update-category
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskCategoryUpdateInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskCategory"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Rename, move, make default or archive a category; admins only
+      tags:
+        - helpdesk
+  /helpdesk/queues:
+    get:
+      operationId: helpdesk-list-queues
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskQueuesOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List the active queues with their agents and categories (every member)
+      tags:
+        - helpdesk
+    post:
+      operationId: helpdesk-create-queue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskQueueCreateInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskQueue"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Create a queue; admins only
+      tags:
+        - helpdesk
+  /helpdesk/queues/{id}:
+    patch:
+      operationId: helpdesk-update-queue
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskQueueUpdateInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskQueue"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Rename, set or clear the channel, or archive a queue; admins only
+      tags:
+        - helpdesk
+  /helpdesk/queues/{id}/agents:
+    put:
+      operationId: helpdesk-set-queue-agents
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskQueueAgentsInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Replace the agents of a queue; admins only; each must be an active member
+      tags:
+        - helpdesk
+  /helpdesk/tickets:
+    get:
+      operationId: helpdesk-list-tickets
+      parameters:
+        - description: Only tickets of this queue
+          explode: false
+          in: query
+          name: queue_id
+          schema:
+            description: Only tickets of this queue
+            type: string
+        - description: "Comma-separated: new, open, in_progress, waiting, resolved, closed"
+          explode: false
+          in: query
+          name: status
+          schema:
+            description: "Comma-separated: new, open, in_progress, waiting, resolved, closed"
+            type: string
+        - description: me, none, or a user ID
+          explode: false
+          in: query
+          name: assignee
+          schema:
+            description: me, none, or a user ID
+            type: string
+        - description: "me: the tickets I opened"
+          explode: false
+          in: query
+          name: requester
+          schema:
+            description: "me: the tickets I opened"
+            enum:
+              - me
+            type: string
+        - description: next_cursor of the previous page
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: next_cursor of the previous page
+            type: string
+        - description: Page size
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 20
+            description: Page size
+            format: int64
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskTicketListOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List the tickets you may see, newest first; filter by queue, status, assignee or requester
+      tags:
+        - helpdesk
+    post:
+      operationId: helpdesk-create-ticket
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskTicketCreateInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskTicket"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Create a ticket in the queue of a category; with source_message_id the message is read as you (HD-03)
+      tags:
+        - helpdesk
+  /helpdesk/tickets/{id}:
+    get:
+      operationId: helpdesk-get-ticket
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskTicketDetail"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Get a ticket with its history; only its requester, the agents of its queue and admins
+      tags:
+        - helpdesk
+    patch:
+      operationId: helpdesk-edit-ticket
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskTicketEditInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskTicket"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Change the priority or the category of a ticket; agents and admins only
+      tags:
+        - helpdesk
+  /helpdesk/tickets/{id}/assign:
+    post:
+      operationId: helpdesk-assign-ticket
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskTicketAssignInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskTicket"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Claim a ticket for yourself (an agent of its queue) or assign an agent of the queue (admins); a new ticket becomes open
+      tags:
+        - helpdesk
+  /helpdesk/tickets/{id}/comments:
+    post:
+      operationId: helpdesk-add-comment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskCommentInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskComment"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Comment on a ticket; internal comments are for agents and admins only
+      tags:
+        - helpdesk
+  /helpdesk/tickets/{id}/status:
+    post:
+      operationId: helpdesk-change-ticket-status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskTicketStatusInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskTicket"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Move a ticket along its status table; wrong moves are 409, the wrong person is 403
+      tags:
+        - helpdesk
+  /helpdesk/uploads:
+    post:
+      operationId: helpdesk-request-upload
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelpdeskUploadInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskUploadOutputBody"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Presign the upload of a file of at most 50 MB for a ticket; upload it with PUT before creating the ticket
+      tags:
+        - helpdesk
   /meta:
     get:
       operationId: get-meta

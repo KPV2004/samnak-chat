@@ -16,6 +16,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/approval"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/helpdesk"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/task"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
@@ -32,6 +33,7 @@ var moduleMigrations = map[string]embed.FS{
 	"notify":    notify.Migrations,
 	"task":      task.Migrations,
 	"approval":  approval.Migrations,
+	"helpdesk":  helpdesk.Migrations,
 	"workspace": workspace.Migrations,
 }
 
