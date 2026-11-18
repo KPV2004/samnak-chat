@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormError } from "../components/FormError";
 import { NativeSelect } from "@/components/ui/native-select";
+import { toReadable } from "../chat/mentions";
 import { useNameOf } from "../chat/names";
 import { Field } from "../components/Field";
 import { useT } from "../i18n/useT";
@@ -34,7 +35,8 @@ export function CreateTaskForm({ message, channelId, onDone }: Props) {
   const chat = useChat();
   const api = useTaskApi();
   const nameOf = useNameOf();
-  const [title, setTitle] = useState(() => [...message.body.trim()].slice(0, maxTitle).join(""));
+  // A title is plain text, so mentions show as names here.
+  const [title, setTitle] = useState(() => [...toReadable(message.body, nameOf).text.trim()].slice(0, maxTitle).join(""));
   const [assigneeId, setAssigneeId] = useState("");
   const [due, setDue] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("normal");
