@@ -2,7 +2,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { useLocale } from "../state/locale";
-import { me, renderApp } from "../test-utils";
+import { errorRes, expectAlert, me, renderApp } from "../test-utils";
 
 describe("Profile", () => {
   it("saves name, language and time zone, and switches the interface language", async () => {
@@ -63,6 +63,27 @@ describe("Devices", () => {
 
     await user.click(screen.getByRole("button", { name: "Revoke device Firefox (web)" }));
     expect(app.called("DELETE /api/v1/auth/devices/d2")).toHaveLength(1);
+    expect(await screen.findByText("Device signed out")).toBeInTheDocument();
+  });
+
+  it("retries when the list fails to load", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    renderApp({
+      route: "/devices",
+      routes: {
+        "GET /api/v1/auth/devices": () => (++attempts === 1 ? errorRes(500, "internal") : { items: devices }),
+      },
+    });
+    await expectAlert("Something went wrong");
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Chrome (web)")).toBeInTheDocument();
+    expect(attempts).toBe(2);
+  });
+
+  it("says so when there are no devices", async () => {
+    renderApp({ route: "/devices", routes: { "GET /api/v1/auth/devices": () => ({ items: [] }) } });
+    expect(await screen.findByText("No signed-in devices")).toBeInTheDocument();
   });
 
   it("signs out of all devices and returns to the login page", async () => {

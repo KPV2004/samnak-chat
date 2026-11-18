@@ -73,6 +73,7 @@ export const messages = {
     "profile.timezoneHint": "เช่น Asia/Bangkok",
     "profile.timezoneInvalid": "ไม่รู้จักเขตเวลานี้",
     "profile.saved": "บันทึกแล้ว",
+    "profile.body": "ชื่อ ภาษา และเขตเวลาของคุณ",
 
     "devices.title": "อุปกรณ์ที่ล็อกอินอยู่",
     "devices.current": "อุปกรณ์นี้",
@@ -80,6 +81,9 @@ export const messages = {
     "devices.revoke": "ยกเลิก",
     "devices.revokeNamed": "ยกเลิกอุปกรณ์ {name}",
     "devices.signOutAll": "ออกจากระบบทุกอุปกรณ์",
+    "devices.body": "อุปกรณ์ที่ลงชื่อเข้าใช้อยู่ การยกเลิกจะจบการใช้งานของอุปกรณ์นั้น",
+    "devices.none": "ไม่มีอุปกรณ์ที่ลงชื่อเข้าใช้",
+    "devices.revoked": "ออกจากระบบอุปกรณ์แล้ว",
 
     "members.title": "สมาชิก",
     "members.role": "บทบาท",
@@ -203,6 +207,7 @@ export const messages = {
     "profile.timezoneHint": "For example Asia/Bangkok",
     "profile.timezoneInvalid": "Unknown time zone",
     "profile.saved": "Saved",
+    "profile.body": "Your name, language and time zone.",
 
     "devices.title": "Signed-in devices",
     "devices.current": "This device",
@@ -210,6 +215,9 @@ export const messages = {
     "devices.revoke": "Revoke",
     "devices.revokeNamed": "Revoke device {name}",
     "devices.signOutAll": "Sign out of all devices",
+    "devices.body": "Where you are signed in. Signing a device out ends its session.",
+    "devices.none": "No signed-in devices",
+    "devices.revoked": "Device signed out",
 
     "members.title": "Members",
     "members.role": "Role",
