@@ -19,3 +19,28 @@ func (a channelAccess) CanRead(ctx context.Context, workspaceID, channelID, user
 	}
 	return a.m.uc.CanRead(ctx, workspaceID, channelID, userID)
 }
+
+// messageReader is the app.MessageReader chat provides, with the same
+// lifetime as channelAccess.
+type messageReader struct{ m *Module }
+
+var _ app.MessageReader = messageReader{}
+
+func (r messageReader) ReadMessage(ctx context.Context, workspaceID, messageID, userID string) (app.MessageSnapshot, error) {
+	if r.m.uc == nil {
+		return app.MessageSnapshot{}, fmt.Errorf("chat has not been initialised: %w", app.ErrInvalid)
+	}
+	v, err := r.m.uc.ReadMessage(ctx, workspaceID, messageID, userID)
+	if err != nil {
+		return app.MessageSnapshot{}, err
+	}
+	out := app.MessageSnapshot{
+		ID: v.ID, ChannelID: v.ChannelID, SenderID: v.SenderID, Kind: v.Kind, Body: v.Body, CreatedAt: v.CreatedAt,
+	}
+	for _, a := range v.Attachments {
+		out.Attachments = append(out.Attachments, app.MessageAttachment{
+			FileName: a.FileName, MimeType: a.MimeType, Size: a.Size, ObjectKey: a.ObjectKey,
+		})
+	}
+	return out, nil
+}
