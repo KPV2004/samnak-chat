@@ -1,5 +1,8 @@
 import type { Message } from "@samnak/core";
 import { useId, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useT } from "../i18n/useT";
 import { useChat } from "../state/chat";
 import { maxLength } from "./Composer";
@@ -26,6 +29,7 @@ export function EditForm({ message, onDone }: Props) {
     setFailed(false);
     try {
       chat.store.applyMessage(await chat.api.editMessage(message.id, text));
+      toast.success(t("chat.toast.edited"));
       onDone();
     } catch {
       setFailed(true);
@@ -35,20 +39,21 @@ export function EditForm({ message, onDone }: Props) {
 
   return (
     <form
-      className="chat-edit"
+      className="mt-1 grid gap-2"
       onSubmit={(e) => {
         e.preventDefault();
         void save();
       }}
     >
-      <label className="visually-hidden" htmlFor={id}>
+      <label className="sr-only" htmlFor={id}>
         {t("chat.editLabel")}
       </label>
-      <textarea
+      <Textarea
         id={id}
         autoFocus
         rows={2}
         value={text}
+        aria-invalid={length > maxLength || undefined}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Escape") onDone();
@@ -58,16 +63,16 @@ export function EditForm({ message, onDone }: Props) {
           }
         }}
       />
-      <div className="actions">
-        <button type="submit" disabled={!valid || saving}>
-          {t("save")}
-        </button>
-        <button type="button" onClick={onDone}>
+      <div className="flex items-center justify-end gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={onDone}>
           {t("cancel")}
-        </button>
+        </Button>
+        <Button type="submit" size="sm" disabled={!valid || saving}>
+          {t("save")}
+        </Button>
       </div>
       {(failed || length > maxLength) && (
-        <p className="form-error" role="alert">
+        <p className="text-xs text-destructive" role="alert">
           {failed ? t("chat.actionError") : t("chat.tooLong")}
         </p>
       )}

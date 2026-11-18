@@ -1,6 +1,10 @@
 import type { ChatCommand } from "@samnak/core";
 import { useQuery } from "@tanstack/react-query";
+import { SendHorizontal } from "lucide-react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { useChat } from "../state/chat";
@@ -177,16 +181,21 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   const listId = `${uid}-mentions`;
   return (
     <form
-      className="chat-composer"
+      className="grid gap-1 border-t bg-background p-2 md:p-3"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
       }}
     >
-      <label className="visually-hidden" htmlFor={`${uid}-box`}>
+      <label className="sr-only" htmlFor={`${uid}-box`}>
         {label ?? t("chat.composer.label")}
       </label>
-      <div className="chat-composer-box">
+      <div
+        className={cn(
+          "relative rounded-lg border border-input bg-background shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
+          tooLong && "border-destructive ring-destructive/20",
+        )}
+      >
         {open && (
           <MentionList
             id={listId}
@@ -196,10 +205,10 @@ export function Composer({ channelId, threadRootId, label }: Props) {
             onPick={pick}
           />
         )}
-        <textarea
+        <Textarea
           id={`${uid}-box`}
           ref={boxRef}
-          rows={2}
+          rows={1}
           value={text}
           onChange={onChange}
           onKeyDown={onKeyDown}
@@ -208,24 +217,29 @@ export function Composer({ channelId, threadRootId, label }: Props) {
           aria-controls={open ? listId : undefined}
           aria-activedescendant={open ? `${listId}-${current}` : undefined}
           aria-invalid={tooLong || undefined}
+          className="max-h-40 min-h-11 resize-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
         />
+        <div className="flex items-center gap-2 px-2 pb-2">
+          <small id={`${uid}-hint`} className="min-w-0 flex-1 text-xs text-muted-foreground">
+            {t("chat.composer.hint")}
+          </small>
+          <small
+            id={`${uid}-count`}
+            className={cn("shrink-0 text-xs tabular-nums", tooLong ? "text-destructive" : "text-muted-foreground")}
+          >
+            {t("chat.counter", { n: length.toLocaleString("en-US") })}
+          </small>
+          <Button type="submit" size="sm" disabled={!canSend}>
+            <SendHorizontal />
+            {t("chat.send")}
+          </Button>
+        </div>
       </div>
-      <div className="chat-composer-bar">
-        <small id={`${uid}-hint`} className="muted">
-          {t("chat.composer.hint")}
-        </small>
-        <small id={`${uid}-count`} className={tooLong ? "form-error" : "muted"}>
-          {t("chat.counter", { n: length.toLocaleString("en-US") })}
-        </small>
-        <button type="submit" disabled={!canSend}>
-          {t("chat.send")}
-        </button>
-      </div>
-      <p className="form-error" role="alert">
+      <p className="text-xs text-destructive empty:hidden" role="alert">
         {tooLong ? t("chat.tooLong") : null}
       </p>
       {note && (
-        <p className={note.failed ? "form-error" : "muted"} role={note.failed ? "alert" : "status"}>
+        <p className={cn("text-xs", note.failed ? "text-destructive" : "text-muted-foreground")} role={note.failed ? "alert" : "status"}>
           {note.text}
         </p>
       )}
