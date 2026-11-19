@@ -737,66 +737,66 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 - [x] `app.Notification.ChannelID`; `auth.UserSummary.Timezone` filled by the auth `Directory`
 - [x] M6 section in `tasks/plan.md`
 
-## [ ] M6-01 platform: mail (wave 1)
+## [x] M6-01 platform: mail (wave 1)
 **SRS:** AUTH-09, NFR-05 · **Size:** S · **Depends on:** M6-00
 
 **Acceptance criteria**
-- [ ] `internal/platform/mail`: `New(cfg, logger) app.Mailer` returns an SMTP mailer (STARTTLS on 587, implicit TLS on 465, auth when a username is set) when `SMTP_HOST` is set, else a log mailer that writes recipient, subject and text at info level
-- [ ] Config reads `WEB_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` with the defaults in the plan; `.env.example` lists them; Mailpit (`axllent/mailpit`, SMTP 1025, UI 8025) added to `deploy/docker-compose.yml` for development
-- [ ] Unit tests for config and the log mailer; an integration test sends through Mailpit with testcontainers and reads it back from the Mailpit API
-- [ ] `go build`, `go vet`, `go test ./...` pass
+- [x] `internal/platform/mail`: `New(cfg, logger) app.Mailer` returns an SMTP mailer (STARTTLS on 587, implicit TLS on 465, auth when a username is set) when `SMTP_HOST` is set, else a log mailer that writes recipient, subject and text at info level
+- [x] Config reads `WEB_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` with the defaults in the plan; `.env.example` lists them; Mailpit (`axllent/mailpit`, SMTP 1025, UI 8025) added to `deploy/docker-compose.yml` for development
+- [x] Unit tests for config and the log mailer; an integration test sends through Mailpit with testcontainers and reads it back from the Mailpit API
+- [x] `go build`, `go vet`, `go test ./...` pass
 
 **Files:** `apps/server/internal/platform/mail/` (new), `apps/server/internal/platform/config/`, `.env.example`, `deploy/docker-compose.yml`
 
-## [ ] M6-02 auth: email verification and password reset (wave 1)
+## [x] M6-02 auth: email verification and password reset (wave 1)
 **SRS:** AUTH-09, AUTH-03, AUTH-06, NFR-07 · **Size:** M · **Depends on:** M6-00
 
 **Acceptance criteria**
-- [ ] Migration adds `auth_email_tokens` and `users.email_verified_at`; tokens as in the plan (random, stored hashed, 1 hour, single use)
-- [ ] Register enqueues `auth.send_email` in its transaction; the job handler renders Thai or English text by the user's locale with links built from `WEB_URL` and calls `Deps.Mailer` (skipped with a log line when nil)
-- [ ] `POST /auth/email/verify`, `POST /auth/email/verify/resend`, `POST /auth/password/forgot` (always 204, rate limited per email and IP), `POST /auth/password/reset` (sets the password with argon2id and revokes all refresh tokens); `GET /auth/me` includes `email_verified`
-- [ ] Tests: expired, reused and wrong-purpose tokens are rejected; forgot for an unknown email is 204 and sends nothing; reset ends other sessions
-- [ ] `go build`, `go vet`, `go test ./...` pass
+- [x] Migration adds `auth_email_tokens` and `users.email_verified_at`; tokens as in the plan (random, stored hashed, 1 hour, single use)
+- [x] Register enqueues `auth.send_email` in its transaction; the job handler renders Thai or English text by the user's locale with links built from `WEB_URL` and calls `Deps.Mailer` (skipped with a log line when nil)
+- [x] `POST /auth/email/verify`, `POST /auth/email/verify/resend`, `POST /auth/password/forgot` (always 204, rate limited per email and IP), `POST /auth/password/reset` (sets the password with argon2id and revokes all refresh tokens); `GET /auth/me` includes `email_verified`
+- [x] Tests: expired, reused and wrong-purpose tokens are rejected; forgot for an unknown email is 204 and sends nothing; reset ends other sessions
+- [x] `go build`, `go vet`, `go test ./...` pass
 
 **Files:** `apps/server/internal/modules/auth/` (all subpackages and migrations). Do not touch `cmd/server`; the planner wires `Mailer` at checkpoint H. Use a fake `app.Mailer` in tests.
 
-## [ ] M6-03 workspace: audit log (wave 1)
+## [x] M6-03 workspace: audit log (wave 1)
 **SRS:** WSP-10, WSP-06 · **Size:** M · **Depends on:** M6-00
 
 **Acceptance criteria**
-- [ ] Migration adds `workspace_audit`; every admin endpoint in the plan's action list writes one row in the same transaction as its change, with actor, target and the `data` shown in the plan
-- [ ] `GET /workspace/audit?cursor=&limit=` (≤ 100, newest first, `{items, next_cursor}`) for Owner and Admin; 403 for others; never rows of another workspace
-- [ ] Tests for each action, the permission check and workspace isolation
-- [ ] `go build`, `go vet`, `go test ./...` pass
+- [x] Migration adds `workspace_audit`; every admin endpoint in the plan's action list writes one row in the same transaction as its change, with actor, target and the `data` shown in the plan
+- [x] `GET /workspace/audit?cursor=&limit=` (≤ 100, newest first, `{items, next_cursor}`) for Owner and Admin; 403 for others; never rows of another workspace
+- [x] Tests for each action, the permission check and workspace isolation
+- [x] `go build`, `go vet`, `go test ./...` pass
 
 **Files:** `apps/server/internal/modules/workspace/` (all subpackages and migrations)
 
-## [ ] M6-04 notify: preferences, mute and do not disturb (wave 1)
+## [x] M6-04 notify: preferences, mute and do not disturb (wave 1)
 **SRS:** NOTI-07 · **Size:** M · **Depends on:** M6-00
 
 **Acceptance criteria**
-- [ ] Migration adds `notify_preferences`; `GET` and `PUT /notify/preferences` (`{disabled_kinds, muted_channel_ids, dnd_start, dnd_end}`, times as `HH:MM`, both or neither); `GET` returns defaults when no row exists; kinds validated against the registered rule kinds where known
-- [ ] Dispatch drops notices whose kind is disabled or whose `ChannelID` is muted; inside the DND window (user's `Timezone` from `auth.Directory`, wrapping past midnight) the notice is stored and counted and the WebSocket frame has `quiet: true`
-- [ ] chat sets `ChannelID` on every notice it produces (mention, DM, thread reply)
-- [ ] Tests for each rule, the window across midnight in `Asia/Bangkok`, and that other users are unaffected
-- [ ] `go build`, `go vet`, `go test ./...` pass
+- [x] Migration adds `notify_preferences`; `GET` and `PUT /notify/preferences` (`{disabled_kinds, muted_channel_ids, dnd_start, dnd_end}`, times as `HH:MM`, both or neither); `GET` returns defaults when no row exists; kinds validated against the registered rule kinds where known
+- [x] Dispatch drops notices whose kind is disabled or whose `ChannelID` is muted; inside the DND window (user's `Timezone` from `auth.Directory`, wrapping past midnight) the notice is stored and counted and the WebSocket frame has `quiet: true`
+- [x] chat sets `ChannelID` on every notice it produces (mention, DM, thread reply)
+- [x] Tests for each rule, the window across midnight in `Asia/Bangkok`, and that other users are unaffected
+- [x] `go build`, `go vet`, `go test ./...` pass
 
 **Files:** `apps/server/internal/modules/notify/` (all subpackages and migrations), `apps/server/internal/modules/chat/` (only where its notification rules build `app.Notification`, plus their tests)
 
-## [ ] M6-05 observability: Prometheus metrics (wave 1)
+## [x] M6-05 observability: Prometheus metrics (wave 1)
 **SRS:** NFR-14 · **Size:** S · **Depends on:** M6-00
 
 **Acceptance criteria**
-- [ ] `internal/platform/observability` exposes a registry, the HTTP middleware (`http_request_duration_seconds` by route pattern, method and status; no raw paths or IDs as labels) and `GET /metrics`
-- [ ] `ws_connections` gauge and `ws_messages_sent_total` counter from `platform/realtime`; Go runtime and process collectors
-- [ ] `cmd/server` mounts `/metrics` and the middleware; a test scrapes `/metrics` after one request and finds the series
-- [ ] `go build`, `go vet`, `go test ./...` pass
+- [x] `internal/platform/observability` exposes a registry, the HTTP middleware (`http_request_duration_seconds` by route pattern, method and status; no raw paths or IDs as labels) and `GET /metrics`
+- [x] `ws_connections` gauge and `ws_messages_sent_total` counter from `platform/realtime`; Go runtime and process collectors
+- [x] `cmd/server` mounts `/metrics` and the middleware; a test scrapes `/metrics` after one request and finds the series
+- [x] `go build`, `go vet`, `go test ./...` pass
 
 **Files:** `apps/server/internal/platform/observability/`, `apps/server/internal/platform/realtime/` (metric hooks only), `apps/server/internal/platform/httpx/` (middleware hook only), `apps/server/cmd/server/` (mounting only), `apps/server/go.mod`, `go.sum`
 
-## [ ] Checkpoint H: after M6 wave 1 (planner)
-- [ ] Merge M6-01..05; wire `mail.New` into `Deps.Mailer` in `cmd/server`; register new migrations in `cmd/migrate`
-- [ ] `make openapi` and commit regenerated types; full CI green
+## [x] Checkpoint H: after M6 wave 1 (planner)
+- [x] Merge M6-01..05; wire `mail.New` into `Deps.Mailer` in `cmd/server`; register new migrations in `cmd/migrate`
+- [x] `make openapi` and commit regenerated types; full CI green
 
 ## [ ] M6-06 web: email verification and password reset (wave 2)
 **SRS:** AUTH-09, NFR-17 · **Size:** S · **Depends on:** Checkpoint H
