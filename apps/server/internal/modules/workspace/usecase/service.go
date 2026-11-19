@@ -148,7 +148,10 @@ func (s *Service) UpdateMember(ctx context.Context, p app.Principal, targetID st
 			return err
 		}
 		deactivated = target.Status == domain.StatusActive && updated.Status == domain.StatusDeactivated
-		return s.repo.UpdateMember(ctx, updated)
+		if err := s.repo.UpdateMember(ctx, updated); err != nil {
+			return err
+		}
+		return s.record(ctx, p, domain.AuditMemberUpdated, domain.TargetMember, updated.UserID, memberChanges(target, updated, role, status))
 	})
 	if err != nil {
 		return MemberView{}, err
@@ -172,7 +175,10 @@ func (s *Service) RemoveMember(ctx context.Context, p app.Principal, targetID st
 		if err := s.repo.DeleteMember(ctx, p.WorkspaceID, target.UserID); err != nil {
 			return err
 		}
-		return s.repo.DeleteGroupMemberships(ctx, p.WorkspaceID, target.UserID)
+		if err := s.repo.DeleteGroupMemberships(ctx, p.WorkspaceID, target.UserID); err != nil {
+			return err
+		}
+		return s.record(ctx, p, domain.AuditMemberRemoved, domain.TargetMember, target.UserID, nil)
 	})
 	if err != nil {
 		return err

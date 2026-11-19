@@ -42,7 +42,13 @@ func (s *Service) CreateInvite(ctx context.Context, p app.Principal, email strin
 		ID: newID(), WorkspaceID: p.WorkspaceID, Email: email, Role: role, CreatedBy: p.UserID,
 		ExpiresAt: now.Add(domain.InviteTTL), CreatedAt: now,
 	}
-	if err := s.repo.InsertInvite(ctx, inv, domain.HashToken(token)); err != nil {
+	err = s.tx.Do(ctx, func(ctx context.Context) error {
+		if err := s.repo.InsertInvite(ctx, inv, domain.HashToken(token)); err != nil {
+			return err
+		}
+		return s.record(ctx, p, domain.AuditInviteCreated, domain.TargetInvite, inv.ID, nil)
+	})
+	if err != nil {
 		return InviteView{}, err
 	}
 	return InviteView{Invite: inv, Token: token}, nil
@@ -61,7 +67,12 @@ func (s *Service) RevokeInvite(ctx context.Context, p app.Principal, inviteID st
 	if err := requireManager(p); err != nil {
 		return err
 	}
-	return s.repo.RevokeInvite(ctx, p.WorkspaceID, inviteID, s.now().UTC())
+	return s.tx.Do(ctx, func(ctx context.Context) error {
+		if err := s.repo.RevokeInvite(ctx, p.WorkspaceID, inviteID, s.now().UTC()); err != nil {
+			return err
+		}
+		return s.record(ctx, p, domain.AuditInviteRevoked, domain.TargetInvite, inviteID, nil)
+	})
 }
 
 // AcceptInvite adds the caller to the invite's workspace with the invite's

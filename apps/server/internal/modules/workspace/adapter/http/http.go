@@ -59,6 +59,7 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	}, h.removeMember)
 	h.registerInvites(api, user, member)
 	h.registerGroups(api, member)
+	h.registerAudit(api, member)
 }
 
 // Workspace is a workspace with the caller's role.
