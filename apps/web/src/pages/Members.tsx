@@ -14,15 +14,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AccountLoadError, AccountLoading } from "../components/AccountStates";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AccountLoadError } from "../components/AccountStates";
 import { FormError } from "../components/FormError";
 import { Page } from "../components/Page";
 import { RequireWorkspace } from "../components/RequireWorkspace";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
+import { DataTable, ListLoading, LoadMore } from "./module-ui";
 import { canManage, useMe } from "../state/queries";
 import { useSession } from "../state/session";
 
@@ -79,71 +79,48 @@ function MemberList({ workspaceId, myRole }: { workspaceId: string; myRole: Role
 
   return (
     <>
-      {members.isPending && (
-        <AccountLoading>
-          <div className="divide-y overflow-hidden rounded-lg border">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-3">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-4 w-44 max-w-full" />
-                <Skeleton className="ml-auto h-4 w-20" />
-              </div>
-            ))}
-          </div>
-        </AccountLoading>
-      )}
+      {members.isPending && <ListLoading rows={4} />}
       {members.isError ? (
         <AccountLoadError message={t(errorKey(members.error))} onRetry={() => void members.refetch()} />
       ) : (
         <FormError message={update.error || remove.error ? t(errorKey(update.error ?? remove.error)) : null} />
       )}
       {members.data && (
-        <div className="overflow-hidden rounded-lg border">
-          <Table aria-label={t("members.title")}>
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">{t("displayName")}</TableHead>
-                <TableHead scope="col">{t("email")}</TableHead>
-                <TableHead scope="col">{t("members.role")}</TableHead>
-                <TableHead scope="col">{t("members.status")}</TableHead>
-                <TableHead scope="col">{t("members.joined")}</TableHead>
-                {manage && (
-                  <TableHead scope="col" className="text-right">
-                    {t("members.actions")}
-                  </TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {members.data.pages
-                .flatMap((p) => p.items)
-                .map((m) => (
-                  <MemberRow
-                    key={m.user_id}
-                    member={m}
-                    myRole={myRole}
-                    manage={manage}
-                    busy={busy}
-                    joined={formatDateTime(m.joined_at, locale, me.data?.timezone)}
-                    onPatch={(patch) => update.mutate({ userId: m.user_id, patch })}
-                    onRequestRemove={() => setRemoving(m)}
-                  />
-                ))}
-            </TableBody>
-          </Table>
-        </div>
+        <DataTable aria-label={t("members.title")}>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">{t("displayName")}</TableHead>
+              <TableHead scope="col">{t("email")}</TableHead>
+              <TableHead scope="col">{t("members.role")}</TableHead>
+              <TableHead scope="col">{t("members.status")}</TableHead>
+              <TableHead scope="col">{t("members.joined")}</TableHead>
+              {manage && (
+                <TableHead scope="col" className="text-right">
+                  {t("members.actions")}
+                </TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {members.data.pages
+              .flatMap((p) => p.items)
+              .map((m) => (
+                <MemberRow
+                  key={m.user_id}
+                  member={m}
+                  myRole={myRole}
+                  manage={manage}
+                  busy={busy}
+                  joined={formatDateTime(m.joined_at, locale, me.data?.timezone)}
+                  onPatch={(patch) => update.mutate({ userId: m.user_id, patch })}
+                  onRequestRemove={() => setRemoving(m)}
+                />
+              ))}
+          </TableBody>
+        </DataTable>
       )}
       {members.hasNextPage && (
-        <div className="flex justify-center">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={members.isFetchingNextPage}
-            onClick={() => void members.fetchNextPage()}
-          >
-            {t("loadMore")}
-          </Button>
-        </div>
+        <LoadMore loading={members.isFetchingNextPage} onClick={() => void members.fetchNextPage()} />
       )}
       <Dialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
         <DialogContent>

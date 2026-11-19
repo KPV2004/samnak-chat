@@ -8,6 +8,7 @@ import { FormError } from "../components/FormError";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { useModuleEnabled } from "../modules";
+import { CardFrame, FallbackCard } from "../pages/module-ui";
 import { useMe } from "../state/queries";
 import { useSessionState } from "../state/session";
 import { useHelpdeskApi } from "./api";
@@ -21,16 +22,6 @@ import { priorityKeys, priorityTones, statusKeys, statusTones } from "./format";
 export function HelpdeskCardGate({ message }: { message: Message }) {
   const enabled = useModuleEnabled("helpdesk");
   return enabled ? <TicketCard message={message} /> : <FallbackCard message={message} />;
-}
-
-function FallbackCard({ message }: { message: Message }) {
-  const t = useT();
-  return (
-    <div className="grid max-w-md gap-1 rounded-lg border bg-card p-3 text-sm text-card-foreground">
-      <p className="m-0 text-xs text-muted-foreground">{t("chat.card")}</p>
-      <p className="m-0">{message.fallback_text || message.body}</p>
-    </div>
-  );
 }
 
 /**
@@ -61,38 +52,44 @@ function TicketCard({ message }: { message: Message }) {
   const claimable = agentOfQueue && card.assignee_id === null && card.status !== "closed";
 
   return (
-    <article className="grid max-w-md gap-2 rounded-lg border bg-card p-3 text-sm text-card-foreground">
-      <div className="flex items-start justify-between gap-2">
-        <p className="m-0 text-xs text-muted-foreground">
+    <CardFrame
+      kind={
+        <>
           {t("helpdesk.cardKind")} · <span className="font-mono">{card.key}</span>
-        </p>
+        </>
+      }
+      bar={tone.bar}
+      badge={
         <Badge variant={tone.badge} className={cn("shrink-0", tone.text)}>
           {t(statusKeys[card.status])}
         </Badge>
-      </div>
-      <div className="grid gap-0.5">
-        <p className="m-0 font-medium">{card.title}</p>
-        <p className="m-0 text-xs text-muted-foreground">{t("helpdesk.card.line", { queue: card.queue_name, requester: card.requester_name })}</p>
-      </div>
-      <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Badge variant={priorityTones[card.priority].badge}>{t(priorityKeys[card.priority])}</Badge>
-        <span>
-          {t("helpdesk.assignee")}: {card.assignee_id ? card.assignee_name : t("helpdesk.unassigned")}
-        </span>
-      </p>
-      {claimable && userId !== null && (
-        <div>
-          <Button size="sm" disabled={claim.isPending} onClick={() => claim.mutate({ ticketId: card.ticket_id, userId })}>
-            {t("helpdesk.detail.claim")}
+      }
+      title={card.title}
+      meta={
+        <>
+          <p className="m-0">{t("helpdesk.card.line", { queue: card.queue_name, requester: card.requester_name })}</p>
+          <p className="m-0 mt-1 flex flex-wrap items-center gap-2">
+            <Badge variant={priorityTones[card.priority].badge}>{t(priorityKeys[card.priority])}</Badge>
+            <span>
+              {t("helpdesk.assignee")}: {card.assignee_id ? card.assignee_name : t("helpdesk.unassigned")}
+            </span>
+          </p>
+        </>
+      }
+      actions={
+        <>
+          {claimable && userId !== null && (
+            <Button size="sm" disabled={claim.isPending} onClick={() => claim.mutate({ ticketId: card.ticket_id, userId })}>
+              {t("helpdesk.detail.claim")}
+            </Button>
+          )}
+          <Button asChild variant="ghost" size="sm" className="ml-auto">
+            <Link to={`/helpdesk/${card.ticket_id}`}>{t("helpdesk.card.open")}</Link>
           </Button>
-        </div>
-      )}
+        </>
+      }
+    >
       <FormError message={claim.error ? t(errorKey(claim.error, { 409: "helpdesk.error.invalidTransition", 403: "helpdesk.error.notAllowed" })) : null} />
-      <div>
-        <Button asChild variant="ghost" size="sm" className="-ml-3">
-          <Link to={`/helpdesk/${card.ticket_id}`}>{t("helpdesk.card.open")}</Link>
-        </Button>
-      </div>
-    </article>
+    </CardFrame>
   );
 }

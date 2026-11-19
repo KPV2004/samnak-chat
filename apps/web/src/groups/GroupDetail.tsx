@@ -6,17 +6,23 @@ import { toast } from "sonner";
 import { useApprovalApi } from "../approval/api";
 import { useMembers } from "../approval/useMembers";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { focusField, readForm } from "../lib/form";
+import { ListLoading, Panel } from "../pages/module-ui";
 
 interface Props {
   group: Group;
@@ -69,13 +75,12 @@ export function GroupDetail({ group, workspaceId, canEdit, onDeleted }: Props) {
   const listError = members.error ? t(errorKey(members.error)) : null;
 
   return (
-    <Card className="gap-4 py-5">
-      <CardHeader className="flex flex-wrap items-start justify-between gap-3">
-        <h2 id="group-heading" className="text-base font-semibold">
-          {group.name}
-        </h2>
-        {canEdit && (
-          <div className="flex flex-wrap gap-2">
+    <Panel
+      title={group.name}
+      bodyClassName="gap-3"
+      actions={
+        canEdit && (
+          <>
             <Button type="button" variant="outline" size="sm" onClick={() => setOpen("rename")}>
               <Pencil />
               {t("groups.renameOpen")}
@@ -84,25 +89,23 @@ export function GroupDetail({ group, workspaceId, canEdit, onDeleted }: Props) {
               <UserPen />
               {t("groups.editMembers")}
             </Button>
-            <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setOpen("delete")}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setOpen("delete")}
+            >
               <Trash2 />
               {t("groups.delete")}
             </Button>
-          </div>
-        )}
-      </CardHeader>
-      <CardContent className="grid gap-3">
-        {members.isPending && (
-          <div role="status" className="grid gap-2">
-            <span className="sr-only">{t("loading")}</span>
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        )}
-        <FormError message={listError} />
-        {members.data && <ReadOnlyMembers members={members.data} />}
-      </CardContent>
-
+          </>
+        )
+      }
+    >
+      {members.isPending && <ListLoading rows={2} />}
+      <FormError message={listError} />
+      {members.data && <ReadOnlyMembers members={members.data} />}
       {canEdit && (
         <>
           <Dialog open={open === "rename"} onOpenChange={(o) => setOpen(o ? "rename" : null)}>
@@ -163,7 +166,7 @@ export function GroupDetail({ group, workspaceId, canEdit, onDeleted }: Props) {
           </Dialog>
         </>
       )}
-    </Card>
+    </Panel>
   );
 }
 
@@ -224,9 +227,9 @@ function ReadOnlyMembers({ members }: { members: GroupMember[] }) {
   const t = useT();
   if (members.length === 0) return <p className="m-0 text-sm text-muted-foreground">{t("groups.noMembers")}</p>;
   return (
-    <ul aria-label={t("groups.members")} className="m-0 divide-y rounded-lg border p-0">
+    <ul aria-label={t("groups.members")} className="m-0 list-none divide-y p-0">
       {members.map((m) => (
-        <li key={m.user_id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+        <li key={m.user_id} className="flex items-center justify-between gap-2 py-2 text-sm">
           <span>{m.display_name}</span>
           {m.is_manager && <Badge variant="secondary">{t("groups.manager")}</Badge>}
         </li>
@@ -254,7 +257,9 @@ function MemberEditor({ initial, candidates, busy, error, onCancel, onSave }: Ed
   const t = useT();
   const [roles, setRoles] = useState<Record<string, Role>>(() => {
     const ids = new Set(candidates.map((m) => m.user_id));
-    return Object.fromEntries(initial.filter((m) => ids.has(m.user_id)).map((m) => [m.user_id, m.is_manager ? "manager" : "member"]));
+    return Object.fromEntries(
+      initial.filter((m) => ids.has(m.user_id)).map((m) => [m.user_id, m.is_manager ? "manager" : "member"]),
+    );
   });
 
   function include(userId: string, on: boolean) {
@@ -284,9 +289,16 @@ function MemberEditor({ initial, candidates, busy, error, onCancel, onSave }: Ed
           const id = `member-${m.user_id}`;
           const role = roles[m.user_id];
           return (
-            <div key={m.user_id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md px-2 py-1.5 hover:bg-accent">
+            <div
+              key={m.user_id}
+              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md px-2 py-1.5 hover:bg-accent"
+            >
               <div className="flex items-center gap-2">
-                <Checkbox id={id} checked={role !== undefined} onCheckedChange={(c) => include(m.user_id, c === true)} />
+                <Checkbox
+                  id={id}
+                  checked={role !== undefined}
+                  onCheckedChange={(c) => include(m.user_id, c === true)}
+                />
                 <Label htmlFor={id} className="leading-normal font-normal">
                   {name}
                 </Label>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AccountLoadError } from "../components/AccountStates";
 import { Page } from "../components/Page";
 import { RequireWorkspace } from "../components/RequireWorkspace";
 import { useT } from "../i18n/useT";
@@ -43,6 +44,7 @@ function HelpdeskView() {
   return (
     <Page
       title={t("helpdesk.title")}
+      width="wide"
       description={t("helpdesk.settings.body")}
       actions={
         <>
@@ -61,14 +63,7 @@ function HelpdeskView() {
         </>
       }
     >
-      {queues.isError && (
-        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive">
-          <p className="m-0">{t("helpdesk.loadError")}</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void queues.refetch()}>
-            {t("retry")}
-          </Button>
-        </div>
-      )}
+      {queues.isError && <AccountLoadError message={t("helpdesk.loadError")} onRetry={() => void queues.refetch()} />}
       <Tabs value={tab} onValueChange={(value) => setTab(value as "mine" | "queue")}>
         <TabsList>
           <TabsTrigger value="mine">{t("helpdesk.tabs.mine")}</TabsTrigger>

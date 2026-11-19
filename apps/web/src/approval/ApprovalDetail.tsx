@@ -1,11 +1,9 @@
 import type { ApprovalAttachment, ApprovalRequestDetail } from "@samnak/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download as DownloadIcon } from "lucide-react";
-import { Link, useParams } from "react-router";
+import { Download as DownloadIcon } from "lucide-react";
+import { useParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { FormError } from "../components/FormError";
 import { Page } from "../components/Page";
@@ -13,6 +11,7 @@ import { RequireWorkspace } from "../components/RequireWorkspace";
 import { useCurrentLocale, useT, type T } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
+import { BackLink as BackToList, DetailLayout, DetailLoading, Panel, Properties, Property } from "../pages/module-ui";
 import { useMe } from "../state/queries";
 import { useSessionState } from "../state/session";
 import { ApprovalActions } from "./ApprovalActions";
@@ -38,18 +37,14 @@ function RequestView() {
 
   if (request.isPending) {
     return (
-      <Page title={t("approval.title")} actions={<BackLink />}>
-        <div role="status" className="grid gap-4">
-          <span className="sr-only">{t("loading")}</span>
-          <Skeleton className="h-40 w-full rounded-xl" />
-          <Skeleton className="h-32 w-full rounded-xl" />
-        </div>
+      <Page title={t("approval.title")} width="wide" actions={<BackLink />}>
+        <DetailLoading />
       </Page>
     );
   }
   if (request.isError) {
     return (
-      <Page title={t("approval.title")} actions={<BackLink />}>
+      <Page title={t("approval.title")} width="wide" actions={<BackLink />}>
         <FormError message={t(errorKey(request.error, { 404: "approval.notFound" }))} />
       </Page>
     );
@@ -68,14 +63,7 @@ function Detail({ request: r }: { request: ApprovalRequestDetail }) {
   return (
     <Page
       title={summarize(r.type, r.payload, t)}
-      description={
-        <span className="inline-flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className={tone.text}>
-            {t(statusKeys[r.status])}
-          </Badge>
-          <span>{t(typeKeys[r.type])}</span>
-        </span>
-      }
+      width="wide"
       actions={
         <>
           <BackLink />
@@ -83,47 +71,51 @@ function Detail({ request: r }: { request: ApprovalRequestDetail }) {
         </>
       }
     >
-      <Card className="gap-0 py-5">
-        <CardContent>
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <Field label={t("approval.requester")} value={nameOf(r.requester_id)} />
-            <Field label={t("approval.approver")} value={nameOf(r.approver_id)} />
-            <Field label={t("approval.sentOn")} value={when(r.created_at)} />
-            {r.decided_at && <Field label={t("approval.decidedOn")} value={when(r.decided_at)} />}
-            {r.status === "rejected" && r.reason && <Field label={t("approval.rejectedReason")} value={r.reason} multiline />}
+      <DetailLayout
+        asideLabel={t("approval.properties")}
+        aside={
+          <Panel title={t("approval.properties")}>
+            <Properties>
+              <Property label={t("approval.status")}>
+                <Badge variant="outline" className={tone.text}>
+                  {t(statusKeys[r.status])}
+                </Badge>
+              </Property>
+              <Property label={t("approval.type")}>{t(typeKeys[r.type])}</Property>
+              <Property label={t("approval.requester")}>{nameOf(r.requester_id)}</Property>
+              <Property label={t("approval.approver")}>{nameOf(r.approver_id)}</Property>
+              <Property label={t("approval.sentOn")}>{when(r.created_at)}</Property>
+              {r.decided_at && <Property label={t("approval.decidedOn")}>{when(r.decided_at)}</Property>}
+              {r.status === "rejected" && r.reason && (
+                <Property label={t("approval.rejectedReason")} multiline>
+                  {r.reason}
+                </Property>
+              )}
+            </Properties>
+          </Panel>
+        }
+      >
+        <Panel title={t("approval.details")}>
+          <dl className="m-0 grid gap-x-6 gap-y-4 sm:grid-cols-2">
             {payloadRows(r.type, r.payload, t).map((row) => (
               <Field key={row.label} label={row.label} value={row.value} multiline={row.multiline} />
             ))}
           </dl>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      {r.attachments.length > 0 && (
-        <Card className="gap-3 py-5">
-          <CardHeader>
-            <h2 id="attachments-heading" className="text-base font-semibold">
-              {t("approval.attachments")}
-            </h2>
-          </CardHeader>
-          <CardContent>
-            <ul aria-labelledby="attachments-heading" className="m-0 grid list-none gap-2 p-0">
+        {r.attachments.length > 0 && (
+          <Panel title={t("approval.attachments")}>
+            <ul aria-label={t("approval.attachments")} className="m-0 grid list-none gap-2 p-0">
               {r.attachments.map((a) => (
                 <li key={a.id}>
                   <Download attachment={a} t={t} />
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
-      )}
+          </Panel>
+        )}
 
-      <Card className="gap-3 py-5">
-        <CardHeader>
-          <h2 id="history-heading" className="text-base font-semibold">
-            {t("approval.history")}
-          </h2>
-        </CardHeader>
-        <CardContent>
+        <Panel title={t("approval.history")}>
           <ol aria-label={t("approval.history")} className="m-0 ml-1.5 grid list-none gap-5 border-l p-0 pl-6">
             {r.history.map((h) => (
               <li key={h.id} className="relative grid gap-0.5">
@@ -142,8 +134,8 @@ function Detail({ request: r }: { request: ApprovalRequestDetail }) {
               </li>
             ))}
           </ol>
-        </CardContent>
-      </Card>
+        </Panel>
+      </DetailLayout>
     </Page>
   );
 }
@@ -188,12 +180,5 @@ function Download({ attachment, t }: { attachment: ApprovalAttachment; t: T }) {
 
 function BackLink() {
   const t = useT();
-  return (
-    <Button asChild variant="ghost" size="sm">
-      <Link to="/approvals">
-        <ArrowLeft />
-        {t("approval.backToList")}
-      </Link>
-    </Button>
-  );
+  return <BackToList to="/approvals">{t("approval.backToList")}</BackToList>;
 }

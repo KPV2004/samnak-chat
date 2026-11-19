@@ -4,12 +4,12 @@ import { useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
-import { cn } from "@/lib/utils";
 import { useNameOf } from "../chat/names";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import type { MessageKey } from "../i18n/messages";
 import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
+import { CardFrame, FallbackCard } from "../pages/module-ui";
 import { useChat } from "../state/chat";
 import { useTaskApi } from "./api";
 import { useModuleEnabled } from "../modules";
@@ -36,12 +36,7 @@ export function TaskCard({ message }: { message: Message }) {
   const card = parseTaskCard(message.payload);
 
   if (!enabled || !card) {
-    return (
-      <div className="grid max-w-md gap-1 rounded-lg border bg-card p-3 text-sm text-card-foreground">
-        <p className="m-0 text-xs text-muted-foreground">{t("chat.card")}</p>
-        <p className="m-0">{message.fallback_text || message.body}</p>
-      </div>
-    );
+    return <FallbackCard message={message} />;
   }
 
   const taskId = card.task_id;
@@ -84,47 +79,53 @@ export function TaskCard({ message }: { message: Message }) {
   const tone = taskStatusTones[card.status];
 
   return (
-    <article className={cn("grid max-w-md gap-2 rounded-lg border border-l-[3px] bg-card p-3 text-sm text-card-foreground", tone.bar)}>
-      <div className="flex items-start justify-between gap-2">
-        <p className="m-0 text-xs text-muted-foreground">{t("task.label")}</p>
+    <CardFrame
+      kind={t("task.label")}
+      bar={tone.bar}
+      badge={
         <Badge variant={tone.badge} className={tone.text}>
           {t(`task.status.${card.status}`)}
         </Badge>
-      </div>
-      <p className="m-0 font-medium">{card.title}</p>
-      <ul className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0 text-xs text-muted-foreground">
-        <li>{assignee}</li>
-        <li>
-          <Badge variant="outline">{t(`task.priority.${card.priority}`)}</Badge>
-        </li>
-        <li>{due}</li>
-      </ul>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{t("task.status")}</span>
-          <NativeSelect
-            size="sm"
-            value={card.status}
-            disabled={saving}
-            onChange={(e) => void changeStatus(e.target.value as TaskStatus)}
-          >
-            {statuses.map((s) => (
-              <option key={s} value={s}>
-                {t(`task.status.${s}`)}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-        <Button type="button" variant="ghost" size="sm" onClick={openComments}>
-          {t("task.comments")}
-        </Button>
-      </div>
+      }
+      title={card.title}
+      meta={
+        <ul className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0">
+          <li>{assignee}</li>
+          <li>
+            <Badge variant="outline">{t(`task.priority.${card.priority}`)}</Badge>
+          </li>
+          <li>{due}</li>
+        </ul>
+      }
+      actions={
+        <>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{t("task.status")}</span>
+            <NativeSelect
+              size="sm"
+              value={card.status}
+              disabled={saving}
+              onChange={(e) => void changeStatus(e.target.value as TaskStatus)}
+            >
+              {statuses.map((s) => (
+                <option key={s} value={s}>
+                  {t(`task.status.${s}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
+          <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={openComments}>
+            {t("task.comments")}
+          </Button>
+        </>
+      }
+    >
       {failed && (
         <p role="alert" className="m-0 text-xs text-destructive">
           {t(failed)}
         </p>
       )}
-    </article>
+    </CardFrame>
   );
 }
 

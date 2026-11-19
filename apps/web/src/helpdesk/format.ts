@@ -2,14 +2,14 @@ import type { TicketHistoryEntry, TicketPriority, TicketStatus } from "@samnak/c
 import type { MessageKey } from "../i18n/messages";
 import type { T } from "../i18n/useT";
 
-/** The badge look of each status: neutral while new, green once resolved, muted once closed. */
-export const statusTones: Record<TicketStatus, { badge: "default" | "secondary" | "outline"; text?: string }> = {
-  new: { badge: "secondary" },
-  open: { badge: "default" },
-  in_progress: { badge: "default" },
-  waiting: { badge: "outline" },
-  resolved: { badge: "outline", text: "text-success" },
-  closed: { badge: "secondary" },
+/** The badge look of each status and the bar on its card: neutral while new, green once resolved, muted once closed. */
+export const statusTones: Record<TicketStatus, { badge: "default" | "secondary" | "outline"; text?: string; bar: string }> = {
+  new: { badge: "secondary", bar: "border-l-border" },
+  open: { badge: "default", bar: "border-l-primary" },
+  in_progress: { badge: "default", bar: "border-l-primary" },
+  waiting: { badge: "outline", bar: "border-l-warning" },
+  resolved: { badge: "outline", text: "text-success", bar: "border-l-success" },
+  closed: { badge: "secondary", bar: "border-l-border" },
 };
 
 /** The badge look of each priority. */

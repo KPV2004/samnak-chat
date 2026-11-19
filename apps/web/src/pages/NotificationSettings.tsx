@@ -4,9 +4,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { channelTitle, useNameOf } from "../chat/names";
-import { AccountLoadError, AccountLoading } from "../components/AccountStates";
+import { AccountLoadError } from "../components/AccountStates";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
 import { Page } from "../components/Page";
@@ -18,6 +17,7 @@ import { useEnabledModules } from "../modules";
 import { preferenceKinds } from "../notify/kinds";
 import { usePreferences, useSavePreferences } from "../notify/usePreferences";
 import { useChat, useChatState } from "../state/chat";
+import { ListLoading, Panel } from "./module-ui";
 
 export function NotificationSettings() {
   const t = useT();
@@ -32,12 +32,7 @@ function SettingsLoader() {
   const t = useT();
   const prefs = usePreferences();
   if (prefs.isPending) {
-    return (
-      <AccountLoading>
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-28 w-full" />
-      </AccountLoading>
-    );
+    return <ListLoading rows={3} />;
   }
   if (prefs.isError) {
     return <AccountLoadError message={t(errorKey(prefs.error))} onRetry={() => void prefs.refetch()} />;
@@ -85,11 +80,10 @@ function SettingsForm({ initial }: { initial: NotifyPreferences }) {
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-8">
+    <form onSubmit={submit} className="grid gap-6">
       <FormError message={problem ? t(problem) : save.isError ? t(errorKey(save.error)) : null} />
 
-      <fieldset className="grid gap-3">
-        <legend className="text-base font-semibold">{t("notify.prefs.kinds")}</legend>
+      <Panel title={t("notify.prefs.kinds")} bodyClassName="gap-3">
         <p className="m-0 text-sm text-muted-foreground">{t("notify.prefs.kindsHint")}</p>
         {kinds.map((k) => (
           <div key={k.kind} className="flex items-center gap-2">
@@ -103,14 +97,23 @@ function SettingsForm({ initial }: { initial: NotifyPreferences }) {
             </Label>
           </div>
         ))}
-      </fieldset>
+      </Panel>
 
-      <fieldset className="grid gap-3">
-        <legend className="text-base font-semibold">{t("notify.prefs.dnd")}</legend>
+      <Panel title={t("notify.prefs.dnd")} bodyClassName="gap-3">
         <p className="m-0 text-sm text-muted-foreground">{t("notify.prefs.dndBody")}</p>
         <div className="grid grid-cols-2 gap-3 sm:max-w-sm">
-          <Field label={t("notify.prefs.dndStart")} type="time" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <Field label={t("notify.prefs.dndEnd")} type="time" value={until} onChange={(e) => setUntil(e.target.value)} />
+          <Field
+            label={t("notify.prefs.dndStart")}
+            type="time"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+          <Field
+            label={t("notify.prefs.dndEnd")}
+            type="time"
+            value={until}
+            onChange={(e) => setUntil(e.target.value)}
+          />
         </div>
         <Button
           type="button"
@@ -124,7 +127,7 @@ function SettingsForm({ initial }: { initial: NotifyPreferences }) {
         >
           {t("notify.prefs.dndClear")}
         </Button>
-      </fieldset>
+      </Panel>
 
       <MutedChannels current={latest} />
 
@@ -158,18 +161,17 @@ function MutedChannels({ current }: { current: NotifyPreferences }) {
   }
 
   return (
-    <section className="grid gap-3">
-      <h2 className="m-0 text-base font-semibold">{t("notify.prefs.muted")}</h2>
+    <Panel title={t("notify.prefs.muted")} bodyClassName="gap-3">
       <p className="m-0 text-sm text-muted-foreground">{t("notify.prefs.mutedBody")}</p>
       {current.muted_channel_ids.length === 0 ? (
         <p className="m-0 text-sm text-muted-foreground">{t("notify.prefs.noMuted")}</p>
       ) : (
-        <ul aria-label={t("notify.prefs.muted")} className="divide-y rounded-lg border">
+        <ul aria-label={t("notify.prefs.muted")} className="m-0 list-none divide-y p-0">
           {current.muted_channel_ids.map((id) => {
             const name = titleOf(id);
             return (
-              <li key={id} className="flex items-center gap-2 px-4 py-3">
-                <span className="min-w-0 flex-1 truncate">{name}</span>
+              <li key={id} className="flex items-center gap-2 py-2">
+                <span className="min-w-0 flex-1 break-words">{name}</span>
                 <Button
                   type="button"
                   variant="outline"
@@ -185,6 +187,6 @@ function MutedChannels({ current }: { current: NotifyPreferences }) {
           })}
         </ul>
       )}
-    </section>
+    </Panel>
   );
 }
