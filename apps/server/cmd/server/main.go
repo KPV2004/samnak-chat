@@ -32,6 +32,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/eventbus"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/httpx"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/jobs"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/observability"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/realtime"
 	redisclient "github.com/KPV2004/samnak-chat/apps/server/internal/platform/redis"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/storage"
@@ -260,8 +261,9 @@ func newHandler(logger *slog.Logger, names []string, available []app.Module, in 
 		return nil, fmt.Errorf("enable modules: %w", err)
 	}
 
-	r := httpx.NewRouter(logger)
+	r := httpx.NewRouter(logger, observability.HTTPMetrics)
 	httpx.MountReadiness(r, in.Checks...)
+	r.Get("/metrics", observability.Handler().ServeHTTP)
 	if in.Mount != nil {
 		in.Mount(r)
 	}
