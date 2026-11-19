@@ -26,6 +26,10 @@ jobs:
           working-directory: apps/server
       # ubuntu-latest ships Docker, which testcontainers uses.
       - run: go test -race ./...
+      # NFR-12: the domain and usecase packages together must reach 80%. The
+      # script prints each package's share; it runs from the repository root.
+      - run: bash scripts/coverage.sh 80
+        working-directory: .
 
   node:
     runs-on: ubuntu-latest

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -44,6 +45,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/jobs"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/realtime"
 	redisclient "github.com/KPV2004/samnak-chat/apps/server/internal/platform/redis"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/storage"
 )
 
 const testSecret = "acceptance-secret-acceptance-secret"
@@ -205,6 +207,9 @@ type instance struct {
 	// means the instance runs without a queue.
 	jobs *jobs.Queue
 	tx   app.TxManager
+	// api is the Huma API the modules registered on, for reading the OpenAPI
+	// document the server serves.
+	api huma.API
 }
 
 // instanceConfig selects the parts of cmd/server a test needs. The zero value
@@ -228,6 +233,9 @@ type instanceConfig struct {
 	// relay starts after the modules, as in cmd/server. Without it the bus
 	// delivers in memory, straight away.
 	outbox bool
+	// storage is Deps.Storage, which issues the presigned URLs. Nil keeps the
+	// modules without object storage, as in M2.
+	storage app.ObjectStorage
 }
 
 func newInstance(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client) *instance {
@@ -274,6 +282,7 @@ func newInstanceWith(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client, cfg 
 		Notifications: rules,
 		Tx:            tx,
 		Realtime:      hub,
+		Storage:       cfg.storage,
 		Platform:      map[string]any{"db": pool, "redis": rdb, "jwt_secret": testSecret},
 	}
 	// A nil *Queue in the interface would defeat modules' Deps.Jobs == nil check.
@@ -290,9 +299,10 @@ func newInstanceWith(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client, cfg 
 	}
 
 	r := httpx.NewRouter(logger)
+	var api huma.API
 	var startErr error
 	r.Route("/api/v1", func(v1 chi.Router) {
-		api := httpx.NewAPI(v1, "acceptance")
+		api = httpx.NewAPI(v1, "acceptance")
 		httpx.RegisterMeta(api, "samnak-chat", "acceptance", modulesEnabled)
 		startErr = reg.Start(mods, deps, api)
 	})
@@ -359,7 +369,21 @@ func newInstanceWith(t *testing.T, pool *pgxpool.Pool, rdb *goredis.Client, cfg 
 			t.Errorf("hub close: %v", err)
 		}
 	})
-	return &instance{t: t, url: srv.URL, hub: hub, bus: bus, events: events, jobs: queue, tx: tx}
+	return &instance{t: t, url: srv.URL, hub: hub, bus: bus, events: events, jobs: queue, tx: tx, api: api}
+}
+
+// testStorage presigns URLs against an S3 endpoint that is not running.
+// Presigning is local (platform/storage does not contact the server), so the
+// signature and the lifetime are the real ones and no bytes move.
+func testStorage(t *testing.T) app.ObjectStorage {
+	t.Helper()
+	store, err := storage.New(context.Background(), storage.Config{
+		Endpoint: "http://127.0.0.1:9", Bucket: "samnak", AccessKey: "acceptance", SecretKey: "acceptance-secret", PathStyle: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store
 }
 
 // testLogger discards logs unless a test asks for them.
