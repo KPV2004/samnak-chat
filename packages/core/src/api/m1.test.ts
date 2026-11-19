@@ -27,6 +27,10 @@ describe("M1 types come from the generated schema", () => {
     expectTypeOf<MemberPage["items"][number]>().toEqualTypeOf<Schemas["Member"]>();
     expectTypeOf(api.acceptInvite).returns.resolves.toEqualTypeOf<Schemas["Workspace"]>();
     expectTypeOf(api.createInvite).parameter(0).toEqualTypeOf<Schemas["CreateInviteInputBody"]>();
+    expectTypeOf(api.resetPassword).parameter(0).toEqualTypeOf<Schemas["ResetPasswordInputBody"]>();
+    expectTypeOf(api.forgotPassword).parameter(0).toEqualTypeOf<string>();
+    expectTypeOf(api.verifyEmail).parameter(0).toEqualTypeOf<string>();
+    expectTypeOf(api.resendVerification).returns.resolves.toEqualTypeOf<void>();
   });
 });
 
@@ -35,7 +39,12 @@ function setup() {
   const api = createM1Api(createApiClient({ baseUrl: "", getToken: () => "t", fetch: fetchMock }));
   const last = () => {
     const [url, init] = fetchMock.mock.calls.at(-1)!;
-    return { url: url as string, method: init.method as string | undefined, body: init.body ? JSON.parse(init.body) : undefined };
+    return {
+      url: url as string,
+      method: init.method as string | undefined,
+      body: init.body ? JSON.parse(init.body) : undefined,
+      headers: init.headers as Record<string, string>,
+    };
   };
   return { api, last };
 }
@@ -65,5 +74,29 @@ describe("M1 api calls", () => {
     expect(last()).toMatchObject({ url: "/api/v1/workspace/invites/i1", method: "DELETE" });
     await api.acceptInvite("tok");
     expect(last()).toMatchObject({ url: "/api/v1/workspace/invites/accept", method: "POST", body: { token: "tok" } });
+  });
+
+  it("maps the email and password calls to their paths", async () => {
+    const { api, last } = setup();
+    await api.verifyEmail("tok");
+    expect(last()).toMatchObject({ url: "/api/v1/auth/email/verify", method: "POST", body: { token: "tok" } });
+    await api.resendVerification();
+    expect(last()).toMatchObject({ url: "/api/v1/auth/email/verify/resend", method: "POST" });
+    await api.forgotPassword("a@b.co");
+    expect(last()).toMatchObject({ url: "/api/v1/auth/password/forgot", method: "POST", body: { email: "a@b.co" } });
+    await api.resetPassword({ token: "tok", password: "12345678" });
+    expect(last()).toMatchObject({ url: "/api/v1/auth/password/reset", method: "POST", body: { token: "tok", password: "12345678" } });
+  });
+
+  it("sends no session token on the calls made before sign-in", async () => {
+    const { api, last } = setup();
+    await api.verifyEmail("tok");
+    expect(last().headers).not.toHaveProperty("Authorization");
+    await api.forgotPassword("a@b.co");
+    expect(last().headers).not.toHaveProperty("Authorization");
+    await api.resetPassword({ token: "tok", password: "12345678" });
+    expect(last().headers).not.toHaveProperty("Authorization");
+    await api.resendVerification();
+    expect(last().headers).toHaveProperty("Authorization", "Bearer t");
   });
 });

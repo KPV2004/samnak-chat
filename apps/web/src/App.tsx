@@ -2,6 +2,9 @@ import { lazy, type ComponentType } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
+import { VerifyEmail } from "./pages/VerifyEmail";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ResetPassword } from "./pages/ResetPassword";
 import { Shell } from "./pages/Shell";
 import { RequireModule } from "./modules";
 import "./approval/register";
@@ -41,6 +44,9 @@ export function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<Shell />}>
         <Route index element={<Home />} />
         <Route path="chat" element={<ChatLayout />}>

@@ -12,11 +12,22 @@ export function useReturnTo(): string {
   return state?.from ? `${state.from.pathname}${state.from.search ?? ""}` : "/";
 }
 
-/** The frame of the sign-in and sign-up pages: a centred card with the language and theme switches under it. */
-export function AuthLayout({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * The frame of the sign-in and sign-up pages: a centred card with the language and theme switches under it.
+ * A signed-in visitor is sent on, unless `redirectSignedIn` is false (the email links work for either).
+ */
+export function AuthLayout({
+  title,
+  children,
+  redirectSignedIn = true,
+}: {
+  title: string;
+  children: ReactNode;
+  redirectSignedIn?: boolean;
+}) {
   const { signedIn } = useSessionState();
   const returnTo = useReturnTo();
-  if (signedIn) return <Navigate to={returnTo} replace />;
+  if (redirectSignedIn && signedIn) return <Navigate to={returnTo} replace />;
   return (
     <main className="flex min-h-dvh flex-col items-center bg-muted/40 px-4 py-10 sm:justify-center">
       <div className="grid w-full max-w-sm gap-6">

@@ -63,6 +63,11 @@ export function Login() {
           autoComplete="current-password"
           error={errors.password && t(errors.password)}
         />
+        <p className="m-0 -mt-2 mb-4 text-right text-sm">
+          <Link to="/forgot-password" className="font-medium text-primary underline-offset-4 hover:underline">
+            {t("login.forgot")}
+          </Link>
+        </p>
         <FormError
           message={login.isError ? t(errorKey(login.error, { 401: "login.wrong", 429: "login.rateLimited" })) : null}
         />

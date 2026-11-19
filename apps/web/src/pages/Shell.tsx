@@ -11,6 +11,7 @@ import { Brand } from "../components/Brand";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { RouteFallback } from "../components/RouteFallback";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { VerifyEmailBanner } from "../components/VerifyEmailBanner";
 import { NotificationBell } from "../notify/NotificationBell";
 import { ChatProvider } from "../state/chat";
 import { useT } from "../i18n/useT";
@@ -91,6 +92,7 @@ export function Shell() {
               <ThemeToggle />
             </div>
           </header>
+          <VerifyEmailBanner />
           <div className={cn("min-h-0 flex-1", isChat ? "overflow-hidden" : "overflow-y-auto")}>
             {/* Content outside a Page (loading and gate states) gets the page frame; a Page brings its own padding. */}
             <main
