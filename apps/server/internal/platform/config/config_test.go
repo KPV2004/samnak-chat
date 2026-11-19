@@ -86,6 +86,7 @@ func TestLoadValuesAndDefaults(t *testing.T) {
 		HTTPAddr: ":8080", DatabaseURL: "postgres://x", RedisURL: "redis://r",
 		S3Endpoint: "http://s3", S3Bucket: "b", S3AccessKey: "ak", S3SecretKey: "sk",
 		JWTSecret: "secret", Modules: cfg.Modules,
+		WebURL: "http://localhost:5173", SMTPPort: 587, SMTPFrom: "Samnak <no-reply@localhost>",
 	}
 	if !reflect.DeepEqual(cfg, want) {
 		t.Fatalf("cfg = %+v, want %+v", cfg, want)
@@ -95,5 +96,36 @@ func TestLoadValuesAndDefaults(t *testing.T) {
 	cfg, _ = Load()
 	if cfg.HTTPAddr != ":9000" {
 		t.Fatalf("HTTPAddr = %q", cfg.HTTPAddr)
+	}
+}
+
+func TestLoadMailSettings(t *testing.T) {
+	setEnv(t, "")
+	t.Setenv("WEB_URL", "https://samnak.example")
+	t.Setenv("SMTP_HOST", "smtp.example")
+	t.Setenv("SMTP_PORT", "465")
+	t.Setenv("SMTP_USERNAME", "apikey")
+	t.Setenv("SMTP_PASSWORD", "pw")
+	t.Setenv("SMTP_FROM", "no-reply@samnak.example")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.WebURL != "https://samnak.example" || cfg.SMTPHost != "smtp.example" || cfg.SMTPPort != 465 ||
+		cfg.SMTPUsername != "apikey" || cfg.SMTPPassword != "pw" || cfg.SMTPFrom != "no-reply@samnak.example" {
+		t.Fatalf("mail settings = %+v", cfg)
+	}
+}
+
+func TestLoadSMTPPortMustBeAPort(t *testing.T) {
+	for _, port := range []string{"abc", "0", "65536", "-1"} {
+		t.Run(port, func(t *testing.T) {
+			setEnv(t, "")
+			t.Setenv("SMTP_PORT", port)
+			_, err := Load()
+			if err == nil || !strings.Contains(err.Error(), "SMTP_PORT") {
+				t.Fatalf("err = %v, want one naming SMTP_PORT", err)
+			}
+		})
 	}
 }
