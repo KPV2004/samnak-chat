@@ -41,12 +41,16 @@ type UserBody struct {
 	Locale      string    `json:"locale" enum:"th,en"`
 	Timezone    string    `json:"timezone" doc:"IANA name" example:"Asia/Bangkok"`
 	CreatedAt   time.Time `json:"created_at"`
+	// EmailVerified is false until the address was confirmed by its link. The
+	// account can still log in (AUTH-09).
+	EmailVerified bool `json:"email_verified"`
 }
 
 func toUserBody(u domain.User) UserBody {
 	return UserBody{
 		ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, AvatarURL: u.AvatarURL,
 		Locale: u.Locale, Timezone: u.Timezone, CreatedAt: u.CreatedAt.UTC(),
+		EmailVerified: u.EmailVerifiedAt != nil,
 	}
 }
 
@@ -133,6 +137,32 @@ type refreshInput struct {
 	}
 }
 
+type emailTokenInput struct {
+	Body struct {
+		Token string `json:"token" minLength:"1" maxLength:"512" doc:"The token from the link in the mail"`
+	}
+}
+
+type forgotInput struct {
+	ip   string
+	Body struct {
+		Email string `json:"email" maxLength:"254" doc:"Answered with 204 whether or not the account exists"`
+	}
+}
+
+// Resolve records where the request came from, for the limit on reset mail.
+func (i *forgotInput) Resolve(ctx huma.Context) []error {
+	i.ip = limitKey(ctx.RemoteAddr())
+	return nil
+}
+
+type resetPasswordInput struct {
+	Body struct {
+		Token    string `json:"token" minLength:"1" maxLength:"512" doc:"The token from the link in the mail"`
+		Password string `json:"password" minLength:"8" maxLength:"128"`
+	}
+}
+
 type logoutInput struct {
 	Body struct {
 		AllDevices bool `json:"all_devices,omitempty" doc:"Log out every device of the user, not only this one"`
@@ -205,6 +235,35 @@ func (h *Handlers) Register(api huma.API) {
 		Summary: "Log one device out", Tags: []string{tag}, DefaultStatus: http.StatusNoContent,
 		Security: httpx.BearerAuth, Middlewares: user, Errors: []int{http.StatusUnauthorized, http.StatusNotFound},
 	}, h.revokeDevice)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "auth-verify-email", Method: http.MethodPost, Path: "/email/verify",
+		Summary: "Confirm the email address with the link from the mail", Tags: []string{tag},
+		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusBadRequest},
+	}, h.verifyEmail)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "auth-resend-verification", Method: http.MethodPost, Path: "/email/verify/resend",
+		Summary: "Send the verification mail again", Tags: []string{tag},
+		Description: "Does nothing when the address is verified already. Five sends per minute per user, then 429.",
+		Security:    httpx.BearerAuth, Middlewares: user, DefaultStatus: http.StatusNoContent,
+		Errors: []int{http.StatusUnauthorized, http.StatusTooManyRequests},
+	}, h.resendVerification)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "auth-forgot-password", Method: http.MethodPost, Path: "/password/forgot",
+		Summary: "Send a link to reset the password", Tags: []string{tag},
+		Description: "Always 204, so the answer does not show whether the email has an account. " +
+			"Mail goes out only to an account, and each email and IP is limited like a failed login.",
+		DefaultStatus: http.StatusNoContent,
+	}, h.forgotPassword)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "auth-reset-password", Method: http.MethodPost, Path: "/password/reset",
+		Summary: "Set a new password with the link from the mail", Tags: []string{tag},
+		Description:   "The link works once and for one hour. Every session of the account ends.",
+		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusBadRequest},
+	}, h.resetPassword)
 }
 
 func (h *Handlers) register(ctx context.Context, in *registerInput) (*userOutput, error) {
@@ -302,6 +361,38 @@ func (h *Handlers) updateMe(ctx context.Context, in *updateMeInput) (*userOutput
 		return nil, h.fail(ctx, err)
 	}
 	return &userOutput{Body: toUserBody(u)}, nil
+}
+
+func (h *Handlers) verifyEmail(ctx context.Context, in *emailTokenInput) (*struct{}, error) {
+	if err := h.svc.VerifyEmail(ctx, in.Body.Token); err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return nil, nil
+}
+
+func (h *Handlers) resendVerification(ctx context.Context, _ *struct{}) (*struct{}, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.svc.ResendVerification(ctx, p.UserID); err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return nil, nil
+}
+
+func (h *Handlers) forgotPassword(ctx context.Context, in *forgotInput) (*struct{}, error) {
+	if err := h.svc.RequestPasswordReset(ctx, usecase.ForgotInput{Email: in.Body.Email, IP: in.ip}); err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return nil, nil
+}
+
+func (h *Handlers) resetPassword(ctx context.Context, in *resetPasswordInput) (*struct{}, error) {
+	if err := h.svc.ResetPassword(ctx, in.Body.Token, in.Body.Password); err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return nil, nil
 }
 
 // principal returns the caller put in the context by httpx.RequireUser.

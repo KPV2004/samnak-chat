@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -45,9 +46,13 @@ type Module struct {
 
 var _ app.Module = (*Module)(nil)
 
+// defaultWebURL is where the web app runs in development (SRS 15, M6).
+const defaultWebURL = "http://localhost:5173"
+
 type options struct {
 	now     func() time.Time
 	limiter usecase.LoginLimiter
+	webURL  string
 }
 
 // Option changes how New builds the module. Both exist for tests and for
@@ -59,6 +64,11 @@ func WithClock(now func() time.Time) Option { return func(o *options) { o.now = 
 
 // WithLoginLimiter replaces the failed-login counter, in memory or Redis.
 func WithLoginLimiter(l usecase.LoginLimiter) Option { return func(o *options) { o.limiter = l } }
+
+// WithWebURL sets the base of the links in mail, such as
+// https://chat.example.com. Without it the WEB_URL variable is used, then
+// http://localhost:5173.
+func WithWebURL(u string) Option { return func(o *options) { o.webURL = u } }
 
 func New(opts ...Option) *Module {
 	m := &Module{}
@@ -86,6 +96,9 @@ func (m *Module) Provide(s *app.Services) {
 // d.Platform["redis"] holds a *redis.Client, failed logins are counted there,
 // shared by every server; otherwise they are counted in memory. WithLoginLimiter
 // overrides both.
+//
+// The email job (AUTH-09) is registered only when d.Jobs is set. Mail is sent
+// with d.Mailer; without one the job logs and skips.
 func (m *Module) Init(d *app.Deps) error {
 	logger := d.Logger
 	if logger == nil {
@@ -115,10 +128,21 @@ func (m *Module) Init(d *app.Deps) error {
 	if pool != nil {
 		repo = postgres.NewRepository(pool)
 	}
+	webURL := m.opts.webURL
+	if webURL == "" {
+		webURL = os.Getenv("WEB_URL")
+	}
+	if webURL == "" {
+		webURL = defaultWebURL
+	}
 	m.svc = usecase.NewService(usecase.Deps{
 		Repo: repo, Tx: d.Tx, Limiter: limiter, Tokens: jwt.New([]byte(secret)),
 		Events: busEvents{bus: d.Bus, log: logger}, Now: now,
+		Jobs: d.Jobs, Mailer: d.Mailer, WebURL: strings.TrimRight(webURL, "/"), Logger: logger,
 	})
+	if d.Jobs != nil {
+		d.Jobs.Handle(usecase.EmailJobKind, m.svc.SendEmail, app.JobOptions{})
+	}
 	m.services = d.Services
 	m.logger = logger
 	return nil

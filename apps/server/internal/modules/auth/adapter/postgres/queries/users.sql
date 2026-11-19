@@ -21,3 +21,11 @@ UPDATE auth_users SET
     updated_at   = sqlc.arg('now')
 WHERE id = sqlc.arg('id')
 RETURNING *;
+
+-- name: MarkUserEmailVerified :exec
+UPDATE auth_users SET email_verified_at = sqlc.arg('now'), updated_at = sqlc.arg('now')
+WHERE id = sqlc.arg('id') AND email_verified_at IS NULL;
+
+-- name: UpdateUserPassword :exec
+UPDATE auth_users SET password_hash = sqlc.arg('password_hash'), updated_at = sqlc.arg('now')
+WHERE id = sqlc.arg('id');

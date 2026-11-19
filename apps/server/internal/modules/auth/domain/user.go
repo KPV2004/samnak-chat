@@ -46,6 +46,8 @@ type User struct {
 	Locale       string
 	Timezone     string
 	CreatedAt    time.Time
+	// EmailVerifiedAt is nil until the address was confirmed by its link (AUTH-09).
+	EmailVerifiedAt *time.Time
 }
 
 // NormalizeEmail trims and lower-cases an address and checks that it is a

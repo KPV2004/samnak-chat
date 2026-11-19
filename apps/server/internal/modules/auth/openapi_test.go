@@ -36,6 +36,11 @@ func TestRoutesAppearInOpenAPIWithoutADatabase(t *testing.T) {
 		"/auth/me":           {"get": true, "patch": true},
 		"/auth/devices":      {"get": true},
 		"/auth/devices/{id}": {"delete": true},
+
+		"/auth/email/verify":        {"post": false},
+		"/auth/email/verify/resend": {"post": true},
+		"/auth/password/forgot":     {"post": false},
+		"/auth/password/reset":      {"post": false},
 	}
 	spec := api.OpenAPI()
 	for path, methods := range want {

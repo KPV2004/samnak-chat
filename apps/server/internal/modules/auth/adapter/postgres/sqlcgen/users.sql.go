@@ -15,7 +15,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO auth_users (id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
-RETURNING id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at
+RETURNING id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at, email_verified_at
 `
 
 type CreateUserParams struct {
@@ -51,12 +51,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (AuthUse
 		&i.Timezone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at FROM auth_users WHERE lower(email) = lower($1)
+SELECT id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at, email_verified_at FROM auth_users WHERE lower(email) = lower($1)
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (AuthUser, error) {
@@ -72,12 +73,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (AuthUser, e
 		&i.Timezone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at FROM auth_users WHERE id = $1
+SELECT id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at, email_verified_at FROM auth_users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (AuthUser, error) {
@@ -93,12 +95,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (AuthUser, error) 
 		&i.Timezone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
 
 const getUsersByIDs = `-- name: GetUsersByIDs :many
-SELECT id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at FROM auth_users WHERE id = ANY($1::uuid[])
+SELECT id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at, email_verified_at FROM auth_users WHERE id = ANY($1::uuid[])
 `
 
 func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []string) ([]AuthUser, error) {
@@ -120,6 +123,7 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []string) ([]AuthU
 			&i.Timezone,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.EmailVerifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -131,6 +135,37 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []string) ([]AuthU
 	return items, nil
 }
 
+const markUserEmailVerified = `-- name: MarkUserEmailVerified :exec
+UPDATE auth_users SET email_verified_at = $1, updated_at = $1
+WHERE id = $2 AND email_verified_at IS NULL
+`
+
+type MarkUserEmailVerifiedParams struct {
+	Now *time.Time
+	ID  string
+}
+
+func (q *Queries) MarkUserEmailVerified(ctx context.Context, arg MarkUserEmailVerifiedParams) error {
+	_, err := q.db.Exec(ctx, markUserEmailVerified, arg.Now, arg.ID)
+	return err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE auth_users SET password_hash = $1, updated_at = $2
+WHERE id = $3
+`
+
+type UpdateUserPasswordParams struct {
+	PasswordHash string
+	Now          time.Time
+	ID           string
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, updateUserPassword, arg.PasswordHash, arg.Now, arg.ID)
+	return err
+}
+
 const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE auth_users SET
     display_name = COALESCE($1, display_name),
@@ -139,7 +174,7 @@ UPDATE auth_users SET
     timezone     = COALESCE($4, timezone),
     updated_at   = $5
 WHERE id = $6
-RETURNING id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at
+RETURNING id, email, password_hash, display_name, avatar_url, locale, timezone, created_at, updated_at, email_verified_at
 `
 
 type UpdateUserProfileParams struct {
@@ -171,6 +206,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.Timezone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }

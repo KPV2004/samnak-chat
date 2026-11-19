@@ -21,6 +21,16 @@ type AuthDevice struct {
 	RevokedAt  *time.Time
 }
 
+type AuthEmailToken struct {
+	ID        string
+	UserID    string
+	Purpose   string
+	TokenHash []byte
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
 type AuthRefreshToken struct {
 	ID        string
 	DeviceID  string
@@ -31,13 +41,14 @@ type AuthRefreshToken struct {
 }
 
 type AuthUser struct {
-	ID           string
-	Email        string
-	PasswordHash string
-	DisplayName  string
-	AvatarUrl    string
-	Locale       string
-	Timezone     string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID              string
+	Email           string
+	PasswordHash    string
+	DisplayName     string
+	AvatarUrl       string
+	Locale          string
+	Timezone        string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	EmailVerifiedAt *time.Time
 }

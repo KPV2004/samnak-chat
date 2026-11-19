@@ -114,9 +114,18 @@ type env struct {
 	services *app.Services
 	bus      *eventbus.Bus
 	pool     *pgxpool.Pool
+	jobs     *fakeJobs
+	mail     *fakeMailer
 }
 
 func newEnv(t *testing.T, opts ...auth.Option) *env {
+	t.Helper()
+	return startEnv(t, true, opts...)
+}
+
+// startEnv serves the module with a fake job queue. withMailer false starts it
+// with no Mailer, as a server without mail configuration (AUTH-09).
+func startEnv(t *testing.T, withMailer bool, opts ...auth.Option) *env {
 	t.Helper()
 	pool := testPool(t)
 	clk := newClock()
@@ -126,13 +135,21 @@ func newEnv(t *testing.T, opts ...auth.Option) *env {
 	api := httpx.NewAPI(r, "test")
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	bus := eventbus.New(logger)
+	e := &env{
+		t: t, h: r, clock: clk, bus: bus, pool: pool,
+		jobs: &fakeJobs{handlers: map[string]app.JobHandler{}}, mail: &fakeMailer{},
+	}
 	deps := &app.Deps{
 		Logger:        logger,
 		Services:      app.NewServices(),
 		Bus:           bus,
 		Notifications: app.NoopNotificationRegistry{},
 		Tx:            database.NewTxManager(pool),
+		Jobs:          e.jobs,
 		Platform:      map[string]any{"db": pool, "jwt_secret": testSecret},
+	}
+	if withMailer {
+		deps.Mailer = e.mail
 	}
 	reg := app.NewRegistry(mod)
 	mods, err := reg.Enable([]string{"auth"})
@@ -142,7 +159,113 @@ func newEnv(t *testing.T, opts ...auth.Option) *env {
 	if err := reg.Start(mods, deps, api); err != nil {
 		t.Fatal(err)
 	}
-	return &env{t: t, h: r, clock: clk, services: deps.Services, bus: bus, pool: pool}
+	e.services = deps.Services
+	return e
+}
+
+// fakeJobs stands in for the River queue. Enqueue records the job; deliver runs
+// the queued jobs of a kind once, as a worker would.
+type fakeJobs struct {
+	mu         sync.Mutex
+	handlers   map[string]app.JobHandler
+	queued     []queuedJob
+	enqueueErr error
+}
+
+type queuedJob struct {
+	kind string
+	args json.RawMessage
+}
+
+var _ app.Jobs = (*fakeJobs)(nil)
+
+func (j *fakeJobs) Handle(kind string, h app.JobHandler, _ app.JobOptions) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.handlers[kind] = h
+}
+
+func (j *fakeJobs) Every(time.Duration, string, any) {}
+
+func (j *fakeJobs) Enqueue(_ context.Context, kind string, args any, _ app.EnqueueOptions) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if j.enqueueErr != nil {
+		return j.enqueueErr
+	}
+	b, err := json.Marshal(args)
+	if err != nil {
+		return err
+	}
+	j.queued = append(j.queued, queuedJob{kind: kind, args: b})
+	return nil
+}
+
+// pending returns how many jobs of kind are waiting to run.
+func (j *fakeJobs) pending(kind string) int {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	n := 0
+	for _, q := range j.queued {
+		if q.kind == kind {
+			n++
+		}
+	}
+	return n
+}
+
+// deliver runs and removes the queued jobs of kind. A handler error fails the
+// test, since a worker would retry it.
+func (j *fakeJobs) deliver(t *testing.T, kind string) {
+	t.Helper()
+	j.mu.Lock()
+	var run, rest []queuedJob
+	for _, q := range j.queued {
+		if q.kind == kind {
+			run = append(run, q)
+		} else {
+			rest = append(rest, q)
+		}
+	}
+	j.queued = rest
+	h := j.handlers[kind]
+	j.mu.Unlock()
+	for _, q := range run {
+		if err := h(context.Background(), q.args); err != nil {
+			t.Fatalf("%s: %v", kind, err)
+		}
+	}
+}
+
+// fakeMailer records the mail it is asked to send.
+type fakeMailer struct {
+	mu   sync.Mutex
+	sent []app.Mail
+}
+
+var _ app.Mailer = (*fakeMailer)(nil)
+
+func (m *fakeMailer) Send(_ context.Context, mail app.Mail) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sent = append(m.sent, mail)
+	return nil
+}
+
+func (m *fakeMailer) count() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.sent)
+}
+
+// deliverMail runs the queued auth emails and returns the mails they sent.
+func (e *env) deliverMail() []app.Mail {
+	e.t.Helper()
+	before := e.mail.count()
+	e.jobs.deliver(e.t, "auth.send_email")
+	e.mail.mu.Lock()
+	defer e.mail.mu.Unlock()
+	return append([]app.Mail(nil), e.mail.sent[before:]...)
 }
 
 var emailSeq atomic.Int64
