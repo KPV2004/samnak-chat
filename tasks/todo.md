@@ -798,50 +798,62 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 - [x] Merge M6-01..05; wire `mail.New` into `Deps.Mailer` in `cmd/server`; register new migrations in `cmd/migrate`
 - [x] `make openapi` and commit regenerated types; full CI green
 
-## [ ] M6-06 web: email verification and password reset (wave 2)
+## [x] M6-06 web: email verification and password reset (wave 2)
 **SRS:** AUTH-09, NFR-17 · **Size:** S · **Depends on:** Checkpoint H
 
 **Acceptance criteria**
-- [ ] Pages `/verify-email?token=`, `/forgot-password`, `/reset-password?token=` with success, expired and invalid states; "Forgot password?" link on sign-in; banner with "Resend" for unverified users
-- [ ] Core API client from the generated schema; Thai and English; component tests; build, test and lint pass
+- [x] Pages `/verify-email?token=`, `/forgot-password`, `/reset-password?token=` with success, expired and invalid states; "Forgot password?" link on sign-in; banner with "Resend" for unverified users
+- [x] Core API client from the generated schema; Thai and English; component tests; build, test and lint pass
 
 **Files:** `packages/core/src/api/` (auth only), `apps/web/src/pages/` (new pages, `Login.tsx` link), `apps/web/src/App.tsx` (routes), `apps/web/src/components/` (new banner), `apps/web/src/i18n/`
 
-## [ ] M6-07 web: audit log and notification settings (wave 2)
+## [x] M6-07 web: audit log and notification settings (wave 2)
 **SRS:** WSP-10, NOTI-07 · **Size:** M · **Depends on:** Checkpoint H
 
 **Acceptance criteria**
-- [ ] "Audit log" page for Owner and Admin (actor, action in words, target, time in the user's time zone, load more)
-- [ ] "Notifications" settings: switch per kind, do-not-disturb start and end, muted channels list; "Mute channel" in the channel header menu; quiet frames show no toast
-- [ ] Core API clients; Thai and English; component tests; build, test and lint pass
+- [x] "Audit log" page for Owner and Admin (actor, action in words, target, time in the user's time zone, load more)
+- [x] "Notifications" settings: switch per kind, do-not-disturb start and end, muted channels list; "Mute channel" in the channel header menu; quiet frames show no toast
+- [x] Core API clients; Thai and English; component tests; build, test and lint pass
 
 **Files:** `packages/core/src/api/` (workspace audit and notify preferences only), `apps/web/src/pages/` (new pages), `apps/web/src/notify/`, `apps/web/src/chat/ChannelPage.tsx` (mute item in the header only), `apps/web/src/App.tsx`, `apps/web/src/components/AppSidebar.tsx` (nav items only), `apps/web/src/i18n/`
 
-## [ ] M6-08 self-hosting stack and multi-arch images (wave 2)
+## [x] M6-08 self-hosting stack and multi-arch images (wave 2)
 **SRS:** NFR-05, NFR-11, NFR-15 · **Size:** M · **Depends on:** Checkpoint H
 
 **Acceptance criteria**
-- [ ] `deploy/compose.prod.yml`: `server` (migrate, then serve; healthcheck on `/readyz`), `web` (Caddy serving the build and proxying `/api` and `/ws`; automatic TLS when `DOMAIN` is set), postgres, redis, minio; `/metrics` not published through Caddy; secrets only from `.env`
-- [ ] `docker compose -f deploy/compose.prod.yml up` on a clean checkout with the example env gives a working app on `http://localhost`
-- [ ] CI builds both images for `linux/amd64` and `linux/arm64` on every push and pushes to GHCR on `v*` tags
-- [ ] `deploy/README.md` with the install steps an outsider follows
+- [x] `deploy/compose.prod.yml`: `server` (migrate, then serve; healthcheck on `/readyz`), `web` (Caddy serving the build and proxying `/api` and `/ws`; automatic TLS when `DOMAIN` is set), postgres, redis, minio; `/metrics` not published through Caddy; secrets only from `.env`
+- [x] `docker compose -f deploy/compose.prod.yml up` on a clean checkout with the example env gives a working app on `http://localhost`
+- [x] CI builds both images for `linux/amd64` and `linux/arm64` on every push and pushes to GHCR on `v*` tags
+- [x] `deploy/README.md` with the install steps an outsider follows
 
 **Files:** `deploy/`, `apps/server/Dockerfile`, `apps/web/Dockerfile` (new), `.github/workflows/` (new `images.yml`), `.env.example`
 
-## [ ] M6-09 hardening sweep (wave 2)
+## [x] M6-09 hardening sweep (wave 2)
 **SRS:** NFR-06, NFR-07, NFR-09, NFR-10, NFR-12 · **Size:** M · **Depends on:** Checkpoint H
 
 **Acceptance criteria**
-- [ ] One acceptance test that, for every module, calls each workspace-scoped read and write endpoint with a member of another workspace and expects 403 or 404 (NFR-06)
-- [ ] Every presigned URL has a 15-minute lifetime, asserted in one test; every endpoint has input limits (list any without, do not change them) (NFR-07)
-- [ ] CI step computes coverage of all `domain` and `usecase` packages and fails below 80% (NFR-12); if it is below today, report the number and the packages instead of lowering the bar
-- [ ] `go test -race ./...` passes
+- [x] One acceptance test that, for every module, calls each workspace-scoped read and write endpoint with a member of another workspace and expects 403 or 404 (NFR-06)
+- [x] Every presigned URL has a 15-minute lifetime, asserted in one test; every endpoint has input limits (list any without, do not change them) (NFR-07)
+- [x] CI step computes coverage of all `domain` and `usecase` packages and fails below 80% (NFR-12); if it is below today, report the number and the packages instead of lowering the bar
+- [x] `go test -race ./...` passes
 
 **Files:** `apps/server/internal/acceptance/`, `.github/workflows/ci.yml`, `scripts/` (new coverage script)
 
 ## [ ] Checkpoint I: after M6 wave 2 (planner)
-- [ ] Merge M6-06..09; full CI green
+- [x] Merge M6-06..09; full CI green (planner added `S3_PUBLIC_ENDPOINT`, Caddy bucket route, `POSTGRES_PASSWORD`/`PUBLIC_URL` from `.env`, coverage over the whole suite with `-coverpkg`: 90.4%)
 - [ ] Fresh clone on a clean machine: follow `deploy/README.md`, working app in under 10 minutes (SRS 16.3 M6)
+
+## [ ] M6-12 API rate limits and input limits (wave 3)
+**SRS:** NFR-07 · **Size:** M · **Depends on:** Checkpoint I
+
+Found by M6-09: `platform/ratelimit` has no callers, so only login (auth's own limiter) is rate limited, and `knownLimitGaps` in `internal/acceptance/nfr07_test.go` lists 71 request values with no declared limit.
+
+**Acceptance criteria**
+- [ ] A per-user (and per-IP when signed out) limit on every `/api/v1` route through `platform/ratelimit` on Redis, mounted in the router; 429 with `Retry-After`; limits in config with sane defaults; login keeps its stricter limit
+- [ ] Every entry of `knownLimitGaps` gets a schema limit (`maxLength`, `maximum`, `maxItems`, `maxProperties`) that matches what the usecase allows; the list ends empty and the test stays exact
+- [ ] Tests for 429 and for one limit per module; `go test -race ./...` passes; OpenAPI regenerated
+
+**Files:** `apps/server/internal/platform/ratelimit/`, `apps/server/internal/platform/httpx/` (middleware hook only), `apps/server/internal/platform/config/`, `apps/server/cmd/server/` (mounting only), every module's `adapter/http/` (struct tags only), `apps/server/internal/acceptance/nfr07_test.go`, `apps/server/api/`, `packages/core/src/api/schema.d.ts` (generated)
 
 ## [ ] M6-10 load test (wave 3)
 **SRS:** NFR-01, NFR-02, NFR-03, NFR-04 · **Size:** M · **Depends on:** Checkpoint I
