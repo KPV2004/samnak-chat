@@ -57,6 +57,9 @@ func TestNotificationRule(t *testing.T) {
 		if n.Link != "/chat/"+ch.ID || n.Key != "chat.message:"+msg.ID {
 			t.Errorf("link/key = %q/%q", n.Link, n.Key)
 		}
+		if n.ChannelID != ch.ID {
+			t.Errorf("channel id = %q, want %q", n.ChannelID, ch.ID)
+		}
 		if n.Data["channel_id"] != ch.ID || n.Data["message_id"] != msg.ID || n.Data["seq"] != msg.Seq {
 			t.Errorf("data = %v", n.Data)
 		}

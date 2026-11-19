@@ -41,17 +41,53 @@ func ToNotifications(ns []domain.Notification) []Notification {
 	return out
 }
 
+// Preferences is one user's notification settings (NOTI-07), as GET returns
+// them and PUT replaces them. Times are "HH:MM" in the user's time zone; both
+// are null when there is no do-not-disturb window.
+type Preferences struct {
+	DisabledKinds   []string `json:"disabled_kinds" nullable:"false" doc:"Kinds the user does not want, e.g. chat.dm"`
+	MutedChannelIDs []string `json:"muted_channel_ids" nullable:"false" doc:"Channels whose notices are dropped"`
+	DNDStart        *string  `json:"dnd_start" nullable:"true" doc:"Do-not-disturb start, HH:MM; null with dnd_end null for none"`
+	DNDEnd          *string  `json:"dnd_end" nullable:"true" doc:"Do-not-disturb end, HH:MM; wraps past midnight when before dnd_start"`
+}
+
+// ToPreferences converts stored settings.
+func ToPreferences(p domain.Preferences) Preferences {
+	out := Preferences{DisabledKinds: p.DisabledKinds, MutedChannelIDs: p.MutedChannelIDs}
+	if p.DNDStart != "" {
+		start, end := p.DNDStart, p.DNDEnd
+		out.DNDStart, out.DNDEnd = &start, &end
+	}
+	return out
+}
+
+// ToDomain converts settings a client sent. Owner fields are not set here: the
+// use case takes them from the Principal.
+func (p Preferences) ToDomain() domain.Preferences {
+	out := domain.Preferences{DisabledKinds: p.DisabledKinds, MutedChannelIDs: p.MutedChannelIDs}
+	if p.DNDStart != nil {
+		out.DNDStart = *p.DNDStart
+	}
+	if p.DNDEnd != nil {
+		out.DNDEnd = *p.DNDEnd
+	}
+	return out
+}
+
 // Names of the frames notify sends to a user's own devices (NOTI-03).
 const (
 	EventCreated = "notification.created"
 	EventRead    = "notification.read"
 )
 
-// CreatedEvent is the `data` of notification.created.
+// CreatedEvent is the `data` of notification.created. quiet is true inside the
+// user's do-not-disturb window: the client updates the bell but shows no toast
+// (NOTI-07).
 type CreatedEvent struct {
 	WorkspaceID  string       `json:"workspace_id"`
 	Notification Notification `json:"notification"`
 	UnreadCount  int64        `json:"unread_count"`
+	Quiet        bool         `json:"quiet"`
 }
 
 // ReadEvent is the `data` of notification.read, so the user's other devices

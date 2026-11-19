@@ -152,7 +152,7 @@ func TestDispatchWithoutRulesDoesNothing(t *testing.T) {
 func TestDispatchToleratesMissingParts(t *testing.T) {
 	// No rule source at all (a bare test), and a nil event: both are no-ops.
 	repo := &fakeRepo{}
-	svc := New(&fakeTx{}, repo, nil, nil, quietLog(), fixedNow())
+	svc := New(&fakeTx{}, repo, nil, nil, nil, quietLog(), fixedNow())
 	if err := svc.Dispatch(context.Background(), testEvent{Name: "test.thing"}); err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestDispatchWithoutRealtimeStillStores(t *testing.T) {
 	tx := &fakeTx{}
 	rules := app.NewNotificationRules()
 	rules.On("test.thing", ruleOf(mention(u1, "chat.mention", "chat.message:m1")))
-	svc := New(tx, repo, rules, nil, quietLog(), fixedNow())
+	svc := New(tx, repo, rules, nil, nil, quietLog(), fixedNow())
 
 	if err := svc.Dispatch(context.Background(), testEvent{Name: "test.thing"}); err != nil {
 		t.Fatal(err)

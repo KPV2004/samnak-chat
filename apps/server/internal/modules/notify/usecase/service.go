@@ -25,21 +25,23 @@ type Service struct {
 	// process collects no rules, e.g. a bare test.
 	rules app.NotificationRuleSource
 	repo  Repository
-	ev    Events // nil tolerates realtime being unconfigured
+	ev    Events    // nil tolerates realtime being unconfigured
+	dir   Directory // nil means every user is in UTC
 	log   *slog.Logger
 	now   func() time.Time
 }
 
 // New builds a Service. rules may be nil; ev may be nil when realtime is not
-// configured. now is injected so tests can control time.
-func New(tx app.TxManager, repo Repository, rules app.NotificationRuleSource, ev Events, log *slog.Logger, now func() time.Time) *Service {
+// configured; dir may be nil when auth is not. now is injected so tests can
+// control time.
+func New(tx app.TxManager, repo Repository, rules app.NotificationRuleSource, ev Events, dir Directory, log *slog.Logger, now func() time.Time) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{tx: tx, repo: repo, rules: rules, ev: ev, log: log, now: now}
+	return &Service{tx: tx, repo: repo, rules: rules, ev: ev, dir: dir, log: log, now: now}
 }
 
 // clock returns the current time in UTC, rounded to what Postgres stores.

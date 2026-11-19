@@ -63,6 +63,9 @@ type fakeRepo struct {
 	lastBefore string
 	pruned     time.Time
 	pruneRows  int64
+
+	prefs    map[[2]string]domain.Preferences // by workspace and user
+	prefsErr error
 }
 
 func (f *fakeRepo) Insert(_ context.Context, n domain.Notification) (domain.Notification, bool, error) {
@@ -192,6 +195,31 @@ func (f *fakeRepo) Prune(_ context.Context, before time.Time) (int64, error) {
 	return deleted, nil
 }
 
+func (f *fakeRepo) Preferences(_ context.Context, workspaceID string, userIDs []string) (map[string]domain.Preferences, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.prefsErr != nil {
+		return nil, f.prefsErr
+	}
+	out := map[string]domain.Preferences{}
+	for _, id := range userIDs {
+		if p, ok := f.prefs[[2]string{workspaceID, id}]; ok {
+			out[id] = p
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) SavePreferences(_ context.Context, p domain.Preferences) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.prefs == nil {
+		f.prefs = map[[2]string]domain.Preferences{}
+	}
+	f.prefs[[2]string{p.WorkspaceID, p.UserID}] = p
+	return nil
+}
+
 func (f *fakeRepo) all() []domain.Notification {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -239,6 +267,7 @@ func (f *fakeTx) commitsNow() int {
 type createdCall struct {
 	N             domain.Notification
 	Unread        int64
+	Quiet         bool
 	CommitsAtSend int
 }
 
@@ -257,14 +286,14 @@ type fakeEvents struct {
 	read    []readCall
 }
 
-func (f *fakeEvents) Created(_ context.Context, n domain.Notification, unread int64) {
+func (f *fakeEvents) Created(_ context.Context, n domain.Notification, unread int64, quiet bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	commits := 0
 	if f.tx != nil {
 		commits = f.tx.commitsNow()
 	}
-	f.created = append(f.created, createdCall{N: n, Unread: unread, CommitsAtSend: commits})
+	f.created = append(f.created, createdCall{N: n, Unread: unread, Quiet: quiet, CommitsAtSend: commits})
 }
 
 func (f *fakeEvents) Read(_ context.Context, workspaceID, userID string, ids []string, all bool, unread int64) {
@@ -285,11 +314,36 @@ func (f *fakeEvents) readCalls() []readCall {
 	return append([]readCall(nil), f.read...)
 }
 
+// fakeDirectory answers time zones from a map; users it does not list are in UTC.
+type fakeDirectory struct {
+	zones map[string]string
+	err   error
+}
+
+func (f *fakeDirectory) Timezones(_ context.Context, userIDs []string) (map[string]string, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	out := map[string]string{}
+	for _, id := range userIDs {
+		if z, ok := f.zones[id]; ok {
+			out[id] = z
+		}
+	}
+	return out, nil
+}
+
 func newService(t *testing.T) (*Service, *fakeRepo, *fakeTx, *fakeEvents, *app.NotificationRules) {
+	t.Helper()
+	return newServiceWith(t, &fakeDirectory{}, fixedNow())
+}
+
+// newServiceWith is newService with a chosen directory and clock.
+func newServiceWith(t *testing.T, dir Directory, now func() time.Time) (*Service, *fakeRepo, *fakeTx, *fakeEvents, *app.NotificationRules) {
 	t.Helper()
 	repo := &fakeRepo{}
 	tx := &fakeTx{}
 	ev := &fakeEvents{tx: tx}
 	rules := app.NewNotificationRules()
-	return New(tx, repo, rules, ev, quietLog(), fixedNow()), repo, tx, ev, rules
+	return New(tx, repo, rules, ev, dir, quietLog(), now), repo, tx, ev, rules
 }

@@ -120,7 +120,7 @@ func (s *Service) NotifyMessageCreated(ctx context.Context, in NotifyInput) ([]a
 	for i, id := range recipients {
 		out[i] = app.Notification{
 			WorkspaceID: in.WorkspaceID, UserID: id, Kind: kinds[id],
-			Title: title, Body: body, Link: link, Data: notifyData(ch, sender, in), Key: key,
+			Title: title, Body: body, Link: link, ChannelID: in.ChannelID, Data: notifyData(ch, sender, in), Key: key,
 		}
 	}
 	return out, nil

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	httpadapter "github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify/adapter/http"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify/adapter/postgres"
 	rtadapter "github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify/adapter/realtime"
@@ -65,13 +66,38 @@ func (m *Module) Init(d *app.Deps) error {
 	// The server passes app.NewNotificationRules; a noop registry collects
 	// nothing, so the assertion leaves source nil and Subscribe does nothing.
 	m.source, _ = d.Notifications.(app.NotificationRuleSource)
-	m.uc = usecase.New(d.Tx, postgres.New(pool), m.source, rtadapter.New(d.Realtime, m.log), m.log, time.Now)
+	// Without auth the do-not-disturb window reads in UTC (NOTI-07).
+	var zones usecase.Directory
+	if d.Services != nil {
+		if dir, ok := app.Lookup[auth.Directory](d.Services); ok {
+			zones = timezones{dir}
+		}
+	}
+	m.uc = usecase.New(d.Tx, postgres.New(pool), m.source, rtadapter.New(d.Realtime, m.log), zones, m.log, time.Now)
 
 	if d.Jobs != nil {
 		d.Jobs.Handle(PruneJobKind, m.prune, app.JobOptions{})
 		d.Jobs.Every(PruneJobInterval, PruneJobKind, nil)
 	}
 	return nil
+}
+
+// timezones reads each user's time zone from auth.Directory (NOTI-07). Users
+// with no zone are left out, so they read in UTC.
+type timezones struct{ dir auth.Directory }
+
+func (t timezones) Timezones(ctx context.Context, userIDs []string) (map[string]string, error) {
+	users, err := t.dir.Users(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(users))
+	for _, u := range users {
+		if u.Timezone != "" {
+			out[u.ID] = u.Timezone
+		}
+	}
+	return out, nil
 }
 
 // prune is the notify.prune job handler. It ignores its args.

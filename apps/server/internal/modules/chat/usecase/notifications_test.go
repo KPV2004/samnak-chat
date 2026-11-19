@@ -142,6 +142,9 @@ func TestNotifyMentionNotifiesOnlyTheMentionedMember(t *testing.T) {
 	if n.Link != "/chat/"+e.channel {
 		t.Errorf("link = %q", n.Link)
 	}
+	if n.ChannelID != e.channel {
+		t.Errorf("channel id = %q, want %q: notify drops muted channels by it (NOTI-07)", n.ChannelID, e.channel)
+	}
 	if n.Key != "chat.message:"+e.message {
 		t.Errorf("key = %q", n.Key)
 	}
@@ -205,6 +208,9 @@ func TestNotifyDirectMessageNotifiesTheOtherMembers(t *testing.T) {
 		if n.Link != "/chat/"+e.channel {
 			t.Errorf("link = %q", n.Link)
 		}
+		if n.ChannelID != e.channel {
+			t.Errorf("channel id = %q, want %q", n.ChannelID, e.channel)
+		}
 	}
 	if got[0].UserID != bob || got[1].UserID != carol {
 		t.Errorf("recipients = %v", userIDs(got))
@@ -228,6 +234,9 @@ func TestNotifyThreadReplyNotifiesRootAuthorAndEarlierRepliers(t *testing.T) {
 		}
 		if n.Data["thread_root_id"] != root {
 			t.Errorf("data[thread_root_id] = %#v", n.Data["thread_root_id"])
+		}
+		if n.ChannelID != e.channel {
+			t.Errorf("channel id = %q, want %q", n.ChannelID, e.channel)
 		}
 	}
 	if len(e.repo.participantCalls) != 1 || e.repo.participantCalls[0] != [3]string{e.ws, e.channel, root} {
