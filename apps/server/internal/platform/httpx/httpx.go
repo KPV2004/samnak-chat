@@ -35,9 +35,11 @@ type Check struct {
 }
 
 // NewRouter returns a router with request ID, access log and panic recovery
-// middleware, and GET /healthz.
-func NewRouter(logger *slog.Logger) chi.Router {
+// middleware, and GET /healthz. The outer middleware wraps the built-in ones,
+// in the order given, so it sees the status the recoverer writes for a panic.
+func NewRouter(logger *slog.Logger, outer ...func(http.Handler) http.Handler) chi.Router {
 	r := chi.NewRouter()
+	r.Use(outer...)
 	r.Use(requestID, accessLog(logger), recoverer(logger))
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})

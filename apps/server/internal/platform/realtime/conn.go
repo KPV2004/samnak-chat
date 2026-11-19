@@ -182,6 +182,7 @@ func (c *conn) writeLoop() {
 				c.drop()
 				return
 			}
+			wsMessagesSent.Inc()
 		case <-c.done:
 			return
 		}

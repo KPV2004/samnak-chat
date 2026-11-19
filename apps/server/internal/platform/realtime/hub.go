@@ -254,6 +254,7 @@ func (h *Hub) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.conns[c] = struct{}{}
+	wsConnections.Inc()
 	h.wg.Add(1)
 	h.mu.Unlock()
 	defer h.wg.Done()
@@ -272,7 +273,10 @@ func (h *Hub) register(c *conn) {
 func (h *Hub) unregister(c *conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	delete(h.conns, c)
+	if _, open := h.conns[c]; open {
+		delete(h.conns, c)
+		wsConnections.Dec()
+	}
 	remove(h.byUser, c.id.UserID, c)
 	remove(h.byDevice, c.id.DeviceID, c)
 }
