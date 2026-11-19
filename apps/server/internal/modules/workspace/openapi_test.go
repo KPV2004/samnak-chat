@@ -35,6 +35,7 @@ func TestOperationsAppearInOpenAPIWithoutDatabase(t *testing.T) {
 		"/workspace/groups":              {"GET", "POST"},
 		"/workspace/groups/{id}":         {"PATCH", "DELETE"},
 		"/workspace/groups/{id}/members": {"GET", "PUT"},
+		"/workspace/audit":               {"GET"},
 	}
 	paths := api.OpenAPI().Paths
 	for path, methods := range want {

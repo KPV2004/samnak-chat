@@ -50,7 +50,13 @@ func (s *Service) CreateGroup(ctx context.Context, p app.Principal, name string)
 		return GroupView{}, err
 	}
 	g := domain.Group{ID: newID(), WorkspaceID: p.WorkspaceID, Name: name, CreatedAt: s.now().UTC()}
-	if err := s.repo.InsertGroup(ctx, g); err != nil {
+	err = s.tx.Do(ctx, func(ctx context.Context) error {
+		if err := s.repo.InsertGroup(ctx, g); err != nil {
+			return err
+		}
+		return s.record(ctx, p, domain.AuditGroupCreated, domain.TargetGroup, g.ID, nil)
+	})
+	if err != nil {
 		return GroupView{}, nameTaken(err, name)
 	}
 	return GroupView{Group: g, ManagerIDs: []string{}}, nil
@@ -65,10 +71,21 @@ func (s *Service) RenameGroup(ctx context.Context, p app.Principal, groupID, nam
 	if err != nil {
 		return GroupView{}, err
 	}
-	if err := s.repo.RenameGroup(ctx, p.WorkspaceID, groupID, name); err != nil {
+	var g GroupView
+	err = s.tx.Do(ctx, func(ctx context.Context) error {
+		if err := s.repo.RenameGroup(ctx, p.WorkspaceID, groupID, name); err != nil {
+			return err
+		}
+		if err := s.record(ctx, p, domain.AuditGroupUpdated, domain.TargetGroup, groupID, nil); err != nil {
+			return err
+		}
+		g, err = s.repo.GetGroup(ctx, p.WorkspaceID, groupID)
+		return err
+	})
+	if err != nil {
 		return GroupView{}, nameTaken(err, name)
 	}
-	return s.repo.GetGroup(ctx, p.WorkspaceID, groupID)
+	return g, nil
 }
 
 // DeleteGroup deletes a group and its memberships.
@@ -76,7 +93,12 @@ func (s *Service) DeleteGroup(ctx context.Context, p app.Principal, groupID stri
 	if err := requireGroupManager(p); err != nil {
 		return err
 	}
-	return s.repo.DeleteGroup(ctx, p.WorkspaceID, groupID)
+	return s.tx.Do(ctx, func(ctx context.Context) error {
+		if err := s.repo.DeleteGroup(ctx, p.WorkspaceID, groupID); err != nil {
+			return err
+		}
+		return s.record(ctx, p, domain.AuditGroupDeleted, domain.TargetGroup, groupID, nil)
+	})
 }
 
 // ListGroupMembers returns who is in a group, with names. When the directory
@@ -142,7 +164,10 @@ func (s *Service) ReplaceGroupMembers(ctx context.Context, p app.Principal, grou
 				return fmt.Errorf("user %s is not an active member of the workspace: %w", id, app.ErrInvalid)
 			}
 		}
-		return s.repo.ReplaceGroupMembers(ctx, p.WorkspaceID, groupID, members, s.now().UTC())
+		if err := s.repo.ReplaceGroupMembers(ctx, p.WorkspaceID, groupID, members, s.now().UTC()); err != nil {
+			return err
+		}
+		return s.record(ctx, p, domain.AuditGroupMembersSet, domain.TargetGroup, groupID, nil)
 	})
 }
 

@@ -10,6 +10,17 @@ import (
 	"github.com/google/uuid"
 )
 
+type WorkspaceAudit struct {
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+	ActorID     uuid.UUID
+	Action      string
+	TargetType  string
+	TargetID    uuid.UUID
+	Data        []byte
+	CreatedAt   time.Time
+}
+
 type WorkspaceGroup struct {
 	ID          uuid.UUID
 	WorkspaceID uuid.UUID

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace/domain"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace/usecase"
 )
 
@@ -47,6 +48,8 @@ func (r *fakeRepo) ActiveMemberIDs(_ context.Context, _ string, ids []string) ([
 	}
 	return out, nil
 }
+
+func (r *fakeRepo) InsertAudit(context.Context, domain.AuditEntry) error { return nil }
 
 func (r *fakeRepo) ReplaceGroupMembers(_ context.Context, _, _ string, m []usecase.GroupMember, _ time.Time) error {
 	r.calls = append(r.calls, "replace")

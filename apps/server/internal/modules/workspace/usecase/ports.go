@@ -21,6 +21,12 @@ type MemberCursor struct {
 	UserID   string
 }
 
+// AuditCursor is the position after the last row of a page of the audit log.
+type AuditCursor struct {
+	CreatedAt time.Time
+	ID        string
+}
+
 // Repository is the storage the use cases need. Every method that touches
 // workspace data takes the workspace ID, which callers read from the
 // Principal. Methods return an error wrapping app.ErrNotFound for a missing
@@ -81,6 +87,13 @@ type Repository interface {
 	// ordered by group name and then by manager_since, without the user and
 	// without duplicates.
 	ManagersOf(ctx context.Context, workspaceID, userID string) ([]string, error)
+
+	// InsertAudit writes one audit row. The use case calls it in the
+	// transaction of the change the row records.
+	InsertAudit(ctx context.Context, e domain.AuditEntry) error
+	// ListAudit returns up to limit rows of the workspace, newest first, after
+	// cursor when it is not nil.
+	ListAudit(ctx context.Context, workspaceID string, after *AuditCursor, limit int) ([]domain.AuditEntry, error)
 }
 
 // GroupView is a group with its counts.
