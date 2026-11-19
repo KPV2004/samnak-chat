@@ -75,6 +75,11 @@ describe("Login", () => {
     await waitFor(() => expect(screen.getByLabelText("Password")).toBeInvalid());
   });
 
+  it("links to the forgot-password page", () => {
+    renderApp({ route: "/login", signedIn: false });
+    expect(screen.getByRole("link", { name: "Forgot password?" })).toHaveAttribute("href", "/forgot-password");
+  });
+
   it("links to registration", () => {
     renderApp({ route: "/login", signedIn: false });
     expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/register");

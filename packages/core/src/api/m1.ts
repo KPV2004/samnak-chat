@@ -26,6 +26,7 @@ export type ProfilePatch = Schemas["UpdateMeInputBody"];
 export type CreateWorkspaceInput = Schemas["CreateInputBody"];
 export type MemberPatch = Schemas["UpdateMemberInputBody"];
 export type CreateInviteInput = Schemas["CreateInviteInputBody"];
+export type ResetPasswordInput = Schemas["ResetPasswordInputBody"];
 
 // Not `Schemas["ListMembersOutputBody"]`: Huma numbers equal names across modules, so that one is chat's.
 export type MemberPage = Exclude<paths["/workspace/members"]["get"], undefined>["responses"][200]["content"]["application/json"];
@@ -92,6 +93,10 @@ export interface M1Api {
   listInvites(): Promise<{ items: Invite[] }>;
   revokeInvite(id: string): Promise<void>;
   acceptInvite(token: string): Promise<Workspace>;
+  verifyEmail(token: string): Promise<void>;
+  resendVerification(): Promise<void>;
+  forgotPassword(email: string): Promise<void>;
+  resetPassword(input: ResetPasswordInput): Promise<void>;
 }
 
 export function createM1Api(client: ApiClient): M1Api {
@@ -114,5 +119,9 @@ export function createM1Api(client: ApiClient): M1Api {
     listInvites: () => call(client, "get", "/workspace/invites"),
     revokeInvite: (id) => call(client, "delete", "/workspace/invites/{id}", { params: { id } }),
     acceptInvite: (token) => call(client, "post", "/workspace/invites/accept", { body: { token } }),
+    verifyEmail: (token) => call(client, "post", "/auth/email/verify", { body: { token }, anonymous: true }),
+    resendVerification: () => call(client, "post", "/auth/email/verify/resend"),
+    forgotPassword: (email) => call(client, "post", "/auth/password/forgot", { body: { email }, anonymous: true }),
+    resetPassword: (input) => call(client, "post", "/auth/password/reset", { body: input, anonymous: true }),
   };
 }
