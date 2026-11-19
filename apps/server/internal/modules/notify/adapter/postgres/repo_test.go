@@ -316,3 +316,83 @@ func sameSet(got, want []string) bool {
 	}
 	return true
 }
+
+func TestPreferencesRoundTrip(t *testing.T) {
+	repo := postgres.New(testPool(t))
+	ctx := context.Background()
+	ws, user := newID(), newID()
+	chanA, chanB := newID(), newID()
+
+	got, err := repo.Preferences(ctx, ws, []string{user})
+	if err != nil || len(got) != 0 {
+		t.Fatalf("no row yet: %v %v, want an empty map", got, err)
+	}
+
+	saved := domain.Preferences{
+		UserID: user, WorkspaceID: ws, DisabledKinds: []string{"chat.dm", "chat.thread_reply"},
+		MutedChannelIDs: []string{chanA, chanB}, DNDStart: "09:05", DNDEnd: "17:00",
+		UpdatedAt: time.Now().Truncate(time.Microsecond),
+	}
+	if err := repo.SavePreferences(ctx, saved); err != nil {
+		t.Fatal(err)
+	}
+	got, err = repo.Preferences(ctx, ws, []string{user})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, ok := got[user]
+	if !ok {
+		t.Fatalf("saved row not found: %+v", got)
+	}
+	if !sameSet(p.DisabledKinds, saved.DisabledKinds) || !sameSet(p.MutedChannelIDs, saved.MutedChannelIDs) {
+		t.Fatalf("lists = %v / %v, want %v / %v", p.DisabledKinds, p.MutedChannelIDs, saved.DisabledKinds, saved.MutedChannelIDs)
+	}
+	if p.DNDStart != "09:05" || p.DNDEnd != "17:00" {
+		t.Fatalf("window = %q-%q, want 09:05-17:00", p.DNDStart, p.DNDEnd)
+	}
+	if !p.UpdatedAt.Equal(saved.UpdatedAt) || p.WorkspaceID != ws || p.UserID != user {
+		t.Fatalf("row = %+v", p)
+	}
+
+	// A second save replaces the whole row: no window, empty lists.
+	cleared := domain.Preferences{UserID: user, WorkspaceID: ws, DisabledKinds: []string{}, MutedChannelIDs: []string{}, UpdatedAt: time.Now()}
+	if err := repo.SavePreferences(ctx, cleared); err != nil {
+		t.Fatal(err)
+	}
+	got, err = repo.Preferences(ctx, ws, []string{user})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p = got[user]
+	if len(p.DisabledKinds) != 0 || len(p.MutedChannelIDs) != 0 || p.DNDStart != "" || p.DNDEnd != "" {
+		t.Fatalf("second save left values behind: %+v", p)
+	}
+}
+
+func TestPreferencesAreScopedToOneWorkspaceAndUser(t *testing.T) {
+	repo := postgres.New(testPool(t))
+	ctx := context.Background()
+	ws, otherWS := newID(), newID()
+	alice, bob := newID(), newID()
+	at := time.Now().Truncate(time.Microsecond)
+
+	if err := repo.SavePreferences(ctx, domain.Preferences{UserID: alice, WorkspaceID: ws, DisabledKinds: []string{"chat.dm"}, UpdatedAt: at}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := repo.Preferences(ctx, otherWS, []string{alice}); err != nil || len(got) != 0 {
+		t.Fatalf("alice in another workspace = %v %v, want none", got, err)
+	}
+	got, err := repo.Preferences(ctx, ws, []string{alice, bob})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got[bob]; ok || len(got) != 1 {
+		t.Fatalf("bulk read = %+v, want only alice", got)
+	}
+	if !sameSet(got[alice].DisabledKinds, []string{"chat.dm"}) {
+		t.Fatalf("alice kinds = %v", got[alice].DisabledKinds)
+	}
+	if got, err := repo.Preferences(ctx, ws, nil); err != nil || len(got) != 0 {
+		t.Fatalf("no users = %v %v, want an empty map", got, err)
+	}
+}

@@ -45,6 +45,8 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	huma.Register(api, op("notify-unread-count", http.MethodGet, "/unread-count", "The number of unread notifications in this workspace", 0), h.unreadCount)
 	huma.Register(api, op("notify-mark-read", http.MethodPost, "/notifications/{id}/read", "Mark one notification read; repeating it changes nothing", http.StatusNoContent), h.markRead)
 	huma.Register(api, op("notify-read-all", http.MethodPost, "/read-all", "Mark every notification in this workspace read", http.StatusNoContent), h.readAll)
+	huma.Register(api, op("notify-get-preferences", http.MethodGet, "/preferences", "My notification settings in this workspace; defaults when never saved", 0), h.getPreferences)
+	huma.Register(api, op("notify-set-preferences", http.MethodPut, "/preferences", "Replace my notification settings in this workspace", 0), h.setPreferences)
 }
 
 func principal(ctx context.Context) (app.Principal, error) {
@@ -151,4 +153,36 @@ func (h *Handler) readAll(ctx context.Context, _ *struct{}) (*struct{}, error) {
 		return nil, h.fail(ctx, err)
 	}
 	return nil, nil
+}
+
+type preferencesOutput struct {
+	Body wire.Preferences
+}
+
+func (h *Handler) getPreferences(ctx context.Context, _ *struct{}) (*preferencesOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	pref, err := h.uc.GetPreferences(ctx, p)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &preferencesOutput{Body: wire.ToPreferences(pref)}, nil
+}
+
+type setPreferencesInput struct {
+	Body wire.Preferences
+}
+
+func (h *Handler) setPreferences(ctx context.Context, in *setPreferencesInput) (*preferencesOutput, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	pref, err := h.uc.SetPreferences(ctx, p, in.Body.ToDomain())
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return &preferencesOutput{Body: wire.ToPreferences(pref)}, nil
 }

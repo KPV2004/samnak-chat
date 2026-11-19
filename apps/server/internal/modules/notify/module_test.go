@@ -25,6 +25,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/notify"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/database"
 	dbmigrations "github.com/KPV2004/samnak-chat/apps/server/internal/platform/database/migrations"
@@ -88,10 +89,13 @@ func sharedDB(t *testing.T) *pgxpool.Pool {
 
 func newID() string { return uuid.Must(uuid.NewV7()).String() }
 
-// thingHappened is an event of a hypothetical source module.
+// thingHappened is an event of a hypothetical source module. Kind and
+// ChannelID are what its rule copies into the notices it produces.
 type thingHappened struct {
 	WorkspaceID string
 	Key         string
+	Kind        string
+	ChannelID   string
 }
 
 func (thingHappened) EventName() string { return "test.thing" }
@@ -103,6 +107,19 @@ func (f fakeAuth) Authenticate(_ context.Context, token string) (app.Identity, e
 		return id, nil
 	}
 	return app.Identity{}, fmt.Errorf("token: %w", app.ErrUnauthorized)
+}
+
+// fakeDirectory is auth.Directory with a time zone per user ID.
+type fakeDirectory map[string]string
+
+func (f fakeDirectory) Users(_ context.Context, ids []string) ([]auth.UserSummary, error) {
+	var out []auth.UserSummary
+	for _, id := range ids {
+		if z, ok := f[id]; ok {
+			out = append(out, auth.UserSummary{ID: id, Timezone: z})
+		}
+	}
+	return out, nil
 }
 
 type fakeMembers map[string]app.Role
@@ -224,6 +241,7 @@ type env struct {
 	rules   *app.NotificationRules
 	auth    fakeAuth
 	members fakeMembers
+	zones   fakeDirectory
 	deps    *app.Deps
 	reg     *app.Registry
 	ws      string
@@ -238,7 +256,7 @@ func newEnvWith(t *testing.T, rt *fakeRealtime, jobs *fakeJobs) *env {
 	pool := sharedDB(t)
 	e := &env{
 		t: t, pool: pool, rt: rt, jobs: jobs, rules: app.NewNotificationRules(),
-		auth: fakeAuth{}, members: fakeMembers{}, ws: newID(),
+		auth: fakeAuth{}, members: fakeMembers{}, zones: fakeDirectory{}, ws: newID(),
 	}
 	e.alice = e.newUser()
 	e.bob = e.newUser()
@@ -246,6 +264,7 @@ func newEnvWith(t *testing.T, rt *fakeRealtime, jobs *fakeJobs) *env {
 	services := app.NewServices()
 	app.Provide[app.Authenticator](services, e.auth)
 	app.Provide[app.MembershipResolver](services, e.members)
+	app.Provide[auth.Directory](services, e.zones)
 
 	logger := slogNew(testWriter{t})
 	e.bus = eventbus.New(logger)
@@ -620,5 +639,167 @@ func TestNoopRegistryCollectsNoRules(t *testing.T) {
 	}
 	if got := e.unread(e.alice); got != 0 {
 		t.Fatalf("unread = %d, want 0 with a noop registry", got)
+	}
+}
+
+// channelRule notifies both users about the event's channel and kind, the
+// way chat's rules do: the notice carries ChannelID.
+func (e *env) channelRule() {
+	e.rules.On("test.thing", func(_ context.Context, evt app.Event) ([]app.Notification, error) {
+		ev := evt.(thingHappened)
+		var out []app.Notification
+		for _, u := range []user{e.alice, e.bob} {
+			out = append(out, app.Notification{
+				WorkspaceID: ev.WorkspaceID, UserID: u.ID, Kind: ev.Kind, Title: "Ada in #general",
+				Link: "/chat/" + ev.ChannelID, ChannelID: ev.ChannelID, Key: ev.Key,
+			})
+		}
+		return out, nil
+	})
+}
+
+// publishTo publishes one event and returns nothing; the frames show up in
+// e.rt.
+func (e *env) publishTo(kind, channelID, key string) {
+	e.t.Helper()
+	evt := thingHappened{WorkspaceID: e.ws, Key: key, Kind: kind, ChannelID: channelID}
+	if err := e.bus.Publish(context.Background(), evt); err != nil {
+		e.t.Fatal(err)
+	}
+}
+
+func (e *env) savePreferences(u user, body map[string]any) {
+	e.t.Helper()
+	if r := e.call("PUT", "/notify/preferences", u, body); r.Code != 200 {
+		e.t.Fatalf("put preferences = %d %s", r.Code, r.Body)
+	}
+}
+
+// createdFor returns the notification.created frames delivered to one user.
+func (e *env) createdFor(userID string) []notify.CreatedEvent {
+	e.t.Helper()
+	var out []notify.CreatedEvent
+	for _, f := range e.rt.of(notify.EventCreated) {
+		if len(f.Users) != 1 || f.Users[0] != userID {
+			continue
+		}
+		var data notify.CreatedEvent
+		if err := json.Unmarshal(f.Data, &data); err != nil {
+			e.t.Fatal(err)
+		}
+		out = append(out, data)
+	}
+	return out
+}
+
+func TestMutedChannelAndDisabledKindDropOnlyForThatUser(t *testing.T) {
+	e := newEnv(t)
+	e.channelRule()
+	e.start()
+	const muted, open = "0193f0f0-0000-7000-8000-0000000000d1", "0193f0f0-0000-7000-8000-0000000000d2"
+	e.savePreferences(e.alice, map[string]any{
+		"disabled_kinds": []string{"chat.dm"}, "muted_channel_ids": []string{muted},
+		"dnd_start": nil, "dnd_end": nil,
+	})
+
+	e.publishTo("chat.mention", muted, "chat.message:m1") // alice muted this channel
+	e.publishTo("chat.dm", open, "chat.message:m2")       // alice turned DMs off
+	e.publishTo("chat.mention", open, "chat.message:m3")  // alice keeps this one
+
+	if got := e.unread(e.alice); got != 1 {
+		t.Fatalf("alice unread = %d, want 1 (only the open channel's mention)", got)
+	}
+	if page := e.list(e.alice, ""); len(page.Items) != 1 || page.Items[0].Link != "/chat/"+open {
+		t.Fatalf("alice list = %+v", page.Items)
+	}
+	if got := e.unread(e.bob); got != 3 {
+		t.Fatalf("bob unread = %d, want 3: alice's settings must not touch bob", got)
+	}
+	if got := len(e.createdFor(e.alice.ID)); got != 1 {
+		t.Fatalf("alice got %d frames, want 1", got)
+	}
+	if got := len(e.createdFor(e.bob.ID)); got != 3 {
+		t.Fatalf("bob got %d frames, want 3", got)
+	}
+}
+
+// aroundNow returns "HH:MM" times for the Bangkok clock an hour before and an
+// hour after now, so a window built from them contains now. Shifting both by
+// two hours gives a window that does not.
+func aroundNow(t *testing.T) (inStart, inEnd, outStart, outEnd string) {
+	t.Helper()
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := time.Now().In(loc)
+	clock := func(d time.Duration) string { return local.Add(d).Format("15:04") }
+	return clock(-time.Hour), clock(time.Hour), clock(2 * time.Hour), clock(4 * time.Hour)
+}
+
+func TestDoNotDisturbStoresAndCountsButMarksQuiet(t *testing.T) {
+	e := newEnv(t)
+	e.zones[e.alice.ID] = "Asia/Bangkok"
+	e.channelRule()
+	e.start()
+	inStart, inEnd, _, _ := aroundNow(t)
+	e.savePreferences(e.alice, map[string]any{
+		"disabled_kinds": []string{}, "muted_channel_ids": []string{},
+		"dnd_start": inStart, "dnd_end": inEnd,
+	})
+
+	e.publishTo("chat.mention", "0193f0f0-0000-7000-8000-0000000000d3", "chat.message:m1")
+
+	alice := e.createdFor(e.alice.ID)
+	if len(alice) != 1 {
+		t.Fatalf("alice got %d frames, want 1", len(alice))
+	}
+	if !alice[0].Quiet {
+		t.Fatal("alice's frame is not quiet inside her window")
+	}
+	if alice[0].UnreadCount != 1 || e.unread(e.alice) != 1 {
+		t.Fatal("a quiet notice must still be stored and counted")
+	}
+	bob := e.createdFor(e.bob.ID)
+	if len(bob) != 1 || bob[0].Quiet {
+		t.Fatalf("bob's frame = %+v, want one that is not quiet", bob)
+	}
+}
+
+func TestOutsideTheWindowTheFrameIsNotQuiet(t *testing.T) {
+	e := newEnv(t)
+	e.zones[e.alice.ID] = "Asia/Bangkok"
+	e.channelRule()
+	e.start()
+	_, _, outStart, outEnd := aroundNow(t)
+	e.savePreferences(e.alice, map[string]any{
+		"disabled_kinds": []string{}, "muted_channel_ids": []string{},
+		"dnd_start": outStart, "dnd_end": outEnd,
+	})
+
+	e.publishTo("chat.mention", "0193f0f0-0000-7000-8000-0000000000d3", "chat.message:m1")
+
+	if frames := e.createdFor(e.alice.ID); len(frames) != 1 || frames[0].Quiet {
+		t.Fatalf("alice's frames = %+v, want one that is not quiet", frames)
+	}
+}
+
+func TestPreferenceRowsAreReadPerWorkspace(t *testing.T) {
+	e := newEnv(t)
+	e.channelRule()
+	e.start()
+	e.savePreferences(e.alice, map[string]any{
+		"disabled_kinds": []string{"chat.mention"}, "muted_channel_ids": []string{},
+		"dnd_start": nil, "dnd_end": nil,
+	})
+
+	// A notice for another workspace is not alice's settings here.
+	otherWS := newID()
+	evt := thingHappened{WorkspaceID: otherWS, Key: "chat.message:m9", Kind: "chat.mention"}
+	if err := e.bus.Publish(context.Background(), evt); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(e.rt.of(notify.EventCreated)); got != 2 {
+		t.Fatalf("frames = %d, want 2: alice's workspace setting must not apply in %s", got, otherWS)
 	}
 }

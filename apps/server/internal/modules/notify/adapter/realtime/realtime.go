@@ -40,9 +40,9 @@ func (p *Publisher) send(ctx context.Context, userID, typ string, data any) {
 	}
 }
 
-func (p *Publisher) Created(ctx context.Context, n domain.Notification, unreadCount int64) {
+func (p *Publisher) Created(ctx context.Context, n domain.Notification, unreadCount int64, quiet bool) {
 	p.send(ctx, n.UserID, wire.EventCreated, wire.CreatedEvent{
-		WorkspaceID: n.WorkspaceID, Notification: wire.ToNotification(n), UnreadCount: unreadCount,
+		WorkspaceID: n.WorkspaceID, Notification: wire.ToNotification(n), UnreadCount: unreadCount, Quiet: quiet,
 	})
 }
 

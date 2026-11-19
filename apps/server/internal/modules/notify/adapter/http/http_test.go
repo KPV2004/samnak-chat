@@ -48,9 +48,10 @@ func (f fakeMembers) Role(_ context.Context, workspaceID, userID string) (app.Ro
 // the Postgres one: per-user key deduplication, newest-first pages and
 // ErrNotFound for anything the caller does not own.
 type testRepo struct {
-	mu   sync.Mutex
-	rows []domain.Notification
-	seq  int
+	mu    sync.Mutex
+	rows  []domain.Notification
+	seq   int
+	prefs map[[2]string]domain.Preferences
 }
 
 func (r *testRepo) Insert(_ context.Context, n domain.Notification) (domain.Notification, bool, error) {
@@ -145,6 +146,28 @@ func (r *testRepo) MarkAllRead(_ context.Context, workspaceID, userID string, at
 
 func (r *testRepo) Prune(context.Context, time.Time) (int64, error) { return 0, nil }
 
+func (r *testRepo) Preferences(_ context.Context, workspaceID string, userIDs []string) (map[string]domain.Preferences, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := map[string]domain.Preferences{}
+	for _, id := range userIDs {
+		if p, ok := r.prefs[[2]string{workspaceID, id}]; ok {
+			out[id] = p
+		}
+	}
+	return out, nil
+}
+
+func (r *testRepo) SavePreferences(_ context.Context, p domain.Preferences) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.prefs == nil {
+		r.prefs = map[[2]string]domain.Preferences{}
+	}
+	r.prefs[[2]string{p.WorkspaceID, p.UserID}] = p
+	return nil
+}
+
 type readCall struct {
 	WorkspaceID string
 	UserID      string
@@ -159,7 +182,7 @@ type fakeEvents struct {
 	read    []readCall
 }
 
-func (f *fakeEvents) Created(_ context.Context, n domain.Notification, _ int64) {
+func (f *fakeEvents) Created(_ context.Context, n domain.Notification, _ int64, _ bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.created = append(f.created, n)
@@ -188,7 +211,7 @@ func newEnv(t *testing.T) *env {
 	t.Helper()
 	repo := &testRepo{}
 	ev := &fakeEvents{}
-	uc := usecase.New(noopTx{}, repo, nil, ev, nil, nil)
+	uc := usecase.New(noopTx{}, repo, nil, ev, nil, nil, nil)
 
 	services := app.NewServices()
 	app.Provide[app.Authenticator](services, fakeAuth{
@@ -402,5 +425,102 @@ func mustDecode(t *testing.T, b []byte, v any) {
 	t.Helper()
 	if err := json.Unmarshal(b, v); err != nil {
 		t.Fatalf("decode %s: %v", b, err)
+	}
+}
+
+const (
+	chanA = "0193f0f0-0000-7000-8000-0000000000c1"
+	chanB = "0193f0f0-0000-7000-8000-0000000000c2"
+)
+
+type preferencesBody struct {
+	DisabledKinds   []string `json:"disabled_kinds"`
+	MutedChannelIDs []string `json:"muted_channel_ids"`
+	DNDStart        *string  `json:"dnd_start"`
+	DNDEnd          *string  `json:"dnd_end"`
+}
+
+func TestPreferencesRequireAuthAndWorkspace(t *testing.T) {
+	e := newEnv(t)
+	if got := e.api.Get("/preferences").Code; got != 401 {
+		t.Fatalf("no token = %d, want 401", got)
+	}
+	if got := e.api.Get("/preferences", "Authorization: Bearer carol", "X-Workspace-ID: "+ws).Code; got != 403 {
+		t.Fatalf("non-member = %d, want 403", got)
+	}
+	if got := e.api.Put("/preferences", "Authorization: Bearer carol", "X-Workspace-ID: "+ws, map[string]any{"disabled_kinds": []string{}, "muted_channel_ids": []string{}, "dnd_start": nil, "dnd_end": nil}).Code; got != 403 {
+		t.Fatalf("non-member PUT = %d, want 403", got)
+	}
+}
+
+func TestPreferencesDefaultThenRoundTrip(t *testing.T) {
+	e := newEnv(t)
+
+	rec := e.api.Get("/preferences", headers("alice")...)
+	if rec.Code != 200 {
+		t.Fatalf("get defaults = %d %s", rec.Code, rec.Body)
+	}
+	var raw map[string]any
+	mustDecode(t, rec.Body.Bytes(), &raw)
+	for _, key := range []string{"disabled_kinds", "muted_channel_ids", "dnd_start", "dnd_end"} {
+		if _, ok := raw[key]; !ok {
+			t.Fatalf("defaults lack %q: %s", key, rec.Body)
+		}
+	}
+	if raw["dnd_start"] != nil || raw["dnd_end"] != nil {
+		t.Fatalf("defaults have a window: %s", rec.Body)
+	}
+	var defaults preferencesBody
+	mustDecode(t, rec.Body.Bytes(), &defaults)
+	if len(defaults.DisabledKinds) != 0 || len(defaults.MutedChannelIDs) != 0 {
+		t.Fatalf("defaults filter something: %+v", defaults)
+	}
+
+	start, end := "22:00", "07:00"
+	put := e.api.Put("/preferences", append(headers("alice"), map[string]any{
+		"disabled_kinds": []string{"chat.dm"}, "muted_channel_ids": []string{chanB, chanA},
+		"dnd_start": start, "dnd_end": end,
+	})...)
+	if put.Code != 200 {
+		t.Fatalf("put = %d %s", put.Code, put.Body)
+	}
+	var saved preferencesBody
+	mustDecode(t, put.Body.Bytes(), &saved)
+	if len(saved.DisabledKinds) != 1 || saved.DisabledKinds[0] != "chat.dm" || len(saved.MutedChannelIDs) != 2 {
+		t.Fatalf("put echoed %+v", saved)
+	}
+	if saved.DNDStart == nil || *saved.DNDStart != start || saved.DNDEnd == nil || *saved.DNDEnd != end {
+		t.Fatalf("put window = %v-%v", saved.DNDStart, saved.DNDEnd)
+	}
+
+	var got preferencesBody
+	mustDecode(t, e.api.Get("/preferences", headers("alice")...).Body.Bytes(), &got)
+	if len(got.DisabledKinds) != 1 || len(got.MutedChannelIDs) != 2 || got.DNDStart == nil || *got.DNDStart != "22:00" {
+		t.Fatalf("get after put = %+v", got)
+	}
+
+	// Bob has his own settings, so alice's do not show for him.
+	var bobs preferencesBody
+	mustDecode(t, e.api.Get("/preferences", headers("bob")...).Body.Bytes(), &bobs)
+	if len(bobs.DisabledKinds) != 0 || len(bobs.MutedChannelIDs) != 0 || bobs.DNDStart != nil {
+		t.Fatalf("bob sees alice's settings: %+v", bobs)
+	}
+}
+
+func TestPutPreferencesRejectsInvalidInput(t *testing.T) {
+	e := newEnv(t)
+	bad := []map[string]any{
+		{"disabled_kinds": []string{"mention"}, "muted_channel_ids": []string{}, "dnd_start": nil, "dnd_end": nil},
+		{"disabled_kinds": []string{}, "muted_channel_ids": []string{"general"}, "dnd_start": nil, "dnd_end": nil},
+		{"disabled_kinds": []string{}, "muted_channel_ids": []string{}, "dnd_start": "22:00", "dnd_end": nil},
+		{"disabled_kinds": []string{}, "muted_channel_ids": []string{}, "dnd_start": "25:00", "dnd_end": "07:00"},
+	}
+	for _, body := range bad {
+		if rec := e.api.Put("/preferences", append(headers("alice"), body)...); rec.Code != 400 {
+			t.Fatalf("put %v = %d %s, want 400", body, rec.Code, rec.Body)
+		}
+	}
+	if len(e.repo.prefs) != 0 {
+		t.Fatalf("invalid puts stored %d rows", len(e.repo.prefs))
 	}
 }
