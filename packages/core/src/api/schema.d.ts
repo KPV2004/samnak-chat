@@ -158,6 +158,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/email/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm the email address with the link from the mail */
+        post: operations["auth-verify-email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/email/verify/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the verification mail again
+         * @description Does nothing when the address is verified already. Five sends per minute per user, then 429.
+         */
+        post: operations["auth-resend-verification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -211,6 +248,46 @@ export interface paths {
         head?: never;
         /** Edit the profile */
         patch: operations["auth-update-me"];
+        trace?: never;
+    };
+    "/auth/password/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a link to reset the password
+         * @description Always 204, so the answer does not show whether the email has an account. Mail goes out only to an account, and each email and IP is limited like a failed login.
+         */
+        post: operations["auth-forgot-password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with the link from the mail
+         * @description The link works once and for one hour. Every session of the account ends.
+         */
+        post: operations["auth-reset-password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/auth/refresh": {
@@ -768,6 +845,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notify/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My notification settings in this workspace; defaults when never saved */
+        get: operations["notify-get-preferences"];
+        /** Replace my notification settings in this workspace */
+        put: operations["notify-set-preferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notify/read-all": {
         parameters: {
             query?: never;
@@ -850,6 +945,26 @@ export interface paths {
         put?: never;
         /** Create a workspace; the caller becomes its owner */
         post: operations["workspace-create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspace/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the audit log of the workspace, newest first (owner or admin)
+         * @description Records invites, role and status changes, removals and group changes made by admins. Pages are at most 100 rows.
+         */
+        get: operations["workspace-list-audit"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1180,6 +1295,21 @@ export interface components {
             /** @description Presigned download URL; opening it saves the file under its name */
             url: string;
         };
+        AuditEntry: {
+            /** @enum {string} */
+            action: "invite.created" | "invite.revoked" | "member.updated" | "member.removed" | "group.created" | "group.updated" | "group.deleted" | "group.members_set";
+            actor_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description What the action changed, for example {"role": {"from": "member", "to": "manager"}}; an empty object when nothing more is recorded */
+            data: {
+                [key: string]: unknown;
+            };
+            id: string;
+            target_id: string;
+            /** @enum {string} */
+            target_type: "member" | "invite" | "group";
+        };
         Channel: {
             /** Format: date-time */
             archived_at: string | null;
@@ -1281,9 +1411,17 @@ export interface components {
         EditMessageInputBody: {
             body: string;
         };
+        EmailTokenInputBody: {
+            /** @description The token from the link in the mail */
+            token: string;
+        };
         ExtensionsOutputBody: {
             commands: components["schemas"]["CommandInfo"][];
             message_actions: components["schemas"]["MessageActionInfo"][];
+        };
+        ForgotInputBody: {
+            /** @description Answered with 204 whether or not the account exists */
+            email: string;
         };
         Group: {
             id: string;
@@ -1552,6 +1690,11 @@ export interface components {
             is_manager: boolean;
             user_id: string;
         };
+        ListAuditOutputBody: {
+            items: components["schemas"]["AuditEntry"][];
+            /** @description Empty on the last page */
+            next_cursor: string;
+        };
         ListChannelsOutputBody: {
             items: components["schemas"]["Channel"][];
         };
@@ -1689,6 +1832,16 @@ export interface components {
             /** @description The other people; the caller is added */
             user_ids: string[] | null;
         };
+        Preferences: {
+            /** @description Kinds the user does not want, e.g. chat.dm */
+            disabled_kinds: string[];
+            /** @description Do-not-disturb end, HH:MM; wraps past midnight when before dnd_start */
+            dnd_end: string | null;
+            /** @description Do-not-disturb start, HH:MM; null with dnd_end null for none */
+            dnd_start: string | null;
+            /** @description Channels whose notices are dropped */
+            muted_channel_ids: string[];
+        };
         PresignedUpload: {
             /** Format: date-time */
             expires_at: string;
@@ -1719,6 +1872,11 @@ export interface components {
              */
             email: string;
             password: string;
+        };
+        ResetPasswordInputBody: {
+            password: string;
+            /** @description The token from the link in the mail */
+            token: string;
         };
         RunCommandInputBody: {
             /** @description The text after the command name; at most 4,000 characters */
@@ -1865,6 +2023,7 @@ export interface components {
             display_name: string;
             /** @example alice@example.com */
             email: string;
+            email_verified: boolean;
             /** @example 0192f0c1-7b1e-7c3a-9d1e-5b6f4a3c2d10 */
             id: string;
             /** @enum {string} */
@@ -2249,6 +2408,100 @@ export interface operations {
             };
         };
     };
+    "auth-verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailTokenInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "auth-resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     "auth-login": {
         parameters: {
             query?: never;
@@ -2438,6 +2691,86 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "auth-forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "auth-reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3836,6 +4169,68 @@ export interface operations {
             };
         };
     };
+    "notify-get-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "notify-set-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Preferences"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     "notify-read-all": {
         parameters: {
             query?: never;
@@ -4083,6 +4478,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Workspace"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "workspace-list-audit": {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from the previous page's next_cursor */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListAuditOutputBody"];
                 };
             };
             /** @description Error */

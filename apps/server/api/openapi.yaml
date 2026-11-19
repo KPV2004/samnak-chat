@@ -391,6 +391,48 @@ components:
         - url
         - expires_at
       type: object
+    AuditEntry:
+      additionalProperties: false
+      properties:
+        action:
+          enum:
+            - invite.created
+            - invite.revoked
+            - member.updated
+            - member.removed
+            - group.created
+            - group.updated
+            - group.deleted
+            - group.members_set
+          type: string
+        actor_id:
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        data:
+          additionalProperties: {}
+          description: "What the action changed, for example {\"role\": {\"from\": \"member\", \"to\": \"manager\"}}; an empty object when nothing more is recorded"
+          type: object
+        id:
+          type: string
+        target_id:
+          type: string
+        target_type:
+          enum:
+            - member
+            - invite
+            - group
+          type: string
+      required:
+        - id
+        - actor_id
+        - action
+        - target_type
+        - target_id
+        - data
+        - created_at
+      type: object
     Channel:
       additionalProperties: false
       properties:
@@ -622,6 +664,17 @@ components:
       required:
         - body
       type: object
+    EmailTokenInputBody:
+      additionalProperties: false
+      properties:
+        token:
+          description: The token from the link in the mail
+          maxLength: 512
+          minLength: 1
+          type: string
+      required:
+        - token
+      type: object
     ExtensionsOutputBody:
       additionalProperties: false
       properties:
@@ -636,6 +689,16 @@ components:
       required:
         - commands
         - message_actions
+      type: object
+    ForgotInputBody:
+      additionalProperties: false
+      properties:
+        email:
+          description: Answered with 204 whether or not the account exists
+          maxLength: 254
+          type: string
+      required:
+        - email
       type: object
     Group:
       additionalProperties: false
@@ -1313,6 +1376,20 @@ components:
         - user_id
         - is_manager
       type: object
+    ListAuditOutputBody:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/AuditEntry"
+          type: array
+        next_cursor:
+          description: Empty on the last page
+          type: string
+      required:
+        - items
+        - next_cursor
+      type: object
     ListChannelsOutputBody:
       additionalProperties: false
       properties:
@@ -1668,6 +1745,35 @@ components:
       required:
         - user_ids
       type: object
+    Preferences:
+      additionalProperties: false
+      properties:
+        disabled_kinds:
+          description: Kinds the user does not want, e.g. chat.dm
+          items:
+            type: string
+          type: array
+        dnd_end:
+          description: Do-not-disturb end, HH:MM; wraps past midnight when before dnd_start
+          type:
+            - string
+            - "null"
+        dnd_start:
+          description: Do-not-disturb start, HH:MM; null with dnd_end null for none
+          type:
+            - string
+            - "null"
+        muted_channel_ids:
+          description: Channels whose notices are dropped
+          items:
+            type: string
+          type: array
+      required:
+        - disabled_kinds
+        - muted_channel_ids
+        - dnd_start
+        - dnd_end
+      type: object
     PresignedUpload:
       additionalProperties: false
       properties:
@@ -1739,6 +1845,22 @@ components:
         - email
         - password
         - display_name
+      type: object
+    ResetPasswordInputBody:
+      additionalProperties: false
+      properties:
+        password:
+          maxLength: 128
+          minLength: 8
+          type: string
+        token:
+          description: The token from the link in the mail
+          maxLength: 512
+          minLength: 1
+          type: string
+      required:
+        - token
+        - password
       type: object
     RunCommandInputBody:
       additionalProperties: false
@@ -2061,6 +2183,8 @@ components:
           examples:
             - alice@example.com
           type: string
+        email_verified:
+          type: boolean
         id:
           examples:
             - 0192f0c1-7b1e-7c3a-9d1e-5b6f4a3c2d10
@@ -2083,6 +2207,7 @@ components:
         - locale
         - timezone
         - created_at
+        - email_verified
       type: object
     Workspace:
       additionalProperties: false
@@ -2438,6 +2563,69 @@ paths:
       summary: Log one device out
       tags:
         - auth
+  /auth/email/verify:
+    post:
+      operationId: auth-verify-email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailTokenInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Bad Request
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      summary: Confirm the email address with the link from the mail
+      tags:
+        - auth
+  /auth/email/verify/resend:
+    post:
+      description: Does nothing when the address is verified already. Five sends per minute per user, then 429.
+      operationId: auth-resend-verification
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unauthorized
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Too Many Requests
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      security:
+        - bearer: []
+      summary: Send the verification mail again
+      tags:
+        - auth
   /auth/login:
     post:
       description: Five failed logins per minute per email and per IP are answered with 429.
@@ -2592,6 +2780,62 @@ paths:
       security:
         - bearer: []
       summary: Edit the profile
+      tags:
+        - auth
+  /auth/password/forgot:
+    post:
+      description: Always 204, so the answer does not show whether the email has an account. Mail goes out only to an account, and each email and IP is limited like a failed login.
+      operationId: auth-forgot-password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      summary: Send a link to reset the password
+      tags:
+        - auth
+  /auth/password/reset:
+    post:
+      description: The link works once and for one hour. Every session of the account ends.
+      operationId: auth-reset-password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Bad Request
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Internal Server Error
+      summary: Set a new password with the link from the mail
       tags:
         - auth
   /auth/refresh:
@@ -3840,6 +4084,53 @@ paths:
       summary: Mark one notification read; repeating it changes nothing
       tags:
         - notify
+  /notify/preferences:
+    get:
+      operationId: notify-get-preferences
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: My notification settings in this workspace; defaults when never saved
+      tags:
+        - notify
+    put:
+      operationId: notify-set-preferences
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Preferences"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Replace my notification settings in this workspace
+      tags:
+        - notify
   /notify/read-all:
     post:
       operationId: notify-read-all
@@ -4090,6 +4381,45 @@ paths:
       security:
         - bearer: []
       summary: Create a workspace; the caller becomes its owner
+      tags:
+        - workspace
+  /workspace/audit:
+    get:
+      description: Records invites, role and status changes, removals and group changes made by admins. Pages are at most 100 rows.
+      operationId: workspace-list-audit
+      parameters:
+        - description: Opaque cursor from the previous page's next_cursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Opaque cursor from the previous page's next_cursor
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int64
+            maximum: 100
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAuditOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: List the audit log of the workspace, newest first (owner or admin)
       tags:
         - workspace
   /workspace/groups:

@@ -32,6 +32,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/eventbus"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/httpx"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/jobs"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/mail"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/observability"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/realtime"
 	redisclient "github.com/KPV2004/samnak-chat/apps/server/internal/platform/redis"
@@ -163,6 +164,10 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 		Bus:      bus,
 		Realtime: hub,
 		Storage:  store,
+		Mailer: mail.New(mail.Config{
+			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword, From: cfg.SMTPFrom,
+		}, logger),
 		Mount:    hub.Mount,
 		Platform: map[string]any{"db": pool, "jwt_secret": cfg.JWTSecret},
 		Checks:   []httpx.Check{{Name: "db", Fn: pool.Ping}},
@@ -216,6 +221,8 @@ type infra struct {
 	Tx    app.TxManager
 	// Jobs is the background queue; nil in tests and the openapi command.
 	Jobs app.Jobs
+	// Mailer sends email from job handlers; nil in tests and the openapi command.
+	Mailer app.Mailer
 	// Bus is the event bus with the outbox; nil means an in-memory bus, as in
 	// tests and the openapi command.
 	Bus      app.EventBus
@@ -342,6 +349,7 @@ func newDeps(logger *slog.Logger, in infra) *app.Deps {
 		Notifications: app.NewNotificationRules(),
 		Tx:            in.Tx,
 		Jobs:          in.Jobs,
+		Mailer:        in.Mailer,
 		Platform:      in.Platform,
 	}
 }
