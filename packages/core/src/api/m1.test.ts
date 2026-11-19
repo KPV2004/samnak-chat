@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createApiClient } from "./client";
-import type { Device, Invite, Member, MemberPage, TokenPair, User, Workspace } from "./m1";
+import type { AuditEntry, Device, Invite, Member, MemberPage, TokenPair, User, Workspace } from "./m1";
 import { createM1Api } from "./m1";
 import type { components } from "./schema";
 
@@ -23,6 +23,8 @@ describe("M1 types come from the generated schema", () => {
     expectTypeOf(api.register).returns.resolves.toEqualTypeOf<Schemas["UserBody"]>();
     expectTypeOf(api.login).parameter(0).toEqualTypeOf<Schemas["LoginInputBody"]>();
     expectTypeOf(api.listMembers).returns.resolves.toEqualTypeOf<MemberPage>();
+    expectTypeOf(api.listAudit).returns.resolves.toEqualTypeOf<Schemas["ListAuditOutputBody"]>();
+    expectTypeOf<AuditEntry>().toEqualTypeOf<Schemas["AuditEntry"]>();
     // Chat's channel members page is also called ListMembersOutputBody in the document; this must be the workspace's.
     expectTypeOf<MemberPage["items"][number]>().toEqualTypeOf<Schemas["Member"]>();
     expectTypeOf(api.acceptInvite).returns.resolves.toEqualTypeOf<Schemas["Workspace"]>();
@@ -64,6 +66,12 @@ describe("M1 api calls", () => {
     expect(last().url).toBe("/api/v1/workspace/members?cursor=c1&limit=20");
     await api.listMembers();
     expect(last().url).toBe("/api/v1/workspace/members");
+    await api.listAudit({ cursor: "a/1+2", limit: 25 });
+    expect(last()).toMatchObject({ url: "/api/v1/workspace/audit?cursor=a%2F1%2B2&limit=25", method: "GET" });
+    await api.listAudit({ cursor: "", limit: 50 });
+    expect(last().url).toBe("/api/v1/workspace/audit?limit=50");
+    await api.listAudit();
+    expect(last().url).toBe("/api/v1/workspace/audit");
     await api.updateMember("u1", { role: "admin" });
     expect(last()).toMatchObject({ url: "/api/v1/workspace/members/u1", method: "PATCH", body: { role: "admin" } });
     await api.removeMember("u1");

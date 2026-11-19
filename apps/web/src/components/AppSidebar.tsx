@@ -1,4 +1,4 @@
-import { House, Laptop, LogOut, MessagesSquare, Plus, UserPlus, UserRound, Users } from "lucide-react";
+import { BellRing, House, Laptop, LogOut, MessagesSquare, Plus, ScrollText, UserPlus, UserRound, Users } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -7,7 +7,8 @@ import { ApprovalNav } from "../approval/ApprovalNav";
 import { Sidebar as ChannelList } from "../chat/Sidebar";
 import { HelpdeskNav } from "../helpdesk/HelpdeskNav";
 import { useT } from "../i18n/useT";
-import { useMe, useWorkspaces } from "../state/queries";
+import { useModuleEnabled } from "../modules";
+import { canManage, useMe, useWorkspaces } from "../state/queries";
 import { useSession } from "../state/session";
 import { TaskNavLink } from "../task/TaskNavLink";
 import { Brand } from "./Brand";
@@ -24,6 +25,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const session = useSession();
   const me = useMe();
   const { workspaces, current } = useWorkspaces();
+  const notifyEnabled = useModuleEnabled("notify");
   // The channel list looks up member names, so it only mounts where chat is open, as before.
   const inChat = useLocation().pathname.startsWith("/chat");
 
@@ -81,12 +83,22 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
           <NavItem to="/invites" icon={UserPlus}>
             {t("nav.invites")}
           </NavItem>
+          {canManage(current?.role) && (
+            <NavItem to="/audit" icon={ScrollText}>
+              {t("nav.audit")}
+            </NavItem>
+          )}
           <NavItem to="/profile" icon={UserRound}>
             {t("nav.profile")}
           </NavItem>
           <NavItem to="/devices" icon={Laptop}>
             {t("nav.devices")}
           </NavItem>
+          {notifyEnabled && (
+            <NavItem to="/notifications/settings" icon={BellRing}>
+              {t("nav.notifySettings")}
+            </NavItem>
+          )}
         </nav>
         {inChat && <ChannelList />}
       </div>

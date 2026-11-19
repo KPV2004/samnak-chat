@@ -10,6 +10,8 @@ type Schemas = components["schemas"];
 export type NotificationItem = Schemas["Notification"];
 export type NotificationPage = Schemas["NotificationsOutputBody"];
 export type UnreadNotificationCount = Schemas["UnreadCountOutputBody"];
+/** My notification settings in one workspace (NOTI-07). Times are HH:MM; both or neither of the DND pair. */
+export type NotifyPreferences = Schemas["Preferences"];
 
 export interface ListNotificationsParams {
   /** Only the unread ones. */
@@ -25,6 +27,10 @@ export interface M3Api {
   unreadNotificationCount(): Promise<UnreadNotificationCount>;
   readNotification(id: string): Promise<void>;
   readAllNotifications(): Promise<void>;
+  /** Defaults when never saved: every kind on, no channel muted, no do-not-disturb. */
+  getPreferences(): Promise<NotifyPreferences>;
+  /** Replaces the whole settings object; send every field, not a patch. */
+  setPreferences(prefs: NotifyPreferences): Promise<NotifyPreferences>;
 }
 
 const base = "/api/v1";
@@ -42,5 +48,12 @@ export function createM3Api(client: ApiClient): M3Api {
     unreadNotificationCount: () => client.request(`${base}/notify/unread-count`),
     readNotification: (id) => client.request(`${base}/notify/notifications/${enc(id)}/read`, { method: "POST" }),
     readAllNotifications: () => client.request(`${base}/notify/read-all`, { method: "POST" }),
+    getPreferences: () => client.request(`${base}/notify/preferences`),
+    setPreferences: (prefs) =>
+      client.request(`${base}/notify/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(prefs),
+      }),
   };
 }

@@ -38,6 +38,8 @@ const Profile = page(() => import("./pages/Profile"), "Profile");
 const Devices = page(() => import("./pages/Devices"), "Devices");
 const NewWorkspace = page(() => import("./pages/NewWorkspace"), "NewWorkspace");
 const AcceptInvite = page(() => import("./pages/AcceptInvite"), "AcceptInvite");
+const Audit = page(() => import("./pages/Audit"), "Audit");
+const NotificationSettings = page(() => import("./pages/NotificationSettings"), "NotificationSettings");
 
 export function App() {
   return (
@@ -67,6 +69,8 @@ export function App() {
         <Route path="invites" element={<Invites />} />
         <Route path="profile" element={<Profile />} />
         <Route path="devices" element={<Devices />} />
+        <Route path="audit" element={<Audit />} />
+        <Route path="notifications/settings" element={<RequireModule name="notify"><NotificationSettings /></RequireModule>} />
         <Route path="workspaces/new" element={<NewWorkspace />} />
         <Route path="invite/:token" element={<AcceptInvite />} />
       </Route>

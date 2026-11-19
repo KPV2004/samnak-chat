@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useT } from "../i18n/useT";
+import { ChannelMuteMenu } from "../notify/ChannelMuteMenu";
 import { useChat, useChatState } from "../state/chat";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
@@ -64,6 +65,7 @@ export function ChannelPage() {
             {channel.topic && <p className="text-sm text-muted-foreground">{channel.topic}</p>}
           </div>
           <small className="shrink-0 text-xs text-muted-foreground">{t("chat.members", { n: channel.member_count })}</small>
+          <ChannelMuteMenu channelId={channelId} />
         </header>
         <MessageList channelId={channelId} />
         <TypingIndicator channelId={channelId} />
