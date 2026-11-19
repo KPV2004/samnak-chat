@@ -12,6 +12,7 @@ import { useCurrentLocale, useT } from "../i18n/useT";
 import { formatMessageTime } from "../lib/format";
 import { useSession } from "../state/session";
 import { notificationLabel, notificationLink, notificationTitle } from "./notificationText";
+import { useNotificationToasts } from "./useNotificationToasts";
 import { useNotificationStore } from "./useNotificationStore";
 
 const maxShown = 99;
@@ -28,6 +29,7 @@ export function NotificationBell() {
   const meta = useQuery({ queryKey: ["meta"], queryFn: () => session.client.getMeta() });
   const enabled = meta.data?.modules.includes("notify") ?? false;
   const { store, state } = useNotificationStore(enabled);
+  useNotificationToasts(enabled);
   const [open, setOpen] = useState(false);
 
   const count = state.unreadCount;

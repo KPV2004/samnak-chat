@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, createApiClient, type FetchInit, type FetchResponse } from "./client";
-import { createM3Api, type NotificationItem } from "./m3";
+import { createM3Api, type NotificationItem, type NotifyPreferences } from "./m3";
 
 const mention: NotificationItem = {
   id: "n1",
@@ -83,5 +83,39 @@ describe("notify api", () => {
     const error = await api.readNotification("missing").catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ status: 404, code: "not_found", message: "no such notification" });
+  });
+});
+
+describe("notify preferences api", () => {
+  const prefs: NotifyPreferences = {
+    disabled_kinds: ["chat.dm"],
+    muted_channel_ids: ["c1"],
+    dnd_start: "22:00",
+    dnd_end: "07:00",
+  };
+
+  function setup() {
+    const requests: { method: string; url: string; body?: string; headers?: Record<string, string> }[] = [];
+    const fetch = async (url: string, init: FetchInit = {}): Promise<FetchResponse> => {
+      requests.push({ method: init.method ?? "GET", url, body: init.body, headers: init.headers });
+      return ok(prefs);
+    };
+    return { api: createM3Api(createApiClient({ baseUrl: "", fetch })), requests };
+  }
+
+  it("reads my settings", async () => {
+    const { api, requests } = setup();
+    await expect(api.getPreferences()).resolves.toEqual(prefs);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ method: "GET", url: "/api/v1/notify/preferences" });
+  });
+
+  it("replaces my settings with the whole object", async () => {
+    const { api, requests } = setup();
+    await expect(api.setPreferences(prefs)).resolves.toEqual(prefs);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ method: "PUT", url: "/api/v1/notify/preferences" });
+    expect(requests[0]!.headers).toMatchObject({ "Content-Type": "application/json" });
+    expect(JSON.parse(requests[0]!.body!)).toEqual(prefs);
   });
 });

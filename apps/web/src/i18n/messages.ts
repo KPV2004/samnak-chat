@@ -1,4 +1,5 @@
 import { approvalEn, approvalTh } from "./approval-messages";
+import { auditEn, auditTh } from "./audit-messages";
 import { chatEn, chatTh } from "./chat-messages";
 import { groupsEn, groupsTh } from "./groups-messages";
 import { helpdeskEn, helpdeskTh } from "./helpdesk-messages";
@@ -10,6 +11,7 @@ export const messages = {
   th: {
     ...chatTh,
     ...notifyTh,
+    ...auditTh,
     ...taskTh,
     ...approvalTh,
     ...helpdeskTh,
@@ -37,6 +39,8 @@ export const messages = {
     "nav.invites": "คำเชิญ",
     "nav.profile": "โปรไฟล์",
     "nav.devices": "อุปกรณ์",
+    "nav.audit": "บันทึกการดำเนินการ",
+    "nav.notifySettings": "ตั้งค่าการแจ้งเตือน",
 
     "login.title": "เข้าสู่ระบบ",
     "login.submit": "เข้าสู่ระบบ",
@@ -153,6 +157,7 @@ export const messages = {
   en: {
     ...chatEn,
     ...notifyEn,
+    ...auditEn,
     ...taskEn,
     ...approvalEn,
     ...helpdeskEn,
@@ -180,6 +185,8 @@ export const messages = {
     "nav.invites": "Invites",
     "nav.profile": "Profile",
     "nav.devices": "Devices",
+    "nav.audit": "Audit log",
+    "nav.notifySettings": "Notification settings",
 
     "login.title": "Sign in",
     "login.submit": "Sign in",

@@ -31,6 +31,12 @@ export type CreateInviteInput = Schemas["CreateInviteInputBody"];
 export type MemberPage = Exclude<paths["/workspace/members"]["get"], undefined>["responses"][200]["content"]["application/json"];
 export type ListMembersParams = NonNullable<paths["/workspace/members"]["get"]["parameters"]["query"]>;
 
+/** One row of the workspace audit log (WSP-10). `data` is {} unless the action records a change. */
+export type AuditEntry = Schemas["AuditEntry"];
+export type AuditAction = AuditEntry["action"];
+export type AuditPage = Schemas["ListAuditOutputBody"];
+export type ListAuditParams = NonNullable<paths["/workspace/audit"]["get"]["parameters"]["query"]>;
+
 type Method = "get" | "post" | "patch" | "delete";
 type Operation<P extends keyof paths, M extends Method> = Exclude<paths[P][M], undefined>;
 /** The methods a path really has: the generator marks the others `?: never`. */
@@ -86,6 +92,8 @@ export interface M1Api {
   createWorkspace(input: CreateWorkspaceInput): Promise<Workspace>;
   listWorkspaces(): Promise<{ items: Workspace[] }>;
   listMembers(params?: ListMembersParams): Promise<MemberPage>;
+  /** Owner or admin only; newest first. Pass the `next_cursor` of a page to get the next one. */
+  listAudit(params?: ListAuditParams): Promise<AuditPage>;
   updateMember(userId: string, patch: MemberPatch): Promise<Member>;
   removeMember(userId: string): Promise<void>;
   createInvite(input: CreateInviteInput): Promise<Invite>;
@@ -108,6 +116,7 @@ export function createM1Api(client: ApiClient): M1Api {
     createWorkspace: (input) => call(client, "post", "/workspace", { body: input }),
     listWorkspaces: () => call(client, "get", "/workspace"),
     listMembers: (params = {}) => call(client, "get", "/workspace/members", { query: params }),
+    listAudit: (params = {}) => call(client, "get", "/workspace/audit", { query: params }),
     updateMember: (userId, patch) => call(client, "patch", "/workspace/members/{userId}", { params: { userId }, body: patch }),
     removeMember: (userId) => call(client, "delete", "/workspace/members/{userId}", { params: { userId } }),
     createInvite: (input) => call(client, "post", "/workspace/invites", { body: input }),
