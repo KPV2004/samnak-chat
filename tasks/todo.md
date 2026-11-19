@@ -884,14 +884,14 @@ Found by M6-09: `platform/ratelimit` has no callers, so only login (auth's own l
 
 Decided 2026-11-19 with the user: follow Slack (workspace rail, channel and DM sidebar, threads in a right pane, dense message list). Use the parts of `/design-taste-frontend` that fit an app (one system: tokens, type, one button pair, one card style, one radius scale; hover lift and press on every control; real full-colour icons for third-party things; no violet; keyboard and focus rules) for the app, and the whole skill for a separate landing page. Workers on Claude Sonnet. Every UI task checks light and dark at 1440, 1024, 768 and 390 with screenshots, and keeps `npm run build`, `npm test` and `npm run lint` green; tests change only where markup changed, never to weaken an assertion.
 
-## [ ] UI-07 design foundation and the Slack shell (stage 1)
+## [x] UI-07 design foundation and the Slack shell (stage 1)
 **Size:** M · **Depends on:** M6 wave 2
 
 **Acceptance criteria**
-- [ ] New tokens in `index.css` (light and dark): a palette and type pairing dealt with the skill's `start.mjs deal --page software` (no violet; replace the indigo accent), a dark sidebar in the Slack manner, one radius scale, Thai-safe line heights kept; `docs/ui.md` updated to the new system
-- [ ] Shell: a narrow workspace rail (workspace initials, switch, add), the sidebar with sections (Channels, Direct messages, Apps for Tasks, Approvals, Helpdesk when enabled) that collapse, unread bold and badge, a top search-style bar with the workspace name; below `md` the rail and sidebar are one sheet
-- [ ] Hover and press feedback on every button, nav item and linked row; visible focus ring; `prefers-reduced-motion` respected
-- [ ] Screenshots of the shell in light and dark at the four widths in the final report
+- [x] New tokens in `index.css` (light and dark): a palette and type pairing dealt with the skill's `start.mjs deal --page software` (no violet; replace the indigo accent), a dark sidebar in the Slack manner, one radius scale, Thai-safe line heights kept; `docs/ui.md` updated to the new system
+- [x] Shell: a narrow workspace rail (workspace initials, switch, add), the sidebar with sections (Channels, Direct messages, Apps for Tasks, Approvals, Helpdesk when enabled) that collapse, unread bold and badge, a top search-style bar with the workspace name; below `md` the rail and sidebar are one sheet
+- [x] Hover and press feedback on every button, nav item and linked row; visible focus ring; `prefers-reduced-motion` respected
+- [x] Screenshots of the shell in light and dark at the four widths in the final report
 
 **Files:** `apps/web/src/index.css`, `apps/web/src/components/` (shell parts and `ui/` restyles), `apps/web/src/pages/Shell.tsx`, `apps/web/src/chat/Sidebar.tsx`, `apps/web/src/chat/ChatLayout.tsx`, `apps/web/src/i18n/ui-messages.ts`, `docs/ui.md`, and the tests of these files
 
