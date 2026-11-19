@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -35,18 +36,29 @@ type Service struct {
 	limiter LoginLimiter
 	tokens  AccessTokens
 	events  Events
+	jobs    app.Jobs
+	mailer  app.Mailer
+	webURL  string
+	log     *slog.Logger
 	now     func() time.Time
 }
 
 // Deps are what a Service needs. Now defaults to time.Now and Events defaults
-// to a no-op, so a test that does not care about events needs neither.
+// to a no-op, so a test that does not care about events needs neither. Jobs
+// and Mailer may be nil: without Jobs no mail is queued, without Mailer the
+// email job logs and skips (AUTH-09).
 type Deps struct {
 	Repo    Repository
 	Tx      app.TxManager
 	Limiter LoginLimiter
 	Tokens  AccessTokens
 	Events  Events
-	Now     func() time.Time
+	Jobs    app.Jobs
+	Mailer  app.Mailer
+	// WebURL is the base of the links in mail, without a trailing slash.
+	WebURL string
+	Logger *slog.Logger
+	Now    func() time.Time
 }
 
 func NewService(d Deps) *Service {
@@ -58,7 +70,14 @@ func NewService(d Deps) *Service {
 	if events == nil {
 		events = noopEvents{}
 	}
-	return &Service{repo: d.Repo, tx: d.Tx, limiter: d.Limiter, tokens: d.Tokens, events: events, now: now}
+	log := d.Logger
+	if log == nil {
+		log = slog.Default()
+	}
+	return &Service{
+		repo: d.Repo, tx: d.Tx, limiter: d.Limiter, tokens: d.Tokens, events: events,
+		jobs: d.Jobs, mailer: d.Mailer, webURL: d.WebURL, log: log, now: now,
+	}
 }
 
 // noopEvents is used when Deps.Events is nil, so a service always has one.
@@ -106,9 +125,18 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (domain.User, 
 	if err != nil {
 		return domain.User{}, fmt.Errorf("register: new id: %w", err)
 	}
-	u, err := s.repo.CreateUser(ctx, domain.User{
-		ID: id.String(), Email: email, PasswordHash: hash, DisplayName: name,
-		Locale: defaultLocale, Timezone: defaultTimezone, CreatedAt: s.now(),
+	var u domain.User
+	err = s.tx.Do(ctx, func(ctx context.Context) error {
+		var err error
+		u, err = s.repo.CreateUser(ctx, domain.User{
+			ID: id.String(), Email: email, PasswordHash: hash, DisplayName: name,
+			Locale: defaultLocale, Timezone: defaultTimezone, CreatedAt: s.now(),
+		})
+		if err != nil {
+			return err
+		}
+		// The mail exists only if the account does (AUTH-09).
+		return s.enqueueEmail(ctx, u.ID, domain.EmailPurposeVerify)
 	})
 	if errors.Is(err, app.ErrConflict) {
 		return domain.User{}, errEmailTaken

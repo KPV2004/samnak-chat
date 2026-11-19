@@ -47,6 +47,19 @@ type Repository interface {
 	RevokeRefreshToken(ctx context.Context, id string, now time.Time) error
 	RevokeDeviceRefreshTokens(ctx context.Context, deviceID string, now time.Time) error
 	RevokeUserRefreshTokens(ctx context.Context, userID string, now time.Time) error
+
+	// UpdatePassword stores a new password hash for userID.
+	UpdatePassword(ctx context.Context, userID, passwordHash string, now time.Time) error
+	// MarkEmailVerified sets the verification time of userID. It keeps an
+	// earlier one.
+	MarkEmailVerified(ctx context.Context, userID string, now time.Time) error
+
+	CreateEmailToken(ctx context.Context, t domain.EmailToken) error
+	// EmailTokenForUpdate returns the token of purpose with this hash and locks
+	// its row until the transaction ends. A token of another purpose, or none,
+	// is not found.
+	EmailTokenForUpdate(ctx context.Context, hash []byte, purpose domain.EmailPurpose) (domain.EmailToken, error)
+	MarkEmailTokenUsed(ctx context.Context, id string, now time.Time) error
 }
 
 // Events announces session changes. Methods are called after the transaction

@@ -46,10 +46,15 @@ func wrap(what string, err error) error {
 }
 
 func toUser(u sqlcgen.AuthUser) domain.User {
-	return domain.User{
+	out := domain.User{
 		ID: u.ID, Email: u.Email, PasswordHash: u.PasswordHash, DisplayName: u.DisplayName,
 		AvatarURL: u.AvatarUrl, Locale: u.Locale, Timezone: u.Timezone, CreatedAt: u.CreatedAt.UTC(),
 	}
+	if u.EmailVerifiedAt != nil {
+		at := u.EmailVerifiedAt.UTC()
+		out.EmailVerifiedAt = &at
+	}
+	return out
 }
 
 func toDevice(d sqlcgen.AuthDevice) domain.Device {
@@ -222,6 +227,56 @@ func (r *Repository) RevokeDeviceRefreshTokens(ctx context.Context, deviceID str
 func (r *Repository) RevokeUserRefreshTokens(ctx context.Context, userID string, now time.Time) error {
 	if err := r.q(ctx).RevokeUserRefreshTokens(ctx, sqlcgen.RevokeUserRefreshTokensParams{UserID: userID, RevokedAt: &now}); err != nil {
 		return fmt.Errorf("revoke user tokens: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) UpdatePassword(ctx context.Context, userID, passwordHash string, now time.Time) error {
+	err := r.q(ctx).UpdateUserPassword(ctx, sqlcgen.UpdateUserPasswordParams{PasswordHash: passwordHash, Now: now, ID: userID})
+	if err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) MarkEmailVerified(ctx context.Context, userID string, now time.Time) error {
+	err := r.q(ctx).MarkUserEmailVerified(ctx, sqlcgen.MarkUserEmailVerifiedParams{Now: &now, ID: userID})
+	if err != nil {
+		return fmt.Errorf("mark email verified: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) CreateEmailToken(ctx context.Context, t domain.EmailToken) error {
+	err := r.q(ctx).CreateEmailToken(ctx, sqlcgen.CreateEmailTokenParams{
+		ID: t.ID, UserID: t.UserID, Purpose: string(t.Purpose), TokenHash: t.TokenHash, ExpiresAt: t.ExpiresAt,
+	})
+	if err != nil {
+		return fmt.Errorf("create email token: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) EmailTokenForUpdate(ctx context.Context, hash []byte, purpose domain.EmailPurpose) (domain.EmailToken, error) {
+	row, err := r.q(ctx).GetEmailTokenForUpdate(ctx, sqlcgen.GetEmailTokenForUpdateParams{TokenHash: hash, Purpose: string(purpose)})
+	if err != nil {
+		return domain.EmailToken{}, wrap("email token", err)
+	}
+	t := domain.EmailToken{
+		ID: row.ID, UserID: row.UserID, Purpose: domain.EmailPurpose(row.Purpose),
+		TokenHash: row.TokenHash, ExpiresAt: row.ExpiresAt.UTC(),
+	}
+	if row.UsedAt != nil {
+		at := row.UsedAt.UTC()
+		t.UsedAt = &at
+	}
+	return t, nil
+}
+
+func (r *Repository) MarkEmailTokenUsed(ctx context.Context, id string, now time.Time) error {
+	err := r.q(ctx).MarkEmailTokenUsed(ctx, sqlcgen.MarkEmailTokenUsedParams{ID: id, UsedAt: &now})
+	if err != nil {
+		return fmt.Errorf("mark email token used: %w", err)
 	}
 	return nil
 }

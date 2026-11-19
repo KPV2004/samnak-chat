@@ -29,4 +29,9 @@ var errBadRefresh = &Error{kind: app.ErrUnauthorized, msg: "invalid refresh toke
 
 var errDeviceNotFound = &Error{kind: app.ErrNotFound, msg: "device not found"}
 
+// errBadEmailToken answers every link that cannot be used. It does not say why.
+var errBadEmailToken = &Error{kind: app.ErrInvalid, msg: "the link is invalid or has expired"}
+
+var errResendLimited = &Error{kind: app.ErrRateLimited, msg: "too many verification emails, try again in a minute"}
+
 func notFound(err error) bool { return errors.Is(err, app.ErrNotFound) }
