@@ -100,7 +100,7 @@ describe("workspace switch", () => {
       }
       return new Response(JSON.stringify({ items: [] }), { status: 200 });
     });
-    await user.selectOptions(screen.getByLabelText("Workspace"), "w2");
+    await user.click(await screen.findByRole("button", { name: "Globex" }));
 
     expect(await within(nav).findByRole("link", { name: /sales-floor/ })).toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: /general/ })).not.toBeInTheDocument();

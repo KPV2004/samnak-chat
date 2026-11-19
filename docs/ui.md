@@ -1,15 +1,15 @@
 # Web UI
 
-How the web app (`apps/web`) looks and how to build a page in it. The look is Slack/Linear: dense, quiet neutral colours, one accent, a left sidebar and a top bar, light and dark. The stack is Tailwind v4 and shadcn/ui (Radix); the shadcn components are copied into `apps/web/src/components/ui` and are ours to edit.
+How the web app (`apps/web`) looks and how to build a page in it. The look is Slack's: a narrow dark workspace rail, a dark sidebar with folding sections, a dark top bar with a search-style bar, and the page on a light (or, in dark mode, dark) surface. Dense and calm, one green accent. The stack is Tailwind v4 and shadcn/ui (Radix); the shadcn components are copied into `apps/web/src/components/ui` and are ours to edit.
 
 ## Where things are
 
 | Path | What |
 | --- | --- |
-| `src/index.css` | The only stylesheet: font, Tailwind, tokens and the base rules (focus ring, body) |
+| `src/index.css` | The only stylesheet: fonts, Tailwind, tokens, the `on-rail` scope and the base rules (focus ring, reduced motion, body) |
 | `src/components/ui/` | shadcn components. Import as `@/components/ui/button` |
-| `src/components/` | App components built on them: `Page`, `Field`, `FormError`, `EmptyState`, `AccountStates` (loading and load error), `RouteFallback`, `NavItem`, `UserAvatar`, `ThemeToggle`, `AppSidebar`, `AuthLayout` |
-| `src/pages/Shell.tsx` | The frame: sidebar, top bar, content. Below `md` the sidebar is a Sheet |
+| `src/components/` | App components built on them: `Page`, `Field`, `FormError`, `EmptyState`, `AccountStates` (loading and load error), `RouteFallback`, `NavItem`, `UserAvatar`, `ThemeToggle`, `AppSidebar`, `WorkspaceRail`, `SidebarSection`, `QuickSwitch`, `AuthLayout` |
+| `src/pages/Shell.tsx` | The frame: top bar, workspace rail, sidebar, content. Below `md` the rail and the sidebar are one Sheet |
 | `src/state/theme.ts` | Light, dark or system, kept in `localStorage` (`samnak.theme`) |
 | `src/i18n/ui-messages.ts` | Strings of the frame and shared components |
 
@@ -17,14 +17,14 @@ How the web app (`apps/web`) looks and how to build a page in it. The look is Sl
 
 ## Tokens
 
-Colours are CSS variables in `index.css` (oklch, light in `:root`, dark in `.dark`) and are used as Tailwind classes. Never write a colour value in a component.
+Colours are CSS variables in `index.css` (oklch, light in `:root`, dark in `.dark`) and are used as Tailwind classes. Never write a colour value in a component. The palette was dealt by the design skill (`start.mjs deal --page software`, palette "mint-pink-accounts": off-white ground, near-black ink, green accent `#1f6b3a`); the type pairing is Host Grotesk with IBM Plex Sans Thai for Thai. There is no violet anywhere.
 
 | Class | Use |
 | --- | --- |
-| `bg-background` `text-foreground` | Page and body text |
-| `bg-card` `text-card-foreground` | Cards, panels |
+| `bg-background` `text-foreground` | Page and body text (off-white, near-black; dark mode a green-tinted charcoal) |
+| `bg-card` `text-card-foreground` | Cards, panels (white; a step lighter than the page in dark mode) |
 | `bg-popover` | Menus, popovers, dialogs (the components set it) |
-| `bg-primary` `text-primary-foreground` | The one accent (indigo): the main button, current item, focus ring, links. Once per view |
+| `bg-primary` `text-primary-foreground` | The one accent (green): the main button, links, focus ring. Once per view |
 | `bg-secondary` | Quiet filled buttons |
 | `bg-muted` | Skeletons, code, subtle fills |
 | `bg-accent` | Hover and selected state of menu items and ghost buttons |
@@ -32,16 +32,37 @@ Colours are CSS variables in `index.css` (oklch, light in `:root`, dark in `.dar
 | `border-border` `border-input` | Dividers and card borders, form control borders (default border colour is already `border-border`) |
 | `text-destructive` `bg-destructive` | Errors and delete |
 | `text-success` `text-warning` | Status only (approved, pending). Never decoration |
-| `bg-sidebar` `text-sidebar-*` | Only the app sidebar |
+| `bg-rail` | The workspace rail and the top bar (the darkest chrome) |
+| `bg-sidebar` `text-sidebar-*` | The sidebar, a step lighter than the rail. `sidebar-primary` (mint) fills the current row; `sidebar-accent` tints a hovered row |
 | `ring-ring` | Focus. The components already add it; custom controls need `focus-visible:ring-[3px] focus-visible:ring-ring/50` |
 
-Radius is `rounded-md` for controls and `rounded-lg` for cards and dialogs.
+The dark chrome looks the same in light and dark mode. Put the `on-rail` class on a container in it (the rail, the top bar, the sidebar, the mobile sheet) and everything inside re-reads the neutral tokens as light-on-dark: a `Button variant="ghost"`, a `Badge`, `text-muted-foreground` and the focus ring all work there with no `dark:` class. Portalled content (menus, tooltips, dialogs) sits outside the scope and keeps the page's tokens.
+
+### One system
+
+- **Buttons:** one pair. `default` (green, the main action, once per view) and `outline` (everything else); `ghost` for toolbars and icon buttons, `destructive` for delete. Every button steps its colour on hover, darkens a step on press and shrinks 3% while pressed (only without `prefers-reduced-motion`).
+- **Card:** one style. White (`bg-card`), `rounded-lg`, a 1px `border`. No shadow, no nested cards.
+- **Radius:** one scale. `rounded-sm` 4px (chips, keys), `rounded-md` 6px (controls, rows), `rounded-lg` 8px (cards, dialogs, workspace tiles), `rounded-xl` 12px (large panels), `rounded-full` (badges, avatars). `--radius` in `index.css` moves the whole scale.
+- **Link:** one look. `text-primary underline-offset-4 hover:underline`. Rows in the sidebar are not text links: they tint on hover and press, and fill with mint while current.
+- **Feedback:** every button, nav row and linked row answers the pointer (tint on hover, a step darker on press). Workspace tiles also lift 1px. All movement sits behind `motion-safe:`, and `prefers-reduced-motion: reduce` sets every transition and animation to about zero, so state changes still show but nothing moves.
+- **Focus:** a 2 to 3px ring in `--ring` on every control, never removed. On the dark chrome the ring is light mint. The first Tab stop is the skip link.
 
 Dark mode is the `dark` class on `<html>`. `dark:` works in classes, but tokens already switch, so you rarely need it. The toggle (`ThemeToggle`, in the top bar and on the auth pages) follows the system until the user picks, then remembers the pick.
 
+## The shell
+
+Top to bottom, left to right (`Shell.tsx`):
+
+- **Top bar** (`bg-rail`, 44px): the product mark and name (name from `md`), the search-style bar (`QuickSwitch`: it names the workspace and opens a "jump to" list of channels, direct messages and pages, also on Ctrl or Cmd + K; it finds places, not message text), the notification bell, the language select (from `md`) and the theme toggle.
+- **Workspace rail** (`WorkspaceRail`, 56px): a tile per workspace with its initials (the current one is filled mint and marked `aria-current`), clicking one switches workspace; a dashed tile creates a new one.
+- **Sidebar** (`AppSidebar`, 256px): the workspace name, `Home` and `Chat`, then sections that fold (`SidebarSection`; open or closed is remembered in `localStorage` as `samnak.sidebar.<id>`; a folded section keeps its unread badge on the heading): Channels, Direct messages, Apps (tasks, approvals, groups, helpdesk, each only while its module is enabled), Workspace (members, invites, audit log) and Account (profile, devices, notification settings). The signed-in user and sign-out sit at the foot. An unread channel is bold with a count badge; mentions get a red `@n` badge.
+- **Below `md`:** the rail and the sidebar are one Sheet from the menu button, the language select moves to its foot, and the sheet closes after a link or a workspace is chosen.
+
+The channel list is mounted on every page, so unread counts are visible everywhere. Member names (needed to title direct messages) are fetched only once the user has a direct message.
+
 ## Type and spacing
 
-- Font: IBM Plex Sans Thai (Thai and Latin), self-hosted through `@fontsource`, weights 400, 500 and 600. Do not use `font-bold`.
+- Font: Host Grotesk (Latin, variable, from `@fontsource-variable/host-grotesk`) with IBM Plex Sans Thai (`@fontsource`, weights 400, 500 and 600) behind it. Host Grotesk has no Thai, so the browser falls through to Plex glyph by glyph; both are self-hosted. Do not use `font-bold`; stay at 400, 500 and 600.
 - Body is `text-sm` (14px) with line height 1.6, which Thai needs for tone marks. Do not add `leading-none`, `leading-tight` or `tracking-*` to text that can be Thai.
 - Page title `text-xl font-semibold` (`Page` does this). Section title `text-base font-semibold`. Secondary text `text-sm text-muted-foreground`. Captions `text-xs`.
 - Spacing is on the 4px grid. Page padding `p-4 md:p-6`, gap between page sections `gap-6`, between fields `gap-4`, label to control `gap-1.5`, inside toolbars and rows `gap-2`.
@@ -71,6 +92,7 @@ Dark mode is the `dark` class on `<html>`. `dark:` works in classes, but tokens 
 | List of simple rows | `<ul className="divide-y rounded-lg border">` with `li` rows `px-4 py-3` |
 | An object with its own actions, or a grouped section | `Card` (`CardHeader`, `CardTitle`, `CardContent`, `CardFooter`). Do not nest cards |
 | Status, count, role | `Badge` (`secondary` neutral, `default` accent, `destructive`; success and warning as `outline` with `text-success` or `text-warning`) |
+| A section of the sidebar that folds | `SidebarSection` with `NavItem` rows |
 | Person | `UserAvatar` next to the name |
 | Divider | `Separator` |
 | Long area with its own scroll | `ScrollArea` |
@@ -100,8 +122,8 @@ Bare HTML has no default look: Tailwind's reset removes paragraph margins, list 
 ## Tests and shadcn in jsdom
 
 - `test-setup.ts` stubs `ResizeObserver`, `scrollIntoView` and pointer capture, which Radix needs. Open menus and dialogs with `user.click`; options render in a portal on `document.body`.
-- The sidebar shows the user's name and email, the workspace names and (in chat) the channels. A query like `findByText("Mali")` can now match twice. Scope to the page with `within(screen.getByRole("main"))`.
-- The desktop sidebar is always in the DOM in tests (CSS does not run); the mobile Sheet is not until it is opened.
+- The sidebar shows the user's name and email, the workspace name and the channels. A query like `findByText("Mali")` can now match twice. Scope to the page with `within(screen.getByRole("main"))`.
+- The desktop rail and sidebar are always in the DOM in tests (CSS does not run); the mobile Sheet is not until it is opened. Switch workspace by clicking its tile (`getByRole("button", { name: "Beta" })`), not with a select. Sidebar section state is in `localStorage`, so tests that fold one clear it first.
 
 ## Adding a shadcn component
 
