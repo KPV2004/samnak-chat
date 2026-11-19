@@ -33,7 +33,8 @@ export interface ServerEventMap {
   "presence.changed": { user_id: string; online: boolean };
   typing: InChannel & { user_id: string };
   /** Sent to the user's own devices after notify stored the row (NOTI-03). */
-  "notification.created": InWorkspace & { notification: NotificationItem; unread_count: number };
+  /** `quiet` is true inside the user's do-not-disturb window: count it, show no toast (NOTI-07). */
+  "notification.created": InWorkspace & { notification: NotificationItem; unread_count: number; quiet?: boolean };
   /** Sent to the user's own devices, so the bell on the others clears (NOTI-04). */
   "notification.read": InWorkspace & { ids: string[]; all: boolean; unread_count: number };
   /** The hub's answer to a bad client frame; the connection stays open. */

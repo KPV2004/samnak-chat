@@ -134,11 +134,12 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 	defer pool.Close()
 
 	store, err := storage.New(ctx, storage.Config{
-		Endpoint:  cfg.S3Endpoint,
-		Bucket:    cfg.S3Bucket,
-		AccessKey: cfg.S3AccessKey,
-		SecretKey: cfg.S3SecretKey,
-		PathStyle: true, // MinIO; AWS also accepts path-style URLs
+		Endpoint:       cfg.S3Endpoint,
+		PublicEndpoint: cfg.S3PublicEndpoint,
+		Bucket:         cfg.S3Bucket,
+		AccessKey:      cfg.S3AccessKey,
+		SecretKey:      cfg.S3SecretKey,
+		PathStyle:      true, // MinIO; AWS also accepts path-style URLs
 	})
 	if err != nil {
 		return fmt.Errorf("object storage, check S3_* settings: %w", err)

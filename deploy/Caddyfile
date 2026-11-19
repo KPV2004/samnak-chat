@@ -16,6 +16,12 @@
 		reverse_proxy server:8080
 	}
 
+	# Presigned uploads and downloads (S3_PUBLIC_ENDPOINT is this site). Caddy
+	# keeps the browser's Host header, which is part of the signature.
+	handle /{$S3_BUCKET:samnak}/* {
+		reverse_proxy minio:9000
+	}
+
 	handle {
 		root * /srv
 		try_files {path} /index.html

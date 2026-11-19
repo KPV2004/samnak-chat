@@ -30,10 +30,14 @@ const (
 type Config struct {
 	// Endpoint is host:port or a full URL such as http://localhost:9000.
 	// A URL scheme overrides UseSSL.
-	Endpoint  string
-	Bucket    string
-	AccessKey string
-	SecretKey string
+	Endpoint string
+	// PublicEndpoint, when set, is the base the browser uses for presigned
+	// URLs (the host is part of the signature), e.g. the reverse proxy's
+	// public URL. Endpoint is still used for the server's own calls.
+	PublicEndpoint string
+	Bucket         string
+	AccessKey      string
+	SecretKey      string
 	// Region defaults to us-east-1. Setting it avoids a network lookup
 	// when signing.
 	Region string
@@ -46,6 +50,8 @@ type Config struct {
 // Storage implements app.ObjectStorage on top of minio-go.
 type Storage struct {
 	client *minio.Client
+	// signer presigns URLs; it is client unless PublicEndpoint is set.
+	signer *minio.Client
 	bucket string
 }
 
@@ -68,16 +74,33 @@ func New(_ context.Context, cfg Config) (*Storage, error) {
 	if cfg.PathStyle {
 		lookup = minio.BucketLookupPath
 	}
-	client, err := minio.New(host, &minio.Options{
-		Creds:        credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure:       secure,
-		Region:       region,
-		BucketLookup: lookup,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("storage: new client: %w", err)
+	newClient := func(host string, secure bool) (*minio.Client, error) {
+		c, err := minio.New(host, &minio.Options{
+			Creds:        credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
+			Secure:       secure,
+			Region:       region,
+			BucketLookup: lookup,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("storage: new client: %w", err)
+		}
+		return c, nil
 	}
-	return &Storage{client: client, bucket: cfg.Bucket}, nil
+	client, err := newClient(host, secure)
+	if err != nil {
+		return nil, err
+	}
+	signer := client
+	if cfg.PublicEndpoint != "" {
+		pubHost, pubSecure, err := parseEndpoint(cfg.PublicEndpoint, cfg.UseSSL)
+		if err != nil {
+			return nil, fmt.Errorf("public endpoint: %w", err)
+		}
+		if signer, err = newClient(pubHost, pubSecure); err != nil {
+			return nil, err
+		}
+	}
+	return &Storage{client: client, signer: signer, bucket: cfg.Bucket}, nil
 }
 
 func parseEndpoint(endpoint string, useSSL bool) (host string, secure bool, err error) {
@@ -133,7 +156,7 @@ func (s *Storage) PresignPut(ctx context.Context, key, contentType string, size 
 		signed.Set(k, v)
 	}
 	expiresAt := time.Now().Add(ttl)
-	u, err := s.client.PresignHeader(ctx, http.MethodPut, s.bucket, key, ttl, nil, signed)
+	u, err := s.signer.PresignHeader(ctx, http.MethodPut, s.bucket, key, ttl, nil, signed)
 	if err != nil {
 		return app.PresignedRequest{}, fmt.Errorf("storage: presign put: %w", err)
 	}
@@ -151,7 +174,7 @@ func (s *Storage) PresignGet(ctx context.Context, key, fileName string, ttl time
 	}
 	params := url.Values{"response-content-disposition": {contentDisposition(fileName)}}
 	expiresAt := time.Now().Add(ttl)
-	u, err := s.client.Presign(ctx, http.MethodGet, s.bucket, key, ttl, params)
+	u, err := s.signer.Presign(ctx, http.MethodGet, s.bucket, key, ttl, params)
 	if err != nil {
 		return app.PresignedRequest{}, fmt.Errorf("storage: presign get: %w", err)
 	}

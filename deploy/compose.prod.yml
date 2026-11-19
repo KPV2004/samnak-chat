@@ -1,7 +1,8 @@
 # Self-hosted stack: web (Caddy), server, postgres, redis, minio.
 # Install steps: deploy/README.md. Run from the repository root:
 #   cp .env.example .env
-#   docker compose -f deploy/compose.prod.yml up -d --wait
+#   docker compose --env-file .env -f deploy/compose.prod.yml up -d --wait
+# --env-file lets this file read POSTGRES_PASSWORD and PUBLIC_URL from .env.
 name: samnak-prod
 
 # Settings every server process reads. Values from ../.env come first; the
@@ -11,9 +12,13 @@ x-app: &app
   env_file: ../.env
   environment:
     HTTP_ADDR: ":8080"
-    DATABASE_URL: postgres://samnak:samnak@postgres:5432/samnak?sslmode=disable
+    DATABASE_URL: postgres://samnak:${POSTGRES_PASSWORD:-samnak}@postgres:5432/samnak?sslmode=disable
     REDIS_URL: redis://redis:6379/0
     S3_ENDPOINT: http://minio:9000
+    # Browsers reach storage through Caddy on the public URL (see Caddyfile),
+    # and links in emails point there too.
+    S3_PUBLIC_ENDPOINT: ${PUBLIC_URL:-http://localhost}
+    WEB_URL: ${PUBLIC_URL:-http://localhost}
 
 services:
   # Caddy: the built web app on /, the API on /api (including /api/v1/ws).
@@ -75,7 +80,7 @@ services:
     # ../.env (see deploy/README.md).
     environment:
       POSTGRES_USER: samnak
-      POSTGRES_PASSWORD: samnak
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-samnak}
       POSTGRES_DB: samnak
     volumes:
       - pgdata:/var/lib/postgresql/data

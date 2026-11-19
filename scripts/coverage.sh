@@ -3,16 +3,18 @@
 #
 #   scripts/coverage.sh [minimum percent, default 80]
 #
-# Runs go test with a coverage profile over every */domain and */usecase
-# package, prints the share of statements covered per package and for all of
-# them together, and exits 1 when the combined share is below the minimum.
+# Runs the whole server test suite with coverage counted in every */domain and
+# */usecase package (-coverpkg), so a usecase exercised by its module's API
+# tests or the acceptance tests counts as covered. Prints the share of
+# statements covered per package and for all of them together, and exits 1
+# when the combined share is below the minimum.
 # Needs Go, awk and the server's dependencies (npm is not involved).
 set -euo pipefail
 
 min=${1:-80}
 root=$(cd "$(dirname "$0")/.." && pwd)
 profile=$(mktemp)
-trap 'rm -f "$profile"' EXIT
+trap 'rm -f "$profile" "$profile.raw"' EXIT
 
 cd "$root/apps/server"
 pkgs=()
@@ -24,7 +26,14 @@ if [ ${#pkgs[@]} -eq 0 ]; then
   exit 2
 fi
 
-go test -count=1 -coverprofile="$profile" "${pkgs[@]}"
+coverpkg=$(IFS=,; echo "${pkgs[*]}")
+go test -count=1 -coverpkg="$coverpkg" -coverprofile="$profile.raw" ./... >/dev/null
+# Every test binary reports every block of the -coverpkg packages, so merge the
+# blocks first: a block is covered when any binary ran it.
+awk 'NR == 1 { print; next }
+  { key = $1 " " $(NF - 1); if (!(key in seen)) order[++n] = key; seen[key] = 1; if ($NF > 0) ran[key] = 1 }
+  END { for (i = 1; i <= n; i++) print order[i], (order[i] in ran ? 1 : 0) }' "$profile.raw" >"$profile"
+rm -f "$profile.raw"
 
 # A profile line is "file:start.col,end.col statements count" after the mode
 # line. Count the statements per package directory, and the ones that ran.

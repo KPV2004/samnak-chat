@@ -147,3 +147,41 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+// Behind a proxy the server reaches storage on an internal host, but the
+// browser must call the public one, which is part of the signature.
+func TestPresignUsesPublicEndpoint(t *testing.T) {
+	s, err := storage.New(context.Background(), storage.Config{
+		Endpoint:       "http://minio:9000",
+		PublicEndpoint: "https://chat.example.com",
+		Bucket:         "samnak",
+		AccessKey:      "minioadmin",
+		SecretKey:      "minioadmin",
+		PathStyle:      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	put, err := s.PresignPut(context.Background(), "chat/ws/att", "image/png", 10, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	get, err := s.PresignGet(context.Background(), "chat/ws/att", "a.png", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, raw := range map[string]string{"put": put.URL, "get": get.URL} {
+		u, err := url.Parse(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if u.Scheme != "https" || u.Host != "chat.example.com" || !strings.HasPrefix(u.Path, "/samnak/") {
+			t.Errorf("%s URL = %s, want https://chat.example.com/samnak/...", name, raw)
+		}
+	}
+	if _, err := storage.New(context.Background(), storage.Config{
+		Endpoint: "http://minio:9000", PublicEndpoint: "http://", Bucket: "b", AccessKey: "a", SecretKey: "s",
+	}); err == nil {
+		t.Error("a bad public endpoint was accepted")
+	}
+}
