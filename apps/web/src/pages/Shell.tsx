@@ -9,9 +9,11 @@ import { cn } from "@/lib/utils";
 import { AppSidebar } from "../components/AppSidebar";
 import { Brand } from "../components/Brand";
 import { LanguageSelect } from "../components/LanguageSelect";
+import { QuickSwitch } from "../components/QuickSwitch";
 import { RouteFallback } from "../components/RouteFallback";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { VerifyEmailBanner } from "../components/VerifyEmailBanner";
+import { WorkspaceRail } from "../components/WorkspaceRail";
 import { NotificationBell } from "../notify/NotificationBell";
 import { ChatProvider } from "../state/chat";
 import { useT } from "../i18n/useT";
@@ -59,54 +61,72 @@ export function Shell() {
       >
         {t("ui.skipToContent")}
       </a>
-      <div className="flex h-dvh bg-background">
-        <aside className="hidden w-64 shrink-0 border-r border-sidebar-border md:block">
-          <AppSidebar />
-        </aside>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="relative z-10 flex h-12 shrink-0 items-center gap-2 border-b px-3 md:px-4">
-            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-              <SheetTrigger asChild>
-                <Button type="button" variant="ghost" size="icon-sm" className="md:hidden" aria-label={t("ui.openMenu")}>
-                  <Menu />
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                side="left"
-                className="w-72 gap-0 p-0"
-                aria-describedby={undefined}
-                // Focus the panel rather than the first control, which would open with a focus ring on the workspace switch.
-                onOpenAutoFocus={(e) => {
-                  e.preventDefault();
-                  (e.currentTarget as HTMLElement | null)?.focus();
-                }}
-              >
-                <SheetTitle className="sr-only">{t("title")}</SheetTitle>
-                <AppSidebar onNavigate={() => setMenuOpen(false)} />
-              </SheetContent>
-            </Sheet>
-            <Brand className="md:hidden" />
-            <div className="ml-auto flex items-center gap-1">
-              <NotificationBell />
-              <LanguageSelect />
-              <ThemeToggle />
-            </div>
-          </header>
-          <VerifyEmailBanner />
-          <div className={cn("min-h-0 flex-1", isChat ? "overflow-hidden" : "overflow-y-auto")}>
-            {/* Content outside a Page (loading and gate states) gets the page frame; a Page brings its own padding. */}
-            <main
-              id="main"
-              tabIndex={-1}
-              className={cn(
-                "outline-none",
-                isChat ? "h-full" : "mx-auto w-full max-w-6xl p-4 md:p-6 has-[[data-page]]:p-0",
-              )}
+      <div className="flex h-dvh flex-col bg-rail">
+        <header className="on-rail flex h-11 shrink-0 items-center gap-2 bg-rail px-2 md:px-3">
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <Button type="button" variant="ghost" size="icon-sm" className="md:hidden" aria-label={t("ui.openMenu")}>
+                <Menu />
+              </Button>
+            </SheetTrigger>
+            {/* Below md the rail and the sidebar are one sheet. */}
+            <SheetContent
+              side="left"
+              className="on-rail w-[22rem] max-w-[92vw] gap-0 border-sidebar-border bg-rail p-0 sm:max-w-[22rem]"
+              aria-describedby={undefined}
+              // Focus the panel rather than the first control, which would open with a focus ring on the first workspace.
+              onOpenAutoFocus={(e) => {
+                e.preventDefault();
+                (e.currentTarget as HTMLElement | null)?.focus();
+              }}
             >
-              <Suspense fallback={<RouteFallback />}>
-                <Outlet />
-              </Suspense>
-            </main>
+              <SheetTitle className="sr-only">{t("title")}</SheetTitle>
+              <div className="flex h-full min-h-0">
+                <WorkspaceRail onNavigate={() => setMenuOpen(false)} />
+                <div className="min-w-0 flex-1">
+                  <AppSidebar onNavigate={() => setMenuOpen(false)} />
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+          <Brand className="shrink-0 md:w-48" nameClassName="hidden md:inline" />
+          <div className="mx-auto min-w-0 flex-1 md:max-w-xl">
+            <QuickSwitch />
+          </div>
+          <div className="flex shrink-0 items-center gap-1 md:w-48 md:justify-end">
+            <NotificationBell />
+            <div className="hidden md:block">
+              <LanguageSelect />
+            </div>
+            <ThemeToggle />
+          </div>
+        </header>
+        <div className="flex min-h-0 flex-1">
+          <div className="hidden md:block">
+            <WorkspaceRail />
+          </div>
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden md:rounded-tl-xl">
+            <aside className="hidden w-64 shrink-0 md:block">
+              <AppSidebar />
+            </aside>
+            <div className="flex min-w-0 flex-1 flex-col bg-background">
+              <VerifyEmailBanner />
+              <div className={cn("min-h-0 flex-1", isChat ? "overflow-hidden" : "overflow-y-auto")}>
+                {/* Content outside a Page (loading and gate states) gets the page frame; a Page brings its own padding. */}
+                <main
+                  id="main"
+                  tabIndex={-1}
+                  className={cn(
+                    "outline-none",
+                    isChat ? "h-full" : "mx-auto w-full max-w-6xl p-4 md:p-6 has-[[data-page]]:p-0",
+                  )}
+                >
+                  <Suspense fallback={<RouteFallback />}>
+                    <Outlet />
+                  </Suspense>
+                </main>
+              </div>
+            </div>
           </div>
         </div>
       </div>

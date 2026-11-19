@@ -110,7 +110,7 @@ describe("the bell", () => {
     await app.live();
     await screen.findByRole("button", { name: "Notifications, 2 unread" });
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Workspace" }), "w2");
+    await user.click(await screen.findByRole("button", { name: "Beta" }));
 
     expect(await screen.findByRole("button", { name: "Notifications, 5 unread" })).toBeInTheDocument();
     expect(app.called("GET /api/v1/notify/unread-count").at(-1)?.headers["X-Workspace-ID"]).toBe("w2");

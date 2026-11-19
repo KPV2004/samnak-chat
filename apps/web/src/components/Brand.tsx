@@ -4,14 +4,14 @@ import { useT } from "@/i18n/useT";
 import { cn } from "@/lib/utils";
 
 /** The product mark and name. It is a link home unless `to` is null. */
-export function Brand({ to = "/", className }: { to?: string | null; className?: string }) {
+export function Brand({ to = "/", className, nameClassName }: { to?: string | null; className?: string; nameClassName?: string }) {
   const t = useT();
   const content = (
     <>
       <span className="grid size-7 place-items-center rounded-md bg-primary text-primary-foreground">
         <MessagesSquare className="size-4" />
       </span>
-      <span className="font-semibold">{t("title")}</span>
+      <span className={cn("font-semibold", nameClassName)}>{t("title")}</span>
     </>
   );
   const classes = cn("flex items-center gap-2 text-foreground", className);
