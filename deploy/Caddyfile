@@ -1,0 +1,24 @@
+# Serves the built web app and proxies the API. The WebSocket is /api/v1/ws, so
+# proxying /api/* covers it. Caddy never forwards /metrics (NFR-14): the
+# server's metrics stay on the internal network.
+#
+# The site address comes from the container's command (apps/web/Dockerfile):
+# plain HTTP on port 80 unless DOMAIN is set, for example chat.example.com, in
+# which case Caddy obtains and renews the TLS certificate itself (NFR-05).
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	handle /metrics* {
+		respond 404
+	}
+
+	handle /api/* {
+		reverse_proxy server:8080
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
