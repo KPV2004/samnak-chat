@@ -116,6 +116,16 @@ func (p *Publisher) ChannelRead(ctx context.Context, v usecase.ChannelView, user
 	})
 }
 
+type pinData struct {
+	WorkspaceID string     `json:"workspace_id"`
+	ChannelID   string     `json:"channel_id"`
+	PinnedAt    *time.Time `json:"pinned_at"`
+}
+
+func (p *Publisher) ChannelPinned(ctx context.Context, v usecase.ChannelView, userID string) {
+	p.send(ctx, "channel.pin", []string{userID}, pinData{WorkspaceID: v.WorkspaceID, ChannelID: v.ID, PinnedAt: v.PinnedAt})
+}
+
 // channelData holds what is the same for every recipient. Per-user counts are
 // left out: each client keeps its own and refetches the channel when it needs
 // them.

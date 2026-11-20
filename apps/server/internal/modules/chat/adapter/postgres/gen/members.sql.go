@@ -237,3 +237,68 @@ func (q *Queries) ListMembersOfChannels(ctx context.Context, arg ListMembersOfCh
 	}
 	return items, nil
 }
+
+const lockMemberships = `-- name: LockMemberships :many
+SELECT channel_id, pinned_at FROM chat_channel_members
+WHERE workspace_id = $1 AND user_id = $2
+FOR UPDATE
+`
+
+type LockMembershipsParams struct {
+	WorkspaceID uuid.UUID
+	UserID      uuid.UUID
+}
+
+type LockMembershipsRow struct {
+	ChannelID uuid.UUID
+	PinnedAt  *time.Time
+}
+
+// Locks every membership the user has in the workspace until the transaction
+// ends, so two pins at once cannot both pass the limit. Returns each channel
+// with its pinned_at, NULL when not pinned.
+func (q *Queries) LockMemberships(ctx context.Context, arg LockMembershipsParams) ([]LockMembershipsRow, error) {
+	rows, err := q.db.Query(ctx, lockMemberships, arg.WorkspaceID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LockMembershipsRow
+	for rows.Next() {
+		var i LockMembershipsRow
+		if err := rows.Scan(&i.ChannelID, &i.PinnedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setChannelPin = `-- name: SetChannelPin :execrows
+UPDATE chat_channel_members SET pinned_at = $1::timestamptz
+WHERE workspace_id = $2 AND channel_id = $3 AND user_id = $4
+`
+
+type SetChannelPinParams struct {
+	PinnedAt    *time.Time
+	WorkspaceID uuid.UUID
+	ChannelID   uuid.UUID
+	UserID      uuid.UUID
+}
+
+// A NULL pinned_at unpins. No row means the user is not in the channel.
+func (q *Queries) SetChannelPin(ctx context.Context, arg SetChannelPinParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setChannelPin,
+		arg.PinnedAt,
+		arg.WorkspaceID,
+		arg.ChannelID,
+		arg.UserID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

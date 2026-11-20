@@ -42,6 +42,30 @@ type Message struct {
 
 func (m Message) Deleted() bool { return m.DeletedAt != nil }
 
+// maxPreviewRunes is the longest message preview a channel list shows.
+const maxPreviewRunes = 120
+
+// Preview is the text a channel list shows for the message: its body as one
+// line of plain text, or a card's fallback text, cut to 120 characters. A
+// mention reads as "@user" or "@channel", since the list has no names to show.
+// A deleted message, and one with files only, has no text.
+func (m Message) Preview() string {
+	if m.Deleted() {
+		return ""
+	}
+	text := m.Body
+	if m.Kind != KindText {
+		text = m.FallbackText
+	}
+	text = mentionUserRe.ReplaceAllString(text, "@user")
+	text = mentionChannelRe.ReplaceAllString(text, "@channel")
+	text = strings.Join(strings.Fields(text), " ")
+	if r := []rune(text); len(r) > maxPreviewRunes {
+		return string(r[:maxPreviewRunes])
+	}
+	return text
+}
+
 // ValidateBody checks a message body: markdown text of 1 to 4,000 characters.
 func ValidateBody(body string) error {
 	if strings.TrimSpace(body) == "" {

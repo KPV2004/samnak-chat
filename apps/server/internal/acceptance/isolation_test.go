@@ -216,6 +216,8 @@ func scopedOps(v victim) []scopedOp {
 		{"chat-list-extensions", http.MethodGet, "/chat/extensions", nil},
 		{"chat-run-command", http.MethodPost, "/chat/channels/" + v.channel + "/commands", map[string]any{"name": "task", "args": "x"}},
 		{"chat-mark-read", http.MethodPost, "/chat/channels/" + v.channel + "/read", map[string]any{"seq": 1}},
+		{"chat-pin-channel", http.MethodPut, "/chat/channels/" + v.channel + "/pin", nil},
+		{"chat-unpin-channel", http.MethodDelete, "/chat/channels/" + v.channel + "/pin", nil},
 
 		// notify
 		{"notify-list-notifications", http.MethodGet, "/notify/notifications", nil},

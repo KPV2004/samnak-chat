@@ -15,6 +15,7 @@ import (
 const channelViews = `-- name: ChannelViews :many
 SELECT c.id, c.workspace_id, c.type, c.name, c.topic, c.dm_key, c.created_by, c.last_seq, c.archived_at, c.created_at,
        (m.user_id IS NOT NULL)::boolean AS is_member,
+       m.pinned_at,
        COALESCE(m.last_read_seq, 0)::bigint AS last_read_seq,
        (SELECT count(*) FROM chat_channel_members x WHERE x.channel_id = c.id)::bigint AS member_count,
        (CASE WHEN m.user_id IS NULL THEN 0 ELSE (
@@ -25,16 +26,20 @@ SELECT c.id, c.workspace_id, c.type, c.name, c.topic, c.dm_key, c.created_by, c.
             SELECT count(*) FROM chat_messages g
             WHERE g.channel_id = c.id AND g.seq > m.last_read_seq AND g.deleted_at IS NULL AND g.sender_id <> m.user_id
               AND (g.mentions_channel OR m.user_id = ANY (g.mentions))
-       ) END)::bigint AS mention_count
+       ) END)::bigint AS mention_count,
+       lm.id AS last_message_id, lm.sender_id AS last_message_sender_id, lm.kind AS last_message_kind,
+       lm.body AS last_message_body, lm.fallback_text AS last_message_fallback_text,
+       lm.deleted_at AS last_message_deleted_at, lm.created_at AS last_message_created_at
 FROM chat_channels c
 LEFT JOIN chat_channel_members m ON m.channel_id = c.id AND m.user_id = $1
+LEFT JOIN chat_messages lm ON lm.channel_id = c.id AND lm.seq = c.last_seq
 WHERE c.workspace_id = $2
   AND (
        ($3::text = 'one' AND c.id = $4)
     OR ($3::text = 'joined' AND m.user_id IS NOT NULL)
     OR ($3::text = 'public' AND c.type = 'public' AND c.archived_at IS NULL)
   )
-ORDER BY c.created_at, c.id
+ORDER BY m.pinned_at DESC NULLS LAST, lm.created_at DESC NULLS LAST, lower(c.name), c.id
 `
 
 type ChannelViewsParams struct {
@@ -45,26 +50,37 @@ type ChannelViewsParams struct {
 }
 
 type ChannelViewsRow struct {
-	ID           uuid.UUID
-	WorkspaceID  uuid.UUID
-	Type         string
-	Name         string
-	Topic        string
-	DmKey        *string
-	CreatedBy    uuid.UUID
-	LastSeq      int64
-	ArchivedAt   *time.Time
-	CreatedAt    time.Time
-	IsMember     bool
-	LastReadSeq  int64
-	MemberCount  int64
-	UnreadCount  int64
-	MentionCount int64
+	ID                      uuid.UUID
+	WorkspaceID             uuid.UUID
+	Type                    string
+	Name                    string
+	Topic                   string
+	DmKey                   *string
+	CreatedBy               uuid.UUID
+	LastSeq                 int64
+	ArchivedAt              *time.Time
+	CreatedAt               time.Time
+	IsMember                bool
+	PinnedAt                *time.Time
+	LastReadSeq             int64
+	MemberCount             int64
+	UnreadCount             int64
+	MentionCount            int64
+	LastMessageID           *uuid.UUID
+	LastMessageSenderID     *uuid.UUID
+	LastMessageKind         *string
+	LastMessageBody         *string
+	LastMessageFallbackText *string
+	LastMessageDeletedAt    *time.Time
+	LastMessageCreatedAt    *time.Time
 }
 
 // mode: 'one' (channel_id), 'joined' (channels the user is in) or 'public'
 // (unarchived public channels). Counts are for the user and exclude their own
-// and deleted messages.
+// and deleted messages. last_message is the channel's newest message, deleted
+// ones included. The list is pinned first (newest pin first), then by the
+// newest message, then by name.
+// The newest message has the channel's last_seq, so this is one indexed row.
 func (q *Queries) ChannelViews(ctx context.Context, arg ChannelViewsParams) ([]ChannelViewsRow, error) {
 	rows, err := q.db.Query(ctx, channelViews,
 		arg.UserID,
@@ -91,10 +107,18 @@ func (q *Queries) ChannelViews(ctx context.Context, arg ChannelViewsParams) ([]C
 			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.IsMember,
+			&i.PinnedAt,
 			&i.LastReadSeq,
 			&i.MemberCount,
 			&i.UnreadCount,
 			&i.MentionCount,
+			&i.LastMessageID,
+			&i.LastMessageSenderID,
+			&i.LastMessageKind,
+			&i.LastMessageBody,
+			&i.LastMessageFallbackText,
+			&i.LastMessageDeletedAt,
+			&i.LastMessageCreatedAt,
 		); err != nil {
 			return nil, err
 		}

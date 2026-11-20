@@ -14,11 +14,13 @@ import (
 type ChannelView struct {
 	domain.Channel
 	IsMember     bool
+	PinnedAt     *time.Time // when the user pinned the channel; nil when not pinned
 	LastReadSeq  int64
 	MemberCount  int64
 	UnreadCount  int64
 	MentionCount int64
-	DMUserIDs    []string // members of a direct message, else empty
+	DMUserIDs    []string        // members of a direct message, else empty
+	LastMessage  *domain.Message // the newest message, deleted ones included; nil when there is none
 }
 
 // MessageView is a message with its thread size, files and reactions. A
@@ -77,6 +79,12 @@ type Repository interface {
 	// RemoveUserEverywhere removes the user from every channel of the
 	// workspace and returns those channel IDs.
 	RemoveUserEverywhere(ctx context.Context, workspaceID, userID string) ([]string, error)
+	// LockPins locks every membership the user has in the workspace until the
+	// transaction ends, and returns the IDs of the channels they have pinned.
+	LockPins(ctx context.Context, workspaceID, userID string) ([]string, error)
+	// SetPin pins the channel for the user at pinnedAt, or unpins it when
+	// pinnedAt is nil. It reports whether the user is in the channel.
+	SetPin(ctx context.Context, workspaceID, channelID, userID string, pinnedAt *time.Time) (bool, error)
 	MemberIDs(ctx context.Context, workspaceID, channelID string) ([]string, error)
 	Members(ctx context.Context, workspaceID, channelID string) ([]Member, error)
 	// FilterMembers returns the userIDs that are members of the channel.
@@ -156,6 +164,9 @@ type Events interface {
 	Typing(ctx context.Context, workspaceID, channelID, userID string, recipients []string)
 	// ChannelRead goes to the reader's own devices only.
 	ChannelRead(ctx context.Context, v ChannelView, userID string)
+	// ChannelPinned goes to the user's own devices only. v.PinnedAt is the new
+	// pin, nil when it was removed.
+	ChannelPinned(ctx context.Context, v ChannelView, userID string)
 	// ChannelUpdated tells recipients that a channel was created, changed or
 	// its member list changed.
 	ChannelUpdated(ctx context.Context, v ChannelView, recipients []string)

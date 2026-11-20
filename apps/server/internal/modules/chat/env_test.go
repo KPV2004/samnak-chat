@@ -452,17 +452,27 @@ func (e *env) call(method, path string, u user, ws string, body any) resp {
 
 // Response shapes the tests decode.
 type channelBody struct {
-	ID           string   `json:"id"`
-	Type         string   `json:"type"`
-	Name         string   `json:"name"`
-	Topic        string   `json:"topic"`
-	LastSeq      int64    `json:"last_seq"`
-	LastReadSeq  int64    `json:"last_read_seq"`
-	UnreadCount  int64    `json:"unread_count"`
-	MentionCount int64    `json:"mention_count"`
-	MemberCount  int64    `json:"member_count"`
-	DMUserIDs    []string `json:"dm_user_ids"`
-	ArchivedAt   *string  `json:"archived_at"`
+	ID           string           `json:"id"`
+	Type         string           `json:"type"`
+	Name         string           `json:"name"`
+	Topic        string           `json:"topic"`
+	LastSeq      int64            `json:"last_seq"`
+	LastReadSeq  int64            `json:"last_read_seq"`
+	UnreadCount  int64            `json:"unread_count"`
+	MentionCount int64            `json:"mention_count"`
+	MemberCount  int64            `json:"member_count"`
+	DMUserIDs    []string         `json:"dm_user_ids"`
+	ArchivedAt   *string          `json:"archived_at"`
+	PinnedAt     *string          `json:"pinned_at"`
+	LastMessage  *lastMessageBody `json:"last_message"`
+}
+
+type lastMessageBody struct {
+	ID        string `json:"id"`
+	SenderID  string `json:"sender_id"`
+	Kind      string `json:"kind"`
+	Preview   string `json:"preview"`
+	CreatedAt string `json:"created_at"`
 }
 
 type messageBody struct {

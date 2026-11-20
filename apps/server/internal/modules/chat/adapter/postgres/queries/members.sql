@@ -39,3 +39,16 @@ RETURNING m.last_read_seq;
 -- The workspace of a channel the user is in. Typing frames carry no workspace,
 -- so membership itself says which one it is.
 SELECT workspace_id FROM chat_channel_members WHERE channel_id = $1 AND user_id = $2;
+
+-- name: SetChannelPin :execrows
+-- A NULL pinned_at unpins. No row means the user is not in the channel.
+UPDATE chat_channel_members SET pinned_at = sqlc.narg('pinned_at')::timestamptz
+WHERE workspace_id = @workspace_id AND channel_id = @channel_id AND user_id = @user_id;
+
+-- name: LockMemberships :many
+-- Locks every membership the user has in the workspace until the transaction
+-- ends, so two pins at once cannot both pass the limit. Returns each channel
+-- with its pinned_at, NULL when not pinned.
+SELECT channel_id, pinned_at FROM chat_channel_members
+WHERE workspace_id = $1 AND user_id = $2
+FOR UPDATE;

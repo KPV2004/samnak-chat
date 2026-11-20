@@ -46,6 +46,8 @@ func (h *Handler) Register(api huma.API, services *app.Services) {
 	huma.Register(api, op("chat-update-channel", http.MethodPatch, "/channels/{id}", "Rename, set the topic of, or archive a channel", 0), h.updateChannel)
 	huma.Register(api, op("chat-join-channel", http.MethodPost, "/channels/{id}/join", "Join a public channel", http.StatusNoContent), h.join)
 	huma.Register(api, op("chat-leave-channel", http.MethodPost, "/channels/{id}/leave", "Leave a channel", http.StatusNoContent), h.leave)
+	huma.Register(api, op("chat-pin-channel", http.MethodPut, "/channels/{id}/pin", "Pin a channel I am in to the top of my list", http.StatusNoContent), h.pin)
+	huma.Register(api, op("chat-unpin-channel", http.MethodDelete, "/channels/{id}/pin", "Unpin a channel from the top of my list", http.StatusNoContent), h.unpin)
 	huma.Register(api, op("chat-list-members", http.MethodGet, "/channels/{id}/members", "List the members of a channel", 0), h.listMembers)
 	huma.Register(api, op("chat-add-members", http.MethodPost, "/channels/{id}/members", "Add workspace members to a channel", http.StatusNoContent), h.addMembers)
 	huma.Register(api, op("chat-list-messages", http.MethodGet, "/channels/{id}/messages", "Catch up with after_seq, or page back with before_seq", 0), h.listMessages)
@@ -224,6 +226,28 @@ func (h *Handler) leave(ctx context.Context, in *idInput) (*struct{}, error) {
 		return nil, h.fail(ctx, err)
 	}
 	if err := h.uc.Leave(ctx, p, in.ID); err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return nil, nil
+}
+
+func (h *Handler) pin(ctx context.Context, in *idInput) (*struct{}, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	if err := h.uc.Pin(ctx, p, in.ID); err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	return nil, nil
+}
+
+func (h *Handler) unpin(ctx context.Context, in *idInput) (*struct{}, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, h.fail(ctx, err)
+	}
+	if err := h.uc.Unpin(ctx, p, in.ID); err != nil {
 		return nil, h.fail(ctx, err)
 	}
 	return nil, nil

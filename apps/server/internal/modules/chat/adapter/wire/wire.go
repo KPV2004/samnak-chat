@@ -9,23 +9,35 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat/domain"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/chat/usecase"
 )
 
 // Channel is a channel as one user sees it.
 type Channel struct {
-	ID           string     `json:"id"`
-	Type         string     `json:"type" enum:"public,private,dm"`
-	Name         string     `json:"name" doc:"Empty for direct messages"`
-	Topic        string     `json:"topic"`
-	LastSeq      int64      `json:"last_seq"`
-	LastReadSeq  int64      `json:"last_read_seq" doc:"The caller's read position; 0 when not a member"`
-	UnreadCount  int64      `json:"unread_count"`
-	MentionCount int64      `json:"mention_count"`
-	MemberCount  int64      `json:"member_count"`
-	DMUserIDs    []string   `json:"dm_user_ids" nullable:"false" doc:"Members of a direct message, empty otherwise"`
-	ArchivedAt   *time.Time `json:"archived_at"`
-	CreatedAt    time.Time  `json:"created_at"`
+	ID           string       `json:"id"`
+	Type         string       `json:"type" enum:"public,private,dm"`
+	Name         string       `json:"name" doc:"Empty for direct messages"`
+	Topic        string       `json:"topic"`
+	LastSeq      int64        `json:"last_seq"`
+	LastReadSeq  int64        `json:"last_read_seq" doc:"The caller's read position; 0 when not a member"`
+	UnreadCount  int64        `json:"unread_count"`
+	MentionCount int64        `json:"mention_count"`
+	MemberCount  int64        `json:"member_count"`
+	DMUserIDs    []string     `json:"dm_user_ids" nullable:"false" doc:"Members of a direct message, empty otherwise"`
+	ArchivedAt   *time.Time   `json:"archived_at"`
+	PinnedAt     *time.Time   `json:"pinned_at" doc:"When the caller pinned the channel; null when not pinned"`
+	LastMessage  *LastMessage `json:"last_message" doc:"The newest message, deleted ones included; null for an empty channel"`
+	CreatedAt    time.Time    `json:"created_at"`
+}
+
+// LastMessage is the newest message of a channel, shown in the channel list.
+type LastMessage struct {
+	ID        string    `json:"id"`
+	SenderID  string    `json:"sender_id"`
+	Kind      string    `json:"kind" doc:"text, or a card kind such as approval.request"`
+	Preview   string    `json:"preview" doc:"Plain text cut to 120 characters: the body, a card's fallback text, or empty for files only and for a deleted message"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func ToChannel(v usecase.ChannelView) Channel {
@@ -36,8 +48,15 @@ func ToChannel(v usecase.ChannelView) Channel {
 	return Channel{
 		ID: v.ID, Type: string(v.Type), Name: v.Name, Topic: v.Topic, LastSeq: v.LastSeq, LastReadSeq: v.LastReadSeq,
 		UnreadCount: v.UnreadCount, MentionCount: v.MentionCount, MemberCount: v.MemberCount, DMUserIDs: dm,
-		ArchivedAt: v.ArchivedAt, CreatedAt: v.CreatedAt.UTC(),
+		ArchivedAt: v.ArchivedAt, PinnedAt: v.PinnedAt, LastMessage: toLastMessage(v.LastMessage), CreatedAt: v.CreatedAt.UTC(),
 	}
+}
+
+func toLastMessage(m *domain.Message) *LastMessage {
+	if m == nil {
+		return nil
+	}
+	return &LastMessage{ID: m.ID, SenderID: m.SenderID, Kind: m.Kind, Preview: m.Preview(), CreatedAt: m.CreatedAt.UTC()}
 }
 
 // Attachment is a file on a message.
