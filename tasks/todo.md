@@ -947,14 +947,26 @@ Asked by the user 2026-11-20: reaching chats and group chats should be easier, w
 
 **Files:** `apps/server/internal/modules/chat/` (all subpackages and migrations), `apps/server/internal/acceptance/isolation_test.go` (add the two new routes to the sweep), `apps/server/internal/acceptance/nfr07_test.go` (only if a new gap appears)
 
-## [ ] CH-02 web: Lark-style Messenger list, app rail and pins
+## [x] CH-02 web: Lark-style Messenger list, app rail and pins
 **Size:** M · **Depends on:** CH-01 merged and types regenerated
 
 **Acceptance criteria**
-- [ ] The rail gains app icons with labels under the workspace tiles: Messenger, Tasks, Approvals, Helpdesk (each when its module is on), Members; the current app is marked
-- [ ] In Messenger the sidebar is a conversation list: search box, filter chips (All, Unread, Groups, Direct), a Pinned group on top, then everything by latest message; each row a picture (the user's avatar for a 1:1 DM, stacked avatars for a group DM, a coloured tile with the initial for a channel; lock or `#` badge), name, `sender: preview`, time, unread badge, mute icon
-- [ ] Pin and unpin from the row's hover menu and right-click menu and from the channel header menu; `channel.pin` frames keep other tabs in step; "New chat" starts a 1:1 or group DM, or a channel
-- [ ] Slash-command errors show the server's reason (for example `/ticket` without a default category: "No default category yet: set one in Helpdesk settings or use Create ticket") instead of the generic invalid message
-- [ ] Thai and English, light and dark, screenshots at 1440 and 390; build, test and lint pass
+- [x] The rail gains app icons with labels under the workspace tiles: Messenger, Tasks, Approvals, Helpdesk (each when its module is on), Members; the current app is marked
+- [x] In Messenger the sidebar is a conversation list: search box, filter chips (All, Unread, Groups, Direct), a Pinned group on top, then everything by latest message; each row a picture (the user's avatar for a 1:1 DM, stacked avatars for a group DM, a coloured tile with the initial for a channel; lock or `#` badge), name, `sender: preview`, time, unread badge, mute icon
+- [x] Pin and unpin from the row's hover menu and right-click menu and from the channel header menu; `channel.pin` frames keep other tabs in step; "New chat" starts a 1:1 or group DM, or a channel
+- [x] Slash-command errors show the server's reason (for example `/ticket` without a default category: "No default category yet: set one in Helpdesk settings or use Create ticket") instead of the generic invalid message
+- [x] Thai and English, light and dark, screenshots at 1440 and 390; build, test and lint pass
 
 **Files:** `apps/web/src/chat/`, `apps/web/src/components/` (rail, sidebar parts), `apps/web/src/pages/Shell.tsx`, `apps/web/src/notify/ChannelMuteMenu.tsx`, `apps/web/src/i18n/`, `packages/core/src/` (chat API, store and realtime types for `channel.pin`), and their tests
+
+## [ ] CH-03 avatars of other people (server + web)
+**Size:** S · **Depends on:** CH-02
+
+Found by CH-02: `Member` (`GET /workspace/members`) and `ChannelMember` (`GET /chat/channels/{id}/members`) carry no `avatar_url`, so only the signed-in user's picture shows; everyone else falls back to initials.
+
+**Acceptance criteria**
+- [ ] `avatar_url` (string, empty when none) on both responses, filled from `auth.UserSummary.AvatarURL` through the existing directory lookups (no new query per row); tests
+- [ ] `useAvatarOf` in `apps/web/src/chat/names.ts` reads it, so DM rows, group stacks, message rows and member lists show real pictures with the initials fallback on load error
+- [ ] OpenAPI and web types regenerated; Go and web checks pass
+
+**Files:** `apps/server/internal/modules/workspace/` (members response only), `apps/server/internal/modules/chat/` (channel members response only), `apps/server/api/`, `packages/core/src/api/schema.d.ts` (generated), `apps/web/src/chat/names.ts` and its tests, `packages/core/src/chat/fake-server.ts`, `apps/web/src/test-utils.tsx`
