@@ -78,11 +78,12 @@ func (s *Service) ActiveRole(ctx context.Context, workspaceID, userID string) (a
 	return role, err
 }
 
-// MemberView is a member with the name and email the auth module knows.
+// MemberView is a member with the name, email and picture the auth module knows.
 type MemberView struct {
 	domain.Member
 	DisplayName string
 	Email       string
+	AvatarURL   string
 }
 
 // MemberPage is one page of members. NextCursor is empty on the last page.
@@ -114,8 +115,8 @@ func (s *Service) ListMembers(ctx context.Context, p app.Principal, cursor strin
 	return MemberPage{Items: s.withNames(ctx, rows), NextCursor: next}, nil
 }
 
-// withNames fills names and emails from the directory. When the directory is
-// unavailable the strings stay empty: a members list is still useful.
+// withNames fills names, emails and pictures from the directory. When the
+// directory is unavailable the strings stay empty: a members list is still useful.
 func (s *Service) withNames(ctx context.Context, members []domain.Member) []MemberView {
 	ids := make([]string, len(members))
 	for i, m := range members {
@@ -129,7 +130,7 @@ func (s *Service) withNames(ctx context.Context, members []domain.Member) []Memb
 	out := make([]MemberView, len(members))
 	for i, m := range members {
 		u := users[m.UserID]
-		out[i] = MemberView{Member: m, DisplayName: u.DisplayName, Email: u.Email}
+		out[i] = MemberView{Member: m, DisplayName: u.DisplayName, Email: u.Email, AvatarURL: u.AvatarURL}
 	}
 	return out
 }

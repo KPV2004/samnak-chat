@@ -1363,6 +1363,11 @@ export interface components {
             unread_count: number;
         };
         ChannelMember: {
+            /**
+             * @description Empty when the user has no avatar or the auth module is unavailable
+             * @example https://cdn.example.com/a.png
+             */
+            avatar_url: string;
             /** @description Empty when the auth module is unavailable */
             display_name: string;
             /** Format: date-time */
@@ -1779,6 +1784,11 @@ export interface components {
             seq: number;
         };
         Member: {
+            /**
+             * @description Empty when the user has no avatar or the auth module is unavailable
+             * @example https://cdn.example.com/a.png
+             */
+            avatar_url: string;
             /** @description Empty when the auth module is unavailable */
             display_name: string;
             /** @description Empty when the auth module is unavailable */

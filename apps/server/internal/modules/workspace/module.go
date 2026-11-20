@@ -105,7 +105,7 @@ func (d directory) Users(ctx context.Context, ids []string) (map[string]usecase.
 	}
 	out := make(map[string]usecase.User, len(list))
 	for _, u := range list {
-		out[u.ID] = usecase.User{Email: u.Email, DisplayName: u.DisplayName}
+		out[u.ID] = usecase.User{Email: u.Email, DisplayName: u.DisplayName, AvatarURL: u.AvatarURL}
 	}
 	return out, nil
 }

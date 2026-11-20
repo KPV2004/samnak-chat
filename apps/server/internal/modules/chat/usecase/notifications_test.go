@@ -30,6 +30,16 @@ func (b nameBook) Names(_ context.Context, ids []string) map[string]string {
 	return out
 }
 
+func (b nameBook) Profiles(_ context.Context, ids []string) map[string]Profile {
+	out := map[string]Profile{}
+	for _, id := range ids {
+		if name, ok := b[id]; ok {
+			out[id] = Profile{DisplayName: name}
+		}
+	}
+	return out
+}
+
 // notifyRepo is the Repository port chat's notification rule needs, with the
 // rest of the interface left nil on purpose: the rule must not call it.
 type notifyRepo struct {

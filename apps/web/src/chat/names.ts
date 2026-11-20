@@ -47,12 +47,22 @@ export function channelTitle(channel: Channel, me: string, nameOf: (userId: stri
   return names.join(", ") || t("chat.dms");
 }
 
-/**
- * The picture of a user, or an empty string. Only the signed-in user's own `avatar_url` is known:
- * the member lists the server sends (`Member`, `ChannelMember`) carry no avatar, so everyone else
- * shows initials until it does.
- */
+/** The picture of a user, or an empty string: from the workspace member list, which carries everyone's `avatar_url`. */
 export function useAvatarOf(): (userId: string) => string {
   const me = useMe().data;
-  return useCallback((userId) => (me && me.id === userId ? me.avatar_url : ""), [me]);
+  const { data } = useWorkspaceMembers();
+  return useCallback((userId) => pictureOf(userId, data, me), [data, me]);
+}
+
+/**
+ * The picture of `userId`. The signed-in user's own profile wins, so a new picture shows at once
+ * even while the member list is older; until the list loads, only that user's picture is known.
+ */
+export function pictureOf(
+  userId: string,
+  members: Member[] | undefined,
+  me: { id: string; avatar_url: string } | undefined,
+): string {
+  if (me?.id === userId) return me.avatar_url;
+  return members?.find((m) => m.user_id === userId)?.avatar_url ?? "";
 }

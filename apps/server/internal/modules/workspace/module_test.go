@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/workspace"
 )
 
@@ -14,6 +15,7 @@ type memberBody struct {
 	UserID      string `json:"user_id"`
 	DisplayName string `json:"display_name"`
 	Email       string `json:"email"`
+	AvatarURL   string `json:"avatar_url"`
 	Role        string `json:"role"`
 	Status      string `json:"status"`
 	JoinedAt    string `json:"joined_at"`
@@ -153,6 +155,36 @@ func TestListMembersFallsBackWhenDirectoryFails(t *testing.T) {
 	r.json(t, &l)
 	if r.Code != 200 || len(l.Items) != 1 || l.Items[0].Email != "" || l.Items[0].DisplayName != "" || l.Items[0].UserID != owner.ID {
 		t.Fatalf("got %d %s", r.Code, r.Body)
+	}
+}
+
+func TestListMembersCarriesAvatars(t *testing.T) {
+	e := newEnv(t)
+	owner := e.newUser("owner")
+	ws := e.createWorkspace(owner, "Team")
+	bob := e.newUser("bob")
+	e.seedMember(ws, bob, app.RoleMember, "active")
+	const avatar = "https://cdn.example.com/bob.png"
+	e.dir.mu.Lock()
+	e.dir.users[bob.ID] = auth.UserSummary{ID: bob.ID, Email: bob.Email, DisplayName: "bob", AvatarURL: avatar}
+	e.dir.mu.Unlock()
+
+	r := e.call("GET", "/workspace/members", owner.Token, ws.ID, nil)
+	var l memberList
+	r.json(t, &l)
+	if r.Code != 200 || len(l.Items) != 2 {
+		t.Fatalf("members = %d %s", r.Code, r.Body)
+	}
+	avatars := map[string]string{}
+	for _, m := range l.Items {
+		avatars[m.UserID] = m.AvatarURL
+	}
+	if avatars[bob.ID] != avatar || avatars[owner.ID] != "" {
+		t.Errorf("avatars = %v", avatars)
+	}
+	// The field is always sent, as an empty string when the user has no picture.
+	if !strings.Contains(string(r.Body), `"avatar_url":""`) {
+		t.Errorf("no empty avatar_url in %s", r.Body)
 	}
 }
 

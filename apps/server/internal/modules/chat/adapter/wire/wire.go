@@ -157,9 +157,10 @@ func ToMessage(v usecase.MessageView, viewerID string) Message {
 type ChannelMember struct {
 	UserID      string    `json:"user_id"`
 	DisplayName string    `json:"display_name" doc:"Empty when the auth module is unavailable"`
+	AvatarURL   string    `json:"avatar_url" doc:"Empty when the user has no avatar or the auth module is unavailable" example:"https://cdn.example.com/a.png"`
 	JoinedAt    time.Time `json:"joined_at"`
 }
 
 func ToMember(m usecase.Member) ChannelMember {
-	return ChannelMember{UserID: m.UserID, DisplayName: m.DisplayName, JoinedAt: m.JoinedAt.UTC()}
+	return ChannelMember{UserID: m.UserID, DisplayName: m.DisplayName, AvatarURL: m.AvatarURL, JoinedAt: m.JoinedAt.UTC()}
 }

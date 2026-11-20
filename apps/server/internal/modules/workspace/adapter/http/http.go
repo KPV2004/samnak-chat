@@ -75,6 +75,7 @@ type Member struct {
 	UserID      string        `json:"user_id"`
 	DisplayName string        `json:"display_name" doc:"Empty when the auth module is unavailable"`
 	Email       string        `json:"email" doc:"Empty when the auth module is unavailable"`
+	AvatarURL   string        `json:"avatar_url" doc:"Empty when the user has no avatar or the auth module is unavailable" example:"https://cdn.example.com/a.png"`
 	Role        app.Role      `json:"role" enum:"owner,admin,manager,member,guest"`
 	Status      domain.Status `json:"status" enum:"active,deactivated"`
 	JoinedAt    time.Time     `json:"joined_at"`
@@ -85,7 +86,7 @@ func toWorkspace(v usecase.WorkspaceView) Workspace {
 }
 
 func toMember(v usecase.MemberView) Member {
-	return Member{UserID: v.UserID, DisplayName: v.DisplayName, Email: v.Email, Role: v.Role, Status: v.Status, JoinedAt: v.JoinedAt.UTC()}
+	return Member{UserID: v.UserID, DisplayName: v.DisplayName, Email: v.Email, AvatarURL: v.AvatarURL, Role: v.Role, Status: v.Status, JoinedAt: v.JoinedAt.UTC()}
 }
 
 type workspaceOutput struct{ Body Workspace }
