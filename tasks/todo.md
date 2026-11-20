@@ -933,7 +933,7 @@ Decided 2026-11-19 with the user: follow Slack (workspace rail, channel and DM s
 
 Asked by the user 2026-11-20: reaching chats and group chats should be easier, with pictures to click like Lark, and pinning. Group chats are the existing multi-person direct messages (`chat` type `dm` with 3+ members) and private channels.
 
-## [ ] CH-01 chat: pins and last-message preview (server)
+## [x] CH-01 chat: pins and last-message preview (server)
 **SRS:** CHAT (UX extension) · **Size:** S · **Depends on:** none
 
 **Contract (planner)**
@@ -942,8 +942,8 @@ Asked by the user 2026-11-20: reaching chats and group chats should be easier, w
 - `Channel` gains `pinned_at` (`null` when not pinned) and `last_message` (`null` for an empty channel): `{id, sender_id, kind, preview, created_at}`, where `preview` is the body as plain text cut to 120 characters, a card's `fallback_text`, an empty string with attachments only, and `""` for a deleted message. The channel list orders pinned first (newest pin first), then by the newest message, then by name. No extra query per channel.
 
 **Acceptance criteria**
-- [ ] The contract above, with tests: pin/unpin, limit, non-member 404, another workspace 404, the frame reaches only the caller, preview of text, card, attachment-only and deleted messages, list order
-- [ ] `go build`, `go vet`, `go test ./...` pass; gofmt clean
+- [x] The contract above, with tests: pin/unpin, limit, non-member 404, another workspace 404, the frame reaches only the caller, preview of text, card, attachment-only and deleted messages, list order
+- [x] `go build`, `go vet`, `go test ./...` pass; gofmt clean
 
 **Files:** `apps/server/internal/modules/chat/` (all subpackages and migrations), `apps/server/internal/acceptance/isolation_test.go` (add the two new routes to the sweep), `apps/server/internal/acceptance/nfr07_test.go` (only if a new gap appears)
 
