@@ -969,4 +969,4 @@ Found by CH-02: `Member` (`GET /workspace/members`) and `ChannelMember` (`GET /c
 - [ ] `useAvatarOf` in `apps/web/src/chat/names.ts` reads it, so DM rows, group stacks, message rows and member lists show real pictures with the initials fallback on load error
 - [ ] OpenAPI and web types regenerated; Go and web checks pass
 
-**Files:** `apps/server/internal/modules/workspace/` (members response only), `apps/server/internal/modules/chat/` (channel members response only), `apps/server/api/`, `packages/core/src/api/schema.d.ts` (generated), `apps/web/src/chat/names.ts` and its tests, `packages/core/src/chat/fake-server.ts`, `apps/web/src/test-utils.tsx`
+**Files:** `apps/web/src/components/UserAvatar.tsx` (a picture source prop), `apps/web/src/chat/MessageItem.tsx` and `apps/web/src/chat/MentionList.tsx` (pass the picture only), `apps/server/internal/modules/workspace/` (members response only), `apps/server/internal/modules/chat/` (channel members response only), `apps/server/api/`, `packages/core/src/api/schema.d.ts` (generated), `apps/web/src/chat/names.ts` and its tests, `packages/core/src/chat/fake-server.ts`, `apps/web/src/test-utils.tsx`
