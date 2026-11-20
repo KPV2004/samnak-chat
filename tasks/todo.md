@@ -895,24 +895,24 @@ Decided 2026-11-19 with the user: follow Slack (workspace rail, channel and DM s
 
 **Files:** `apps/web/src/index.css`, `apps/web/src/components/` (shell parts and `ui/` restyles), `apps/web/src/pages/Shell.tsx`, `apps/web/src/chat/Sidebar.tsx`, `apps/web/src/chat/ChatLayout.tsx`, `apps/web/src/i18n/ui-messages.ts`, `docs/ui.md`, and the tests of these files
 
-## [ ] UI-08 chat view: messages, composer and threads (stage 2)
+## [x] UI-08 chat view: messages, composer and threads (stage 2)
 **Size:** M · **Depends on:** UI-07
 
 **Acceptance criteria**
-- [ ] Message list in the Slack manner: grouped by sender and minute, avatar and name on the first of a group, hover toolbar (react, reply in thread, more), date dividers, "new messages" line, reactions as pills, cards fit the new card style
-- [ ] Composer: a bordered box with a formatting row, attach, emoji and send, slash command and mention popovers restyled; thread pane on the right with its own composer, full screen below `md`
-- [ ] Channel header: name, topic, member count, and the mute and other menu items
-- [ ] Screenshots in light and dark at the four widths
+- [x] Message list in the Slack manner: grouped by sender and minute, avatar and name on the first of a group, hover toolbar (react, reply in thread, more), date dividers, "new messages" line, reactions as pills, cards fit the new card style
+- [x] Composer: a bordered box with a formatting row, attach, emoji and send, slash command and mention popovers restyled; thread pane on the right with its own composer, full screen below `md`
+- [x] Channel header: name, topic, member count, and the mute and other menu items
+- [x] Screenshots in light and dark at the four widths
 
 **Files:** `apps/web/src/chat/` (except `Sidebar.tsx` and `ChatLayout.tsx` unless the change is styling only), `apps/web/src/i18n/chat-messages.ts`, and their tests
 
-## [ ] UI-09 module pages: tasks, approvals, helpdesk, settings (stage 2)
+## [x] UI-09 module pages: tasks, approvals, helpdesk, settings (stage 2)
 **Size:** M · **Depends on:** UI-07
 
 **Acceptance criteria**
-- [ ] Tasks, Approvals, Helpdesk, Members, Invites, Groups, Audit log, Notification settings and Account pages use one page header, one table or list style, one card style and one empty state, all on the new tokens; filters as a toolbar row; detail pages as a two-column layout (content and a properties panel) on wide screens
-- [ ] Cards of tasks, approvals and tickets in chat share one card family
-- [ ] Screenshots of each page in light and dark at 1440 and 390
+- [x] Tasks, Approvals, Helpdesk, Members, Invites, Groups, Audit log, Notification settings and Account pages use one page header, one table or list style, one card style and one empty state, all on the new tokens; filters as a toolbar row; detail pages as a two-column layout (content and a properties panel) on wide screens
+- [x] Cards of tasks, approvals and tickets in chat share one card family
+- [x] Screenshots of each page in light and dark at 1440 and 390
 
 **Files:** `apps/web/src/task/`, `apps/web/src/approval/`, `apps/web/src/helpdesk/`, `apps/web/src/groups/`, `apps/web/src/notify/`, `apps/web/src/pages/` (except `Shell.tsx`), and their tests and i18n files
 
