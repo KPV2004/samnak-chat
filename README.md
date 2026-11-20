@@ -8,7 +8,7 @@ Self-hosted chat for organizations, with work management built in: tasks, approv
 
 ```
 apps/server/     Go modular monolith (Chi, Huma, pgx, sqlc, River)
-apps/web/        React + Vite + TypeScript
+apps/web/        React + Vite + TypeScript (see apps/web/README.md)
 apps/desktop/    Tauri (phase P2)
 apps/mobile/     Expo (phase P3)
 packages/core/   API client, OpenAPI types, WebSocket, chat logic (no DOM)
