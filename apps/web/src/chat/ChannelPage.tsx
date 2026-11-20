@@ -2,13 +2,12 @@ import { useEffect } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useT } from "../i18n/useT";
-import { ChannelMuteMenu } from "../notify/ChannelMuteMenu";
 import { useChat, useChatState } from "../state/chat";
+import { ChannelHeader } from "./ChannelHeader";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
 import { ThreadPanel } from "./ThreadPanel";
 import { TypingIndicator } from "./typing";
-import { channelTitle, useNameOf } from "./names";
 
 export function ChannelPage() {
   const t = useT();
@@ -17,7 +16,6 @@ export function ChannelPage() {
   const rootId = params.get("thread");
   const chat = useChat();
   const { channels } = useChatState();
-  const nameOf = useNameOf();
   const state = channels[channelId];
   const known = state !== undefined;
   const store = chat?.store;
@@ -59,18 +57,11 @@ export function ChannelPage() {
   return (
     <div data-page data-channel className="flex h-full min-w-0">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center gap-3 border-b px-4 py-2.5">
-          <div className="grid min-w-0 flex-1 gap-0.5">
-            <h1 className="text-base font-semibold">{channelTitle(channel, chat?.userId ?? "", nameOf, t)}</h1>
-            {channel.topic && <p className="text-sm text-muted-foreground">{channel.topic}</p>}
-          </div>
-          <small className="shrink-0 text-xs text-muted-foreground">{t("chat.members", { n: channel.member_count })}</small>
-          <ChannelMuteMenu channelId={channelId} />
-        </header>
-        <MessageList channelId={channelId} />
+        <ChannelHeader channel={channel} />
+        <MessageList key={channelId} channelId={channelId} />
         <TypingIndicator channelId={channelId} />
         {channel.archived_at ? (
-          <p className="border-t px-4 py-3 text-sm text-muted-foreground">{t("chat.archived")}</p>
+          <p className="mx-4 mb-4 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">{t("chat.archived")}</p>
         ) : (
           // Keyed by channel: opening another channel starts a new draft, with no picked names.
           <Composer key={channelId} channelId={channelId} />

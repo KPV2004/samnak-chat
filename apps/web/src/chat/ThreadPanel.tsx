@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useT } from "../i18n/useT";
 import { useChat, useChatState } from "../state/chat";
+import { channelTitle, useNameOf } from "./names";
 import { Composer } from "./Composer";
 import { toRows } from "./grouping";
 import { MessageItem } from "./MessageItem";
@@ -18,13 +19,17 @@ interface Props {
 
 /**
  * A thread: the root message, its replies and a box to reply. Threads are one level deep.
- * On a wide screen it is a side panel; on a phone it is a Sheet over the channel.
+ * On a wide screen it is a side panel; below `lg` it is a Sheet over the channel, the whole screen below `md`.
  */
 export function ThreadPanel({ channelId, rootId, onClose }: Props) {
   const t = useT();
   const store = useChat()?.store;
   const wide = useWide();
-  const messages = useChatState().channels[channelId]?.messages;
+  const nameOf = useNameOf();
+  const me = useChat()?.userId ?? "";
+  const channel = useChatState().channels[channelId];
+  const messages = channel?.messages;
+  const where = channel ? channelTitle(channel.channel, me, nameOf, t) : "";
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,8 +46,11 @@ export function ThreadPanel({ channelId, rootId, onClose }: Props) {
   }, [replies.length]);
 
   const header = (title: ReactNode) => (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-      <div className="min-w-0 flex-1">{title}</div>
+    <header className="flex min-h-14 shrink-0 items-center gap-2 border-b px-4 py-2">
+      <div className="grid min-w-0 flex-1">
+        {title}
+        {where && <p className="text-xs text-muted-foreground">{where}</p>}
+      </div>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button type="button" variant="ghost" size="icon-sm" aria-label={t("chat.thread.close")} onClick={onClose}>
@@ -67,7 +75,13 @@ export function ThreadPanel({ channelId, rootId, onClose }: Props) {
         {replies.length === 0 ? (
           <p className="px-3 pt-3 text-sm text-muted-foreground">{t("chat.thread.empty")}</p>
         ) : (
-          <ol className="mt-2 border-t pt-2">
+          <div className="flex items-center gap-3 px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground" aria-hidden="true">
+            {replies.length === 1 ? t("chat.replyCount.one") : t("chat.replyCount.other", { n: replies.length })}
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        )}
+        {replies.length > 0 && (
+          <ol className="mt-1">
             {rows.map(({ message, continued }) => (
               <MessageItem key={message.client_msg_id || message.id} message={message} channelId={channelId} inThread continued={continued} />
             ))}
@@ -80,7 +94,7 @@ export function ThreadPanel({ channelId, rootId, onClose }: Props) {
 
   if (wide) {
     return (
-      <aside aria-label={t("chat.thread.title")} className="flex min-h-0 w-96 shrink-0 flex-col border-l bg-background">
+      <aside aria-label={t("chat.thread.title")} className="flex min-h-0 w-[22rem] shrink-0 flex-col border-l bg-background xl:w-[26rem]">
         {header(<h2 className="m-0 text-sm font-semibold">{t("chat.thread.title")}</h2>)}
         {body}
       </aside>
@@ -94,7 +108,7 @@ export function ThreadPanel({ channelId, rootId, onClose }: Props) {
         if (!open) onClose();
       }}
     >
-      <SheetContent side="right" showCloseButton={false} className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+      <SheetContent side="right" showCloseButton={false} className="flex w-full flex-col gap-0 p-0 sm:max-w-none md:max-w-md">
         {header(
           <SheetTitle asChild>
             <h2 className="m-0 text-sm font-semibold">{t("chat.thread.title")}</h2>

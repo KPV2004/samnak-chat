@@ -98,6 +98,30 @@ export const chatEn = {
   "chat.thread.empty": "No replies yet.",
   "chat.thread.reply": "Reply",
   "chat.thread.rootMissing": "The first message of this thread is not loaded.",
+
+  "chat.newMessages": "New messages",
+  "chat.more": "More actions",
+
+  "chat.format.label": "Formatting",
+  "chat.format.bold": "Bold",
+  "chat.format.italic": "Italic",
+  "chat.format.code": "Code",
+  "chat.format.link": "Link",
+  "chat.emoji": "Add emoji",
+  "chat.emoji.list": "Emoji",
+  "chat.mention.add": "Mention a person",
+  "chat.attach": "Attach files",
+  "chat.attach.list": "Files to send",
+  "chat.attach.remove": "Remove {name}",
+  "chat.attach.uploading": "Uploading…",
+  "chat.attach.error": "That file could not be uploaded.",
+  "chat.attach.tooBig": "A file can be at most 50 MB.",
+
+  "chat.membersTitle": "Members",
+  "chat.members.empty": "Nobody has joined yet.",
+  "chat.copyLink": "Copy link",
+  "chat.toast.linkCopied": "Link copied",
+  "chat.channel.private": "Private channel",
 } as const;
 
 export const chatTh: Record<keyof typeof chatEn, string> = {
@@ -198,4 +222,28 @@ export const chatTh: Record<keyof typeof chatEn, string> = {
   "chat.thread.empty": "ยังไม่มีการตอบกลับ",
   "chat.thread.reply": "ตอบกลับ",
   "chat.thread.rootMissing": "ยังไม่ได้โหลดข้อความแรกของเธรดนี้",
+
+  "chat.newMessages": "ข้อความใหม่",
+  "chat.more": "การทำงานอื่น",
+
+  "chat.format.label": "การจัดรูปแบบ",
+  "chat.format.bold": "ตัวหนา",
+  "chat.format.italic": "ตัวเอียง",
+  "chat.format.code": "โค้ด",
+  "chat.format.link": "ลิงก์",
+  "chat.emoji": "เพิ่มอีโมจิ",
+  "chat.emoji.list": "อีโมจิ",
+  "chat.mention.add": "กล่าวถึงสมาชิก",
+  "chat.attach": "แนบไฟล์",
+  "chat.attach.list": "ไฟล์ที่จะส่ง",
+  "chat.attach.remove": "ลบ {name}",
+  "chat.attach.uploading": "กำลังอัปโหลด…",
+  "chat.attach.error": "อัปโหลดไฟล์นี้ไม่สำเร็จ",
+  "chat.attach.tooBig": "ไฟล์ใหญ่ได้ไม่เกิน 50 MB",
+
+  "chat.membersTitle": "สมาชิก",
+  "chat.members.empty": "ยังไม่มีสมาชิก",
+  "chat.copyLink": "คัดลอกลิงก์",
+  "chat.toast.linkCopied": "คัดลอกลิงก์แล้ว",
+  "chat.channel.private": "ช่องส่วนตัว",
 };

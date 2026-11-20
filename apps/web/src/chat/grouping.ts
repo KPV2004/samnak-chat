@@ -37,3 +37,20 @@ export function dayLabel(iso: string, locale: string, today: string, now: Date =
   if (date.toDateString() === now.toDateString()) return today;
   return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(date);
 }
+
+/**
+ * Where the "new messages" line goes: the index of the first message past `readSeq`, so long as one
+ * that was read sits above it and it is not my own. -1 when there is no line.
+ */
+export function newMessagesIndex(messages: { seq: number; sender_id: string }[], readSeq: number, me: string): number {
+  const at = messages.findIndex((m) => m.seq > readSeq);
+  if (at <= 0 || messages[at]!.sender_id === me) return -1;
+  return at;
+}
+
+/** Just the clock ("09:41"), for the gutter of a continued message, where the day divider already gave the date. */
+export function clockTime(iso: string, locale: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(date);
+}

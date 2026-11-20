@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { acme, channel, chatRoutes, message, renderApp, type Routes } from "../test-utils";
 
@@ -15,6 +15,12 @@ function routes(items: object[], extra: Routes = {}): Routes {
     "POST /api/v1/chat/channels/c1/read": () => undefined,
     ...extra,
   };
+}
+
+/** Edit and Delete sit in the "More actions" menu of a message's toolbar. */
+async function chooseFromMore(user: UserEvent, item: HTMLElement, name: string) {
+  await user.click(within(item).getByRole("button", { name: "More actions" }));
+  await user.click(await screen.findByRole("menuitem", { name }));
 }
 
 const asMember = { "GET /api/v1/workspace": () => ({ items: [{ ...acme, role: "member" }] }) };
@@ -93,7 +99,7 @@ describe("edit and delete", () => {
       }),
     });
     const item = (await screen.findByText("my message")).closest("li")!;
-    await user.click(within(item).getByRole("button", { name: "Edit" }));
+    await chooseFromMore(user, item, "Edit");
     const box = within(item).getByRole("textbox", { name: "Edit message" });
     expect(box).toHaveValue("my message");
     await user.clear(box);
@@ -114,7 +120,7 @@ describe("edit and delete", () => {
       }),
     });
     const item = (await screen.findByText("@Somchai")).closest("li")!;
-    await user.click(within(item).getByRole("button", { name: "Edit" }));
+    await chooseFromMore(user, item, "Edit");
     const box = within(item).getByRole("textbox", { name: "Edit message" });
     expect(box).toHaveValue("ask @Somchai about it");
     await user.type(box, " today");
@@ -133,7 +139,7 @@ describe("edit and delete", () => {
       }),
     });
     const item = (await screen.findByText("@Somchai")).closest("li")!;
-    await user.click(within(item).getByRole("button", { name: "Edit" }));
+    await chooseFromMore(user, item, "Edit");
     expect(within(item).getByRole("textbox", { name: "Edit message" })).toHaveValue("@channel and @Somchai");
     await user.click(within(item).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(app.called(`PATCH /api/v1/chat/messages/${withMention.id}`)).toHaveLength(1));
@@ -144,7 +150,7 @@ describe("edit and delete", () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/chat/c1", routes: routes([mine]) });
     const item = (await screen.findByText("my message")).closest("li")!;
-    await user.click(within(item).getByRole("button", { name: "Edit" }));
+    await chooseFromMore(user, item, "Edit");
     await user.type(within(item).getByRole("textbox", { name: "Edit message" }), "x{Escape}");
     expect(within(item).queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.getByText("my message")).toBeInTheDocument();
@@ -158,7 +164,7 @@ describe("edit and delete", () => {
       routes: routes([mine], { [`DELETE /api/v1/chat/messages/${mine.id}`]: () => undefined }),
     });
     const item = (await screen.findByText("my message")).closest("li")!;
-    await user.click(within(item).getByRole("button", { name: "Delete" }));
+    await chooseFromMore(user, item, "Delete");
     expect(app.called(`DELETE /api/v1/chat/messages/${mine.id}`)).toHaveLength(0);
     // The question is asked in a dialog, which sits outside the message.
     const dialog = await screen.findByRole("dialog", { name: "Delete this message?" });
@@ -175,7 +181,7 @@ describe("edit and delete", () => {
       routes: routes([mine], { [`DELETE /api/v1/chat/messages/${mine.id}`]: () => undefined }),
     });
     const item = (await screen.findByText("my message")).closest("li")!;
-    await user.click(within(item).getByRole("button", { name: "Delete" }));
+    await chooseFromMore(user, item, "Delete");
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByText("my message")).toBeInTheDocument();
@@ -185,15 +191,16 @@ describe("edit and delete", () => {
   it("offers a member no edit or delete on someone else's message", async () => {
     renderApp({ route: "/chat/c1", routes: routes([mine, theirs], asMember) });
     const item = (await screen.findByText("their message")).closest("li")!;
-    expect(within(item).queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
-    expect(within(item).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
   });
 
   it("lets an owner delete someone else's message, but not edit it", async () => {
     renderApp({ route: "/chat/c1", routes: routes([theirs]) });
+    const user = userEvent.setup();
     const item = (await screen.findByText("their message")).closest("li")!;
-    expect(within(item).getByRole("button", { name: "Delete" })).toBeInTheDocument();
-    expect(within(item).queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    await user.click(within(item).getByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Edit" })).not.toBeInTheDocument();
   });
 
   it("tells when the change could not be made", async () => {
@@ -203,7 +210,7 @@ describe("edit and delete", () => {
       routes: routes([mine], { [`PATCH /api/v1/chat/messages/${mine.id}`]: () => new Response("{}", { status: 500 }) }),
     });
     const item = (await screen.findByText("my message")).closest("li")!;
-    await user.click(within(item).getByRole("button", { name: "Edit" }));
+    await chooseFromMore(user, item, "Edit");
     await user.type(within(item).getByRole("textbox", { name: "Edit message" }), "!");
     await user.click(within(item).getByRole("button", { name: "Save" }));
     expect(await within(item).findByText("That did not work. Try again.")).toBeInTheDocument();

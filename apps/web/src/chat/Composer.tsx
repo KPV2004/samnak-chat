@@ -1,9 +1,11 @@
 import type { ChatCommand } from "@samnak/core";
 import { useQuery } from "@tanstack/react-query";
-import { SendHorizontal } from "lucide-react";
+import { AtSign, Bold, Code, Italic, Link2, Paperclip, SendHorizontal, Smile, X } from "lucide-react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
@@ -11,12 +13,20 @@ import { useChat } from "../state/chat";
 import { useChatExtensions, useExtensionsApi } from "../task/api";
 import { MentionList } from "./MentionList";
 import { addPick, channelText, insertMention, mentionAt, toTokens, type MentionOption, type Picks } from "./mentions";
+import { insertAt, wrapSelection, type Edit, type Mark } from "./format";
+import { IconTool } from "./IconTool";
 import { useNameOf } from "./names";
+import { maxFileBytes, useChannelUpload } from "./uploads";
 
 export const maxLength = 4000;
 /** The server fans typing out at most this often, so the client does not send more. */
 const typingEveryMs = 3000;
 const maxOptions = 6;
+
+const emojis = [
+  "😀", "😂", "🙂", "😉", "😍", "🤔", "😅", "😢", "😮", "😎", "🙌", "👏",
+  "👍", "👎", "🙏", "💪", "👀", "🎉", "🔥", "✅", "❌", "⭐", "💡", "❤️",
+];
 
 interface Props {
   channelId: string;
@@ -32,6 +42,13 @@ interface Draft {
 }
 
 const emptyDraft: Draft = { text: "", picks: new Map() };
+
+/** A file chosen for the message: its attachment id is known once it is uploaded. */
+interface Attached {
+  key: number;
+  name: string;
+  id: string | null;
+}
 
 /** What a slash command said back (shown to the sender only), or why it failed. */
 interface Note {
@@ -53,8 +70,12 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   const [dismissed, setDismissed] = useState(false);
   const [running, setRunning] = useState(false);
   const [note, setNote] = useState<Note | null>(null);
+  const [files, setFiles] = useState<Attached[]>([]);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const upload = useChannelUpload();
   const boxRef = useRef<HTMLTextAreaElement>(null);
-  const nextCaret = useRef<number | null>(null);
+  const nextFileKey = useRef(0);
+  const nextSelection = useRef<[number, number] | null>(null);
   const lastTyping = useRef(0);
   const uid = useId();
 
@@ -62,7 +83,9 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   const body = toTokens(text, picks);
   const length = [...body].length;
   const tooLong = length > maxLength;
-  const canSend = text.trim() !== "" && !tooLong && store !== undefined && !running;
+  const uploading = files.some((f) => f.id === null);
+  const attachmentIds = files.flatMap((f) => (f.id === null ? [] : [f.id]));
+  const canSend = (text.trim() !== "" || attachmentIds.length > 0) && !uploading && !tooLong && store !== undefined && !running;
 
   const members = useQuery({
     queryKey: ["chat-channel-members", channelId],
@@ -96,18 +119,61 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   const open = shown.length > 0;
   const current = Math.min(active, shown.length - 1);
 
-  // Puts the caret after an inserted mention once the new text is in the box.
+  // Puts the caret (or the selection) where an insert or a format said once the new text is in the box.
   useLayoutEffect(() => {
-    if (nextCaret.current !== null && boxRef.current) {
-      boxRef.current.setSelectionRange(nextCaret.current, nextCaret.current);
-      setCaret(nextCaret.current);
-      nextCaret.current = null;
+    if (nextSelection.current !== null && boxRef.current) {
+      const [start, end] = nextSelection.current;
+      boxRef.current.setSelectionRange(start, end);
+      setCaret(end);
+      nextSelection.current = null;
     }
   }, [text]);
 
+  /** Shows an edit of the text in the box and puts the caret where the edit says. */
+  function applyEdit(edit: Edit) {
+    nextSelection.current = [edit.start, edit.end];
+    setDraft((current) => ({ ...current, text: edit.text }));
+    boxRef.current?.focus();
+  }
+
+  function format(mark: Mark) {
+    const el = boxRef.current;
+    if (el) applyEdit(wrapSelection(text, el.selectionStart, el.selectionEnd, mark));
+  }
+
+  function insert(what: string) {
+    const el = boxRef.current;
+    if (el) applyEdit(insertAt(text, el.selectionStart, el.selectionEnd, what));
+  }
+
+  function mentionSomeone() {
+    const before = text.slice(0, boxRef.current?.selectionStart ?? text.length);
+    insert(before === "" || /\s$/.test(before) ? "@" : " @");
+  }
+
+  function attach(list: FileList | null) {
+    if (!list) return;
+    setNote(null);
+    for (const file of Array.from(list)) {
+      if (file.size > maxFileBytes) {
+        setNote({ text: t("chat.attach.tooBig"), failed: true });
+        continue;
+      }
+      const key = nextFileKey.current++;
+      setFiles((current) => [...current, { key, name: file.name, id: null }]);
+      upload(channelId, file).then(
+        (id) => setFiles((current) => current.map((f) => (f.key === key ? { ...f, id } : f))),
+        () => {
+          setFiles((current) => current.filter((f) => f.key !== key));
+          setNote({ text: t("chat.attach.error"), failed: true });
+        },
+      );
+    }
+  }
+
   function pick(option: MentionOption) {
     if (slash !== null) {
-      nextCaret.current = option.token.length;
+      nextSelection.current = [option.token.length, option.token.length];
       setDraft({ text: option.token, picks: new Map() });
       boxRef.current?.focus();
       return;
@@ -115,17 +181,22 @@ export function Composer({ channelId, threadRootId, label }: Props) {
     if (!mention) return;
     const added = addPick(picks, option.insert ?? option.token, option.token);
     const next = insertMention(text, caret, mention, added.shown);
-    nextCaret.current = next.caret;
+    nextSelection.current = [next.caret, next.caret];
     setDraft({ text: next.text, picks: added.picks });
     boxRef.current?.focus();
   }
 
   async function submit() {
     if (!canSend) return;
-    const command = commandIn(body, commands);
+    const command = attachmentIds.length > 0 ? null : commandIn(body, commands);
     if (!command) {
-      store.send(channelId, body, threadRootId ? { thread_root_id: threadRootId } : {});
+      store.send(channelId, body, {
+        ...(threadRootId ? { thread_root_id: threadRootId } : {}),
+        ...(attachmentIds.length > 0 ? { attachment_ids: attachmentIds } : {}),
+      });
       setDraft(emptyDraft);
+      setFiles([]);
+      setNote(null);
       setCaret(0);
       boxRef.current?.focus();
       return;
@@ -194,7 +265,7 @@ export function Composer({ channelId, threadRootId, label }: Props) {
   const listId = `${uid}-mentions`;
   return (
     <form
-      className="grid gap-1 border-t bg-background p-2 md:p-3"
+      className="shrink-0 px-3 pb-3 md:px-4 md:pb-4"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
@@ -205,7 +276,7 @@ export function Composer({ channelId, threadRootId, label }: Props) {
       </label>
       <div
         className={cn(
-          "relative rounded-lg border border-input bg-background shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
+          "relative rounded-lg border border-input bg-card transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
           tooLong && "border-destructive ring-destructive/20",
         )}
       >
@@ -218,6 +289,20 @@ export function Composer({ channelId, threadRootId, label }: Props) {
             onPick={pick}
           />
         )}
+        <div role="toolbar" aria-label={t("chat.format.label")} className="flex items-center gap-0.5 border-b px-1.5 py-1">
+          <IconTool label={t("chat.format.bold")} onClick={() => format("bold")}>
+            <Bold />
+          </IconTool>
+          <IconTool label={t("chat.format.italic")} onClick={() => format("italic")}>
+            <Italic />
+          </IconTool>
+          <IconTool label={t("chat.format.code")} onClick={() => format("code")}>
+            <Code />
+          </IconTool>
+          <IconTool label={t("chat.format.link")} onClick={() => format("link")}>
+            <Link2 />
+          </IconTool>
+        </div>
         <Textarea
           id={`${uid}-box`}
           ref={boxRef}
@@ -230,29 +315,108 @@ export function Composer({ channelId, threadRootId, label }: Props) {
           aria-controls={open ? listId : undefined}
           aria-activedescendant={open ? `${listId}-${current}` : undefined}
           aria-invalid={tooLong || undefined}
-          className="max-h-40 min-h-11 resize-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
+          className="max-h-40 min-h-11 resize-none rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
         />
-        <div className="flex items-center gap-2 px-2 pb-2">
-          <small id={`${uid}-hint`} className="min-w-0 flex-1 text-xs text-muted-foreground">
-            {t("chat.composer.hint")}
-          </small>
-          <small
-            id={`${uid}-count`}
-            className={cn("shrink-0 text-xs tabular-nums", tooLong ? "text-destructive" : "text-muted-foreground")}
-          >
+        {files.length > 0 && (
+          <ul aria-label={t("chat.attach.list")} className="flex flex-wrap gap-1.5 px-2 pb-2">
+            {files.map((f) => (
+              <li
+                key={f.key}
+                className={cn("inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border bg-background pr-1 pl-2 text-xs", f.id === null && "text-muted-foreground")}
+              >
+                <Paperclip className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="min-w-0 break-all">{f.name}</span>
+                {f.id === null && <span className="sr-only">{t("chat.attach.uploading")}</span>}
+                <IconTool label={t("chat.attach.remove", { name: f.name })} onClick={() => setFiles((all) => all.filter((x) => x.key !== f.key))}>
+                  <X />
+                </IconTool>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex items-center gap-0.5 px-1.5 pb-1.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <label className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground active:bg-accent/70 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50 [&_svg]:size-3">
+                <Paperclip aria-hidden="true" />
+                <input
+                  type="file"
+                  multiple
+                  aria-label={t("chat.attach")}
+                  className="sr-only"
+                  onChange={(e) => {
+                    attach(e.currentTarget.files);
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
+            </TooltipTrigger>
+            <TooltipContent>{t("chat.attach")}</TooltipContent>
+          </Tooltip>
+          <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t("chat.emoji")}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <Smile />
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent>{t("chat.emoji")}</TooltipContent>
+            </Tooltip>
+            <PopoverContent
+              align="start"
+              side="top"
+              className="w-auto p-1.5"
+              aria-label={t("chat.emoji.list")}
+              onCloseAutoFocus={(e) => {
+                e.preventDefault();
+                boxRef.current?.focus();
+              }}
+            >
+              <ul className="grid grid-cols-6 gap-0.5">
+                {emojis.map((emoji) => (
+                  <li key={emoji}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        insert(emoji);
+                        setEmojiOpen(false);
+                      }}
+                      className="flex size-8 items-center justify-center rounded-md text-lg transition-colors hover:bg-accent active:bg-accent/70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    >
+                      {emoji}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
+          <IconTool label={t("chat.mention.add")} onClick={mentionSomeone}>
+            <AtSign />
+          </IconTool>
+          <small id={`${uid}-count`} className={cn("ml-auto shrink-0 pr-2 text-xs tabular-nums", tooLong ? "text-destructive" : "text-muted-foreground")}>
             {t("chat.counter", { n: length.toLocaleString("en-US") })}
           </small>
-          <Button type="submit" size="sm" disabled={!canSend}>
+          <Button type="submit" size="icon-sm" aria-label={t("chat.send")} disabled={!canSend}>
             <SendHorizontal />
-            {t("chat.send")}
           </Button>
         </div>
       </div>
-      <p className="text-xs text-destructive empty:hidden" role="alert">
-        {tooLong ? t("chat.tooLong") : null}
+      <small id={`${uid}-hint`} className="mt-1 hidden px-1 text-xs text-muted-foreground md:block">
+        {t("chat.composer.hint")}
+      </small>
+      <p className="mt-1 text-xs text-destructive empty:hidden" role="alert">
+        {tooLong ? t("chat.tooLong") : note?.failed ? note.text : null}
       </p>
-      {note && (
-        <p className={cn("text-xs", note.failed ? "text-destructive" : "text-muted-foreground")} role={note.failed ? "alert" : "status"}>
+      {note && !note.failed && (
+        <p className="mt-1 text-xs text-muted-foreground" role="status">
           {note.text}
         </p>
       )}
