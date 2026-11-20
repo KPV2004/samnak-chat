@@ -85,7 +85,7 @@ describe("slash commands", () => {
     expect(await screen.findByText("Usage: /task <title> [@assignee]")).toBeInTheDocument();
   });
 
-  it("keeps the text and says why when the command is refused", async () => {
+  it("keeps the text and shows the server's reason when the command is refused", async () => {
     const user = userEvent.setup();
     renderApp({
       route: "/chat/c1",
@@ -94,8 +94,24 @@ describe("slash commands", () => {
       }),
     });
     await user.type(await box(), "/task{Enter}");
-    expect(await screen.findByText("Some details are not valid. Check them and try again.")).toBeInTheDocument();
+    expect(await screen.findByText("server text")).toBeInTheDocument();
     expect(await box()).toHaveValue("/task");
+  });
+
+  it("translates the reasons it knows: no default category, and the usage line", async () => {
+    const user = userEvent.setup();
+    let reason = "no_default_category: open the ticket form to choose a category";
+    renderApp({
+      route: "/chat/c1",
+      routes: routes(undefined, {
+        "POST /api/v1/chat/channels/c1/commands": () => errorRes(400, "invalid", reason),
+      }),
+    });
+    await user.type(await box(), "/task{Enter}");
+    expect(await screen.findByText("No default category yet: set one in Helpdesk settings or use Create ticket")).toBeInTheDocument();
+    reason = "usage: /ticket <title>";
+    await user.type(await box(), "{Enter}");
+    expect(await screen.findByText("Usage: /ticket <title>")).toBeInTheDocument();
   });
 
   it("sends a slash word that is not a registered command as plain text", async () => {

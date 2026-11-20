@@ -27,7 +27,7 @@ export interface ChatState {
 }
 
 export interface ChatStoreOptions {
-  api: Pick<M2Api, "listChannels" | "getChannel" | "listMessages" | "sendMessage" | "markRead">;
+  api: Pick<M2Api, "listChannels" | "getChannel" | "listMessages" | "sendMessage" | "markRead" | "pinChannel" | "unpinChannel">;
   realtime: Pick<RealtimeClient, "on">;
   userId: string;
   /** The workspace on screen. Events of other workspaces only raise `workspaceUnread`. */
@@ -64,6 +64,11 @@ export interface ChatStore {
   /** Drops a message that was not sent. */
   discard(channelId: string, clientMsgId: string): void;
   markRead(channelId: string): Promise<void>;
+  /**
+   * Pins or unpins a channel for me. The list changes at once; when the server refuses (30 pins
+   * at most) the old state comes back and the promise rejects with the `ApiError`.
+   */
+  setPinned(channelId: string, pinned: boolean): Promise<void>;
   /** The channel on screen: its new messages are not counted unread and are marked read. */
   setActiveChannel(channelId: string | null): Promise<void>;
   /** Forgets all channels, e.g. on a workspace switch. */
@@ -244,7 +249,15 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
       if (ch && d.last_read_seq > ch.lastSeq) void catchUp(d.channel_id).catch(noop);
     }),
     opts.realtime.on("channel.updated", (d) => void onChannelUpdated(d)),
+    opts.realtime.on("channel.pin", (d) => {
+      if (!inView(d.workspace_id)) return;
+      update(d.channel_id, (ch) => (ch.channel.pinned_at === d.pinned_at ? ch : { ...ch, channel: { ...ch.channel, pinned_at: d.pinned_at } }));
+    }),
   ];
+
+  function setPinnedAt(channelId: string, pinnedAt: string | null) {
+    update(channelId, (ch) => ({ ...ch, channel: { ...ch.channel, pinned_at: pinnedAt } }));
+  }
 
   async function onChannelUpdated(d: ServerEventMap["channel.updated"]) {
     if (!inView(d.workspace_id)) return;
@@ -430,6 +443,17 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
     },
 
     markRead,
+
+    async setPinned(channelId, pinned) {
+      const before = state.channels[channelId]?.channel.pinned_at ?? null;
+      setPinnedAt(channelId, pinned ? (before ?? now().toISOString()) : null);
+      try {
+        await (pinned ? api.pinChannel(channelId) : api.unpinChannel(channelId));
+      } catch (err) {
+        setPinnedAt(channelId, before);
+        throw err;
+      }
+    },
 
     setActiveChannel(channelId) {
       commit({ ...state, activeChannelId: channelId });

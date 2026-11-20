@@ -43,6 +43,14 @@ describe("m2 api", () => {
     });
   });
 
+  it("pins and unpins a channel with PUT and DELETE", async () => {
+    const { api, last } = setup(204);
+    await api.pinChannel("c1");
+    expect(last()).toMatchObject({ url: "http://x/api/v1/chat/channels/c1/pin", method: "PUT" });
+    await api.unpinChannel("c1");
+    expect(last()).toMatchObject({ url: "http://x/api/v1/chat/channels/c1/pin", method: "DELETE" });
+  });
+
   it("posts the read position", async () => {
     const { api, last } = setup(204);
     await api.markRead("c1", 7);

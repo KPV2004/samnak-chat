@@ -30,6 +30,8 @@ export interface ServerEventMap {
   /** Flat, and without the per-user counts of a `Channel`. */
   "channel.updated": InChannel &
     Pick<Channel, "type" | "name" | "topic" | "last_seq" | "member_count" | "dm_user_ids" | "archived_at" | "created_at">;
+  /** Sent to the caller's own devices when they pin or unpin a channel; `null` means unpinned. */
+  "channel.pin": InChannel & { pinned_at: string | null };
   "presence.changed": { user_id: string; online: boolean };
   typing: InChannel & { user_id: string };
   /** Sent to the user's own devices after notify stored the row (NOTI-03). */
@@ -56,6 +58,7 @@ export const serverEventTypes: ReadonlySet<string> = new Set<ServerEventType>([
   "card.updated",
   "channel.read",
   "channel.updated",
+  "channel.pin",
   "presence.changed",
   "typing",
   "notification.created",

@@ -21,6 +21,8 @@ export class FakeChatServer {
   /** While set, message POSTs store the message but wait for this before answering. */
   holdSendResponse: Promise<void> | null = null;
   pageSize = 100;
+  /** Pins a user may hold; the next one is refused with 409. */
+  pinLimit = 30;
   private nextId = 1;
 
   addChannel(id: string, patch: Partial<Channel> = {}): Channel {
@@ -113,6 +115,16 @@ export class FakeChatServer {
       ch.channel.last_read_seq = Math.max(ch.channel.last_read_seq, body.seq);
       return { ok: true, status: 204, statusText: "", json: async () => undefined };
     }
+    if ((m = path.match(/^\/channels\/([^/]+)\/pin$/)) && (method === "PUT" || method === "DELETE")) {
+      const ch = this.channels.get(m[1]!);
+      if (!ch) return fail(404);
+      if (method === "DELETE") ch.channel.pinned_at = null;
+      else if (!ch.channel.pinned_at) {
+        if ([...this.channels.values()].filter((c) => c.channel.pinned_at).length >= this.pinLimit) return fail(409, "conflict");
+        ch.channel.pinned_at = new Date().toISOString();
+      }
+      return { ok: true, status: 204, statusText: "", json: async () => undefined };
+    }
     throw new Error(`fake server: unhandled ${method} ${path}`);
   }
 
@@ -150,6 +162,6 @@ function ok(body: unknown, status = 200): FetchResponse {
   return { ok: true, status, statusText: "", json: async () => JSON.parse(JSON.stringify(body)) };
 }
 
-function fail(status: number): FetchResponse {
-  return { ok: false, status, statusText: "", json: async () => ({ error: { code: "not_found", message: "not found" } }) };
+function fail(status: number, code = "not_found"): FetchResponse {
+  return { ok: false, status, statusText: "", json: async () => ({ error: { code, message: code } }) };
 }

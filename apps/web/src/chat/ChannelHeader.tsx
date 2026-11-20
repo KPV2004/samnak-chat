@@ -1,15 +1,17 @@
 import type { Channel } from "@samnak/core";
 import { useQuery } from "@tanstack/react-query";
-import { Hash, Link2, Lock, Users } from "lucide-react";
+import { Link2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UserAvatar } from "../components/UserAvatar";
 import { useT } from "../i18n/useT";
 import { ChannelMuteMenu } from "../notify/ChannelMuteMenu";
 import { useChat } from "../state/chat";
+import { ConversationAvatar, PersonAvatar } from "./ConversationAvatar";
 import { IconTool } from "./IconTool";
-import { channelTitle, useNameOf } from "./names";
+import { channelTitle, useAvatarOf, useNameOf } from "./names";
+import { PinMenuItem } from "./pins";
 
 /** The top of a channel: what it is called, its topic, who is in it, a link to it and its options. */
 export function ChannelHeader({ channel }: { channel: Channel }) {
@@ -29,9 +31,7 @@ export function ChannelHeader({ channel }: { channel: Channel }) {
 
   return (
     <header className="flex min-h-14 shrink-0 items-center gap-3 border-b px-4 py-2">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground" aria-hidden="true">
-        {channel.type === "dm" ? <Users className="size-4" /> : channel.type === "private" ? <Lock className="size-4" /> : <Hash className="size-4" />}
-      </span>
+      <ConversationAvatar channel={channel} title={title} tone="page" className="size-9" />
       <div className="grid min-w-0 flex-1">
         <h1 className="text-base leading-snug font-semibold">{title}</h1>
         {channel.topic && (
@@ -44,7 +44,9 @@ export function ChannelHeader({ channel }: { channel: Channel }) {
       <IconTool label={t("chat.copyLink")} size="icon-sm" onClick={() => void copyLink()}>
         <Link2 />
       </IconTool>
-      <ChannelMuteMenu channelId={channel.id} />
+      <ChannelMuteMenu channelId={channel.id}>
+        <PinMenuItem channel={channel} Item={DropdownMenuItem} />
+      </ChannelMuteMenu>
     </header>
   );
 }
@@ -54,6 +56,7 @@ function Members({ channel }: { channel: Channel }) {
   const t = useT();
   const chat = useChat();
   const nameOf = useNameOf();
+  const avatarOf = useAvatarOf();
   const members = useQuery({
     queryKey: ["chat-channel-members", channel.id],
     enabled: chat !== null,
@@ -78,7 +81,7 @@ function Members({ channel }: { channel: Channel }) {
               const name = m.display_name || nameOf(m.user_id);
               return (
                 <li key={m.user_id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm">
-                  <UserAvatar name={name} className="size-6" />
+                  <PersonAvatar id={m.user_id} name={name} src={avatarOf(m.user_id)} className="size-6 *:data-[slot=avatar-fallback]:text-xs" />
                   {name}
                 </li>
               );

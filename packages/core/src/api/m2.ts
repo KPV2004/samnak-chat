@@ -12,6 +12,8 @@ import type { components, paths } from "./schema";
 type Schemas = components["schemas"];
 
 export type Channel = Schemas["Channel"];
+/** The newest message of a channel as the list shows it; `null` on a channel with no message. */
+export type LastMessage = NonNullable<Channel["last_message"]>;
 export type ChannelType = Channel["type"];
 export type ChannelMember = Schemas["ChannelMember"];
 export type Attachment = Schemas["Attachment"];
@@ -27,7 +29,7 @@ export type ChannelScope = NonNullable<NonNullable<paths["/chat/channels"]["get"
 export type SendMessageInput = Schemas["SendMessageInputBody"] & { attachment_ids?: string[] };
 export type CreateChannelInput = Schemas["CreateChannelInputBody"];
 
-type Method = "get" | "post" | "patch" | "delete";
+type Method = "get" | "post" | "put" | "patch" | "delete";
 type Operation<P extends keyof paths, M extends Method> = Exclude<paths[P][M], undefined>;
 /** The methods a path really has: the generator marks the others `?: never`. */
 type MethodsOf<P extends keyof paths> = { [M in Method]: [Operation<P, M>] extends [never] ? never : M }[Method];
@@ -87,6 +89,9 @@ export interface M2Api {
   editMessage(id: string, body: string): Promise<Message>;
   deleteMessage(id: string): Promise<void>;
   markRead(channelId: string, seq: number): Promise<void>;
+  /** Pins the channel to the top of my list; 409 `conflict` after 30 pins. Idempotent. */
+  pinChannel(id: string): Promise<void>;
+  unpinChannel(id: string): Promise<void>;
   /** Hand-written until M2-05's endpoints are in the document. */
   addReaction(messageId: string, emoji: string): Promise<void>;
   /** Hand-written until M2-05's endpoints are in the document. */
@@ -109,6 +114,8 @@ export function createM2Api(client: ApiClient): M2Api {
     editMessage: (id, body) =>
       call(client, "patch", "/chat/messages/{id}", { params: { id }, body: { body } }) as Promise<Message>,
     deleteMessage: (id) => call(client, "delete", "/chat/messages/{id}", { params: { id } }),
+    pinChannel: (id) => call(client, "put", "/chat/channels/{id}/pin", { params: { id } }),
+    unpinChannel: (id) => call(client, "delete", "/chat/channels/{id}/pin", { params: { id } }),
     markRead: (id, seq) => call(client, "post", "/chat/channels/{id}/read", { params: { id }, body: { seq } }),
     addReaction: (messageId, emoji) =>
       request(client, "post", "/chat/messages/{id}/reactions", { params: { id: messageId }, body: { emoji } }),

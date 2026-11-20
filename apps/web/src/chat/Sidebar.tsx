@@ -12,6 +12,7 @@ import { useT } from "../i18n/useT";
 import { useChat, useChatState } from "../state/chat";
 import { cn } from "@/lib/utils";
 import { channelTitle, useNameOf } from "./names";
+import { UnreadBadges } from "./UnreadBadges";
 
 const emptyClass = "m-0 px-2 py-1 text-sm text-muted-foreground";
 
@@ -116,7 +117,6 @@ function UnreadTotal({ items }: { items: ChannelState[] }) {
 }
 
 function ChannelLink({ state, title }: { state: ChannelState; title: string }) {
-  const t = useT();
   const channel: Channel = state.channel;
   const unread = state.unreadCount > 0 || state.mentionCount > 0;
   return (
@@ -135,18 +135,7 @@ function ChannelLink({ state, title }: { state: ChannelState; title: string }) {
           <Hash aria-hidden="true" className="size-4 shrink-0 opacity-70" />
         )}
         <span className="min-w-0 flex-1 truncate">{title}</span>
-        {state.unreadCount > 0 && (
-          <Badge className="h-5 min-w-5 px-1.5">
-            <span aria-hidden="true">{state.unreadCount}</span>
-            <span className="sr-only">{t("chat.unread", { n: state.unreadCount })}</span>
-          </Badge>
-        )}
-        {state.mentionCount > 0 && (
-          <Badge variant="destructive" className="h-5 min-w-5 px-1.5">
-            <span aria-hidden="true">@{state.mentionCount}</span>
-            <span className="sr-only">{t("chat.mentions", { n: state.mentionCount })}</span>
-          </Badge>
-        )}
+        <UnreadBadges state={state} />
       </NavLink>
     </li>
   );

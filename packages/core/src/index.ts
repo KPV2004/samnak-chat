@@ -34,6 +34,8 @@ export type {
   SendOptions,
   SendStatus,
 } from "./chat/store";
+export { sortConversations } from "./chat/order";
+export { previewOf } from "./chat/channel";
 export { uuidv7 } from "./chat/uuid";
 export { createM3Api } from "./api/m3";
 export type * from "./api/m3";

@@ -2,6 +2,7 @@ import type { Channel, Member } from "@samnak/core";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { useT, type T } from "../i18n/useT";
+import { useMe } from "../state/queries";
 import { useSession, useSessionState } from "../state/session";
 
 /** Every member of the workspace, who gives the senders their names. */
@@ -44,4 +45,14 @@ export function channelTitle(channel: Channel, me: string, nameOf: (userId: stri
   const others = channel.dm_user_ids.filter((id) => id !== me);
   const names = (others.length > 0 ? others : [me]).map(nameOf);
   return names.join(", ") || t("chat.dms");
+}
+
+/**
+ * The picture of a user, or an empty string. Only the signed-in user's own `avatar_url` is known:
+ * the member lists the server sends (`Member`, `ChannelMember`) carry no avatar, so everyone else
+ * shows initials until it does.
+ */
+export function useAvatarOf(): (userId: string) => string {
+  const me = useMe().data;
+  return useCallback((userId) => (me && me.id === userId ? me.avatar_url : ""), [me]);
 }

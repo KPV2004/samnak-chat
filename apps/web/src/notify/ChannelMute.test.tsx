@@ -57,9 +57,12 @@ describe("muting a channel from its header", () => {
     expect(await screen.findByText("Channel unmuted")).toBeInTheDocument();
   });
 
-  it("has no channel options while notify is not an enabled module", async () => {
+  it("offers no Mute while notify is not an enabled module (the menu still has Pin)", async () => {
+    const user = userEvent.setup();
     renderApp({ route: "/chat/c1", routes: routes(["chat"]) });
     await screen.findByRole("heading", { name: "general" });
-    expect(screen.queryByRole("button", { name: "Channel options" })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Channel options" }));
+    expect(await screen.findByRole("menuitem", { name: "Pin to top" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /mute/i })).not.toBeInTheDocument();
   });
 });

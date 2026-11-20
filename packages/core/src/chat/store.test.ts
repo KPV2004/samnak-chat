@@ -432,6 +432,18 @@ describe("updates from the server", () => {
     expect(t.store.getState().channels.c1).toMatchObject({ lastReadSeq: 1, unreadCount: 0, mentionCount: 0 });
   });
 
+  it("applies channel.pin from another device, and an unpin", () => {
+    t.emit("channel.pin", { channel_id: "c1", pinned_at: "2026-03-01T00:00:00Z" });
+    expect(t.store.getState().channels.c1!.channel.pinned_at).toBe("2026-03-01T00:00:00Z");
+    t.emit("channel.pin", { channel_id: "c1", pinned_at: null });
+    expect(t.store.getState().channels.c1!.channel.pinned_at).toBeNull();
+  });
+
+  it("ignores channel.pin of a workspace that is not on screen", () => {
+    t.emit("channel.pin", { workspace_id: "w2", channel_id: "c1", pinned_at: "2026-03-01T00:00:00Z" });
+    expect(t.store.getState().channels.c1!.channel.pinned_at).toBeNull();
+  });
+
   it("lowers the unread count for a partial read", async () => {
     t.created(t.server.add("c1", "bob", "two"));
     t.created(t.server.add("c1", "bob", "three"));
@@ -609,5 +621,70 @@ describe("workspaces", () => {
     t.store.reset();
     await pending;
     expect(t.store.getState().channels).toEqual({});
+  });
+});
+
+describe("pinning", () => {
+  beforeEach(async () => {
+    await t.store.loadChannels();
+  });
+
+  it("shows the pin at once, keeps it when the server agrees, and unpins", async () => {
+    const done = t.store.setPinned("c1", true);
+    expect(t.store.getState().channels.c1!.channel.pinned_at).toBe("2026-02-02T00:00:00.000Z");
+    await done;
+    expect(t.server.requests).toContain("PUT /channels/c1/pin");
+    expect(t.store.getState().channels.c1!.channel.pinned_at).not.toBeNull();
+    await t.store.setPinned("c1", false);
+    expect(t.server.requests).toContain("DELETE /channels/c1/pin");
+    expect(t.store.getState().channels.c1!.channel.pinned_at).toBeNull();
+  });
+
+  it("puts the old state back and rejects when the server refuses", async () => {
+    t.server.pinLimit = 0;
+    await expect(t.store.setPinned("c1", true)).rejects.toMatchObject({ status: 409 });
+    expect(t.store.getState().channels.c1!.channel.pinned_at).toBeNull();
+  });
+});
+
+describe("last message", () => {
+  beforeEach(async () => {
+    await t.store.loadChannels();
+  });
+
+  const last = () => t.store.getState().channels.c1!.channel.last_message;
+
+  it("follows the newest live message, as a one-line preview", async () => {
+    t.created(t.server.add("c1", "bob", "hello\n  <@0190a8c8-0000-7000-8000-000000000001> and <!channel>"));
+    await settle();
+    expect(last()).toMatchObject({ sender_id: "bob", kind: "text", preview: "hello @user and @channel" });
+  });
+
+  it("cuts the preview to 120 characters, and uses a card's fallback text", async () => {
+    t.created(t.server.add("c1", "bob", "ก".repeat(200)));
+    await settle();
+    expect(Array.from(last()!.preview)).toHaveLength(120);
+    t.created(t.server.add("c1", "bob", "", { kind: "approval.request", fallback_text: "Approval: leave" }));
+    await settle();
+    expect(last()).toMatchObject({ kind: "approval.request", preview: "Approval: leave" });
+  });
+
+  it("empties the preview when the newest message is deleted, and follows an edit", async () => {
+    const m = t.server.add("c1", "bob", "first");
+    t.created(m);
+    await settle();
+    t.emit("message.updated", { message: { ...m, body: "edited", edited_at: "2026-01-02T00:00:00Z" } });
+    expect(last()!.preview).toBe("edited");
+    t.emit("message.deleted", { message: { ...m, body: "", deleted_at: "2026-01-03T00:00:00Z" } });
+    expect(last()!.preview).toBe("");
+  });
+
+  it("leaves it alone when an older message changes", async () => {
+    const older = t.server.add("c1", "bob", "older");
+    t.created(older);
+    t.created(t.server.add("c1", "bob", "newer"));
+    await settle();
+    t.emit("message.updated", { message: { ...older, body: "older, edited", edited_at: "2026-01-02T00:00:00Z" } });
+    expect(last()!.preview).toBe("newer");
   });
 });
