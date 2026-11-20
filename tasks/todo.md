@@ -928,3 +928,33 @@ Decided 2026-11-19 with the user: follow Slack (workspace rail, channel and DM s
 
 ## [ ] Checkpoint UI-2 (planner)
 - [ ] Merge UI-07..10; full CI green; review the screenshots with the user
+
+# Lark-style Messenger: conversation list with pictures and pins
+
+Asked by the user 2026-11-20: reaching chats and group chats should be easier, with pictures to click like Lark, and pinning. Group chats are the existing multi-person direct messages (`chat` type `dm` with 3+ members) and private channels.
+
+## [ ] CH-01 chat: pins and last-message preview (server)
+**SRS:** CHAT (UX extension) · **Size:** S · **Depends on:** none
+
+**Contract (planner)**
+- Migration: `chat_channel_members.pinned_at timestamptz NULL`. A pin is per user and channel; at most 30 pinned channels per user and workspace (the 31st is 409 `conflict`).
+- `PUT /chat/channels/{id}/pin` and `DELETE /chat/channels/{id}/pin`: 204; members only (404 otherwise); idempotent. Each sends `channel.pin {workspace_id, channel_id, pinned_at|null}` over the WebSocket to the caller's own connections only.
+- `Channel` gains `pinned_at` (`null` when not pinned) and `last_message` (`null` for an empty channel): `{id, sender_id, kind, preview, created_at}`, where `preview` is the body as plain text cut to 120 characters, a card's `fallback_text`, an empty string with attachments only, and `""` for a deleted message. The channel list orders pinned first (newest pin first), then by the newest message, then by name. No extra query per channel.
+
+**Acceptance criteria**
+- [ ] The contract above, with tests: pin/unpin, limit, non-member 404, another workspace 404, the frame reaches only the caller, preview of text, card, attachment-only and deleted messages, list order
+- [ ] `go build`, `go vet`, `go test ./...` pass; gofmt clean
+
+**Files:** `apps/server/internal/modules/chat/` (all subpackages and migrations), `apps/server/internal/acceptance/isolation_test.go` (add the two new routes to the sweep), `apps/server/internal/acceptance/nfr07_test.go` (only if a new gap appears)
+
+## [ ] CH-02 web: Lark-style Messenger list, app rail and pins
+**Size:** M · **Depends on:** CH-01 merged and types regenerated
+
+**Acceptance criteria**
+- [ ] The rail gains app icons with labels under the workspace tiles: Messenger, Tasks, Approvals, Helpdesk (each when its module is on), Members; the current app is marked
+- [ ] In Messenger the sidebar is a conversation list: search box, filter chips (All, Unread, Groups, Direct), a Pinned group on top, then everything by latest message; each row a picture (the user's avatar for a 1:1 DM, stacked avatars for a group DM, a coloured tile with the initial for a channel; lock or `#` badge), name, `sender: preview`, time, unread badge, mute icon
+- [ ] Pin and unpin from the row's hover menu and right-click menu and from the channel header menu; `channel.pin` frames keep other tabs in step; "New chat" starts a 1:1 or group DM, or a channel
+- [ ] Slash-command errors show the server's reason (for example `/ticket` without a default category: "No default category yet: set one in Helpdesk settings or use Create ticket") instead of the generic invalid message
+- [ ] Thai and English, light and dark, screenshots at 1440 and 390; build, test and lint pass
+
+**Files:** `apps/web/src/chat/`, `apps/web/src/components/` (rail, sidebar parts), `apps/web/src/pages/Shell.tsx`, `apps/web/src/notify/ChannelMuteMenu.tsx`, `apps/web/src/i18n/`, `packages/core/src/` (chat API, store and realtime types for `channel.pin`), and their tests
