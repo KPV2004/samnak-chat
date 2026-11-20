@@ -959,14 +959,14 @@ Asked by the user 2026-11-20: reaching chats and group chats should be easier, w
 
 **Files:** `apps/web/src/chat/`, `apps/web/src/components/` (rail, sidebar parts), `apps/web/src/pages/Shell.tsx`, `apps/web/src/notify/ChannelMuteMenu.tsx`, `apps/web/src/i18n/`, `packages/core/src/` (chat API, store and realtime types for `channel.pin`), and their tests
 
-## [ ] CH-03 avatars of other people (server + web)
+## [x] CH-03 avatars of other people (server + web)
 **Size:** S · **Depends on:** CH-02
 
 Found by CH-02: `Member` (`GET /workspace/members`) and `ChannelMember` (`GET /chat/channels/{id}/members`) carry no `avatar_url`, so only the signed-in user's picture shows; everyone else falls back to initials.
 
 **Acceptance criteria**
-- [ ] `avatar_url` (string, empty when none) on both responses, filled from `auth.UserSummary.AvatarURL` through the existing directory lookups (no new query per row); tests
-- [ ] `useAvatarOf` in `apps/web/src/chat/names.ts` reads it, so DM rows, group stacks, message rows and member lists show real pictures with the initials fallback on load error
-- [ ] OpenAPI and web types regenerated; Go and web checks pass
+- [x] `avatar_url` (string, empty when none) on both responses, filled from `auth.UserSummary.AvatarURL` through the existing directory lookups (no new query per row); tests
+- [x] `useAvatarOf` in `apps/web/src/chat/names.ts` reads it, so DM rows, group stacks, message rows and member lists show real pictures with the initials fallback on load error
+- [x] OpenAPI and web types regenerated; Go and web checks pass
 
 **Files:** `apps/web/src/components/UserAvatar.tsx` (a picture source prop), `apps/web/src/chat/MessageItem.tsx` and `apps/web/src/chat/MentionList.tsx` (pass the picture only), `apps/server/internal/modules/workspace/` (members response only), `apps/server/internal/modules/chat/` (channel members response only), `apps/server/api/`, `packages/core/src/api/schema.d.ts` (generated), `apps/web/src/chat/names.ts` and its tests, `packages/core/src/chat/fake-server.ts`, `apps/web/src/test-utils.tsx`
