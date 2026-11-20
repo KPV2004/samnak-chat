@@ -5,11 +5,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AccountLoadError, AccountLoading } from "../components/AccountStates";
+import { AccountLoadError } from "../components/AccountStates";
 import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
@@ -21,6 +19,7 @@ import { emailPattern, readForm } from "../lib/form";
 import { formatDateTime } from "../lib/format";
 import { canManage, useMe } from "../state/queries";
 import { useSession } from "../state/session";
+import { DataList, DataRow, ListLoading, Panel } from "./module-ui";
 
 const inviteRoles: InviteRole[] = ["admin", "member", "guest"];
 
@@ -98,73 +97,64 @@ function InviteManager({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="grid gap-6">
       <form onSubmit={onSubmit} noValidate>
-        <Card>
-          <CardContent className="grid gap-4 md:grid-cols-2 md:items-start">
-            <Field
-              label={t("invites.email")}
-              name="email"
-              type="email"
-              hint={t("invites.emailHint")}
-              error={emailError ? t("invites.emailInvalid") : undefined}
-            />
-            <Field label={t("members.role")}>
-              {({ id, describedBy }) => (
-                <NativeSelect id={id} name="role" defaultValue="member" aria-describedby={describedBy} containerClassName="w-full">
-                  {inviteRoles.map((r) => (
-                    <option key={r} value={r}>
-                      {t(`role.${r}`)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              )}
-            </Field>
-          </CardContent>
-          <CardFooter className="justify-end">
+        <Panel
+          bodyClassName="md:grid-cols-2 md:items-start"
+          footer={
             <Button type="submit" disabled={create.isPending}>
               {create.isPending && <Loader2Icon className="animate-spin" aria-hidden="true" />}
               {t("invites.create")}
             </Button>
-          </CardFooter>
-        </Card>
+          }
+        >
+          <Field
+            label={t("invites.email")}
+            name="email"
+            type="email"
+            hint={t("invites.emailHint")}
+            error={emailError ? t("invites.emailInvalid") : undefined}
+          />
+          <Field label={t("members.role")}>
+            {({ id, describedBy }) => (
+              <NativeSelect
+                id={id}
+                name="role"
+                defaultValue="member"
+                aria-describedby={describedBy}
+                containerClassName="w-full"
+              >
+                {inviteRoles.map((r) => (
+                  <option key={r} value={r}>
+                    {t(`role.${r}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </Field>
+        </Panel>
       </form>
 
       {link && (
-        <Card>
-          <CardContent>
-            <Field label={t("invites.link")} hint={t("invites.linkOnce")}>
-              {({ id, describedBy }) => (
-                <div className="flex gap-2">
-                  <Input
-                    id={id}
-                    aria-describedby={describedBy}
-                    value={link}
-                    readOnly
-                    onFocus={(e) => e.currentTarget.select()}
-                  />
-                  <Button type="button" variant="outline" onClick={() => void copy()}>
-                    {t("invites.copy")}
-                  </Button>
-                </div>
-              )}
-            </Field>
-          </CardContent>
-        </Card>
+        <Panel>
+          <Field label={t("invites.link")} hint={t("invites.linkOnce")}>
+            {({ id, describedBy }) => (
+              <div className="flex gap-2">
+                <Input
+                  id={id}
+                  aria-describedby={describedBy}
+                  value={link}
+                  readOnly
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <Button type="button" variant="outline" onClick={() => void copy()}>
+                  {t("invites.copy")}
+                </Button>
+              </div>
+            )}
+          </Field>
+        </Panel>
       )}
 
-      {invites.isPending && (
-        <AccountLoading>
-          <div className="divide-y overflow-hidden rounded-lg border">
-            {[0, 1].map((i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="grid flex-1 gap-2">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-3 w-32" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </AccountLoading>
-      )}
+      {invites.isPending && <ListLoading rows={2} />}
       {invites.isError ? (
         <AccountLoadError message={t(errorKey(invites.error))} onRetry={() => void invites.refetch()} />
       ) : (
@@ -178,11 +168,11 @@ function InviteManager({ workspaceId }: { workspaceId: string }) {
             <h2 id="pending-invites-heading" className="text-base font-semibold">
               {t("invites.pending")}
             </h2>
-            <ul className="divide-y overflow-hidden rounded-lg border" aria-labelledby="pending-invites-heading">
+            <DataList aria-labelledby="pending-invites-heading">
               {invites.data.map((i) => {
                 const who = i.email ?? t("invites.anyone");
                 return (
-                  <li key={i.id} className="flex items-center gap-3 px-4 py-3">
+                  <DataRow key={i.id} className="flex-nowrap">
                     <div className="grid min-w-0 flex-1 gap-0.5">
                       <p className="m-0 flex flex-wrap items-center gap-2 text-sm">
                         <span className="font-medium break-all">{who}</span>
@@ -202,10 +192,10 @@ function InviteManager({ workspaceId }: { workspaceId: string }) {
                     >
                       {t("invites.revoke")}
                     </Button>
-                  </li>
+                  </DataRow>
                 );
               })}
-            </ul>
+            </DataList>
           </section>
         ))}
     </div>

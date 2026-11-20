@@ -3,13 +3,13 @@ import { Inbox } from "lucide-react";
 import { useId } from "react";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { AccountLoadError } from "../components/AccountStates";
 import { EmptyState } from "../components/EmptyState";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
+import { DataList, DataRow, ListLoading, LoadMore, stretchedLink } from "../pages/module-ui";
 import { useMe } from "../state/queries";
 import { useSessionState } from "../state/session";
 import { useApprovalApi } from "./api";
@@ -49,28 +49,15 @@ export function RequestList({ role, title, empty }: Props) {
       <h2 id={headingId} className="text-base font-semibold">
         {title}
       </h2>
-      {requests.isPending && (
-        <div role="status" className="grid gap-2 rounded-lg border bg-card p-4">
-          <span className="sr-only">{t("loading")}</span>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      )}
-      {requests.isError && (
-        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive">
-          <p className="m-0">{t(errorKey(requests.error))}</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void requests.refetch()}>
-            {t("retry")}
-          </Button>
-        </div>
-      )}
+      {requests.isPending && <ListLoading rows={2} />}
+      {requests.isError && <AccountLoadError message={t(errorKey(requests.error))} onRetry={() => void requests.refetch()} />}
       {requests.data && items.length === 0 && <EmptyState icon={Inbox} title={empty} />}
       {items.length > 0 && (
-        <ul aria-label={title} className="divide-y rounded-lg border bg-card">
+        <DataList aria-label={title}>
           {items.map((r) => (
-            <li key={r.id} className="flex items-start justify-between gap-3 px-4 py-3">
+            <DataRow key={r.id} interactive className="flex-nowrap items-start">
               <div className="grid min-w-0 gap-0.5">
-                <Link to={`/approvals/${r.id}`} className="font-medium break-words underline-offset-4 hover:underline">
+                <Link to={`/approvals/${r.id}`} className={cn("font-medium break-words", stretchedLink)}>
                   {summarize(r.type, r.payload, t)}
                 </Link>
                 <p className="m-0 text-xs text-muted-foreground">
@@ -84,23 +71,11 @@ export function RequestList({ role, title, empty }: Props) {
               <Badge variant="outline" className={cn("shrink-0", statusTones[r.status].text)}>
                 {t(statusKeys[r.status])}
               </Badge>
-            </li>
+            </DataRow>
           ))}
-        </ul>
+        </DataList>
       )}
-      {requests.hasNextPage && (
-        <div className="flex justify-center">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={requests.isFetchingNextPage}
-            onClick={() => void requests.fetchNextPage()}
-          >
-            {t("loadMore")}
-          </Button>
-        </div>
-      )}
+      {requests.hasNextPage && <LoadMore loading={requests.isFetchingNextPage} onClick={() => void requests.fetchNextPage()} />}
     </section>
   );
 }

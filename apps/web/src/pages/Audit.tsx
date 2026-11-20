@@ -2,11 +2,9 @@ import type { AuditAction, AuditEntry, Role } from "@samnak/core";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
 import { useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useMembers } from "../approval/useMembers";
-import { AccountLoadError, AccountLoading } from "../components/AccountStates";
+import { AccountLoadError } from "../components/AccountStates";
 import { EmptyState } from "../components/EmptyState";
 import { Page } from "../components/Page";
 import { RequireWorkspace } from "../components/RequireWorkspace";
@@ -16,6 +14,7 @@ import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import { canManage, useMe } from "../state/queries";
 import { useSession } from "../state/session";
+import { DataTable, ListLoading, LoadMore } from "./module-ui";
 
 const actionKey: Record<AuditAction, MessageKey> = {
   "invite.created": "audit.action.invite.created",
@@ -64,21 +63,7 @@ function AuditList({ workspaceId }: { workspaceId: string }) {
   );
   const nameOf = (userId: string) => names.get(userId) ?? t("audit.formerMember");
 
-  if (audit.isPending || members.isPending) {
-    return (
-      <AccountLoading>
-        <div className="divide-y overflow-hidden rounded-lg border">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-4 px-4 py-3">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-4 w-44 max-w-full" />
-            </div>
-          ))}
-        </div>
-      </AccountLoading>
-    );
-  }
+  if (audit.isPending || members.isPending) return <ListLoading rows={4} />;
   if (audit.isError || members.isError) {
     const error = audit.error ?? members.error;
     return (
@@ -97,51 +82,38 @@ function AuditList({ workspaceId }: { workspaceId: string }) {
 
   return (
     <>
-      <div className="overflow-hidden rounded-lg border">
-        <Table aria-label={t("audit.title")}>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">{t("audit.when")}</TableHead>
-              <TableHead scope="col">{t("audit.actor")}</TableHead>
-              <TableHead scope="col">{t("audit.action")}</TableHead>
-              <TableHead scope="col">{t("audit.target")}</TableHead>
+      <DataTable aria-label={t("audit.title")}>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">{t("audit.when")}</TableHead>
+            <TableHead scope="col">{t("audit.actor")}</TableHead>
+            <TableHead scope="col">{t("audit.action")}</TableHead>
+            <TableHead scope="col">{t("audit.target")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {entries.map((entry) => (
+            <TableRow key={entry.id}>
+              <TableCell className="whitespace-nowrap text-muted-foreground">
+                <time dateTime={entry.created_at}>{formatDateTime(entry.created_at, locale, me.data?.timezone)}</time>
+              </TableCell>
+              <TableCell>{nameOf(entry.actor_id)}</TableCell>
+              <TableCell>
+                <div className="grid gap-0.5">
+                  <span>{t(actionKey[entry.action])}</span>
+                  {describeChanges(entry, t).map((line) => (
+                    <span key={line} className="text-sm text-muted-foreground">
+                      {line}
+                    </span>
+                  ))}
+                </div>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{targetOf(entry, nameOf, t)}</TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {entries.map((entry) => (
-              <TableRow key={entry.id}>
-                <TableCell className="whitespace-nowrap text-muted-foreground">
-                  <time dateTime={entry.created_at}>{formatDateTime(entry.created_at, locale, me.data?.timezone)}</time>
-                </TableCell>
-                <TableCell>{nameOf(entry.actor_id)}</TableCell>
-                <TableCell>
-                  <div className="grid gap-0.5">
-                    <span>{t(actionKey[entry.action])}</span>
-                    {describeChanges(entry, t).map((line) => (
-                      <span key={line} className="text-sm text-muted-foreground">
-                        {line}
-                      </span>
-                    ))}
-                  </div>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{targetOf(entry, nameOf, t)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      {audit.hasNextPage && (
-        <div className="flex justify-center">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={audit.isFetchingNextPage}
-            onClick={() => void audit.fetchNextPage()}
-          >
-            {t("loadMore")}
-          </Button>
-        </div>
-      )}
+          ))}
+        </TableBody>
+      </DataTable>
+      {audit.hasNextPage && <LoadMore loading={audit.isFetchingNextPage} onClick={() => void audit.fetchNextPage()} />}
     </>
   );
 }

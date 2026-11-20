@@ -6,9 +6,16 @@ import { toast } from "sonner";
 import { useApprovalApi } from "../approval/api";
 import { useNameOf } from "../approval/useMembers";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { AccountLoadError } from "../components/AccountStates";
 import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
@@ -17,6 +24,7 @@ import { RequireWorkspace } from "../components/RequireWorkspace";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { focusField, readForm } from "../lib/form";
+import { DataList, DataRow, ListLoading, stretchedLink } from "../pages/module-ui";
 import { canManage } from "../state/queries";
 import { GroupDetail } from "./GroupDetail";
 
@@ -68,33 +76,26 @@ function GroupsPage({ workspaceId, canEdit }: { workspaceId: string; canEdit: bo
     >
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         <div className="grid gap-3">
-          {groups.isPending && (
-            <div role="status" className="grid gap-2 rounded-lg border bg-card p-4">
-              <span className="sr-only">{t("loading")}</span>
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          )}
+          {groups.isPending && <ListLoading rows={2} />}
           {groups.isError && (
-            <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive">
-              <p className="m-0">{t(errorKey(groups.error))}</p>
-              <Button type="button" variant="outline" size="sm" onClick={() => void groups.refetch()}>
-                {t("retry")}
-              </Button>
-            </div>
+            <AccountLoadError message={t(errorKey(groups.error))} onRetry={() => void groups.refetch()} />
           )}
           {groups.data && !hasGroups && (
-            <EmptyState icon={UsersRound} title={t("groups.none")} description={canEdit ? t("groups.noGroupsYet") : undefined} />
+            <EmptyState
+              icon={UsersRound}
+              title={t("groups.none")}
+              description={canEdit ? t("groups.noGroupsYet") : undefined}
+            />
           )}
           {hasGroups && (
-            <ul aria-label={t("groups.title")} className="divide-y rounded-lg border bg-card">
+            <DataList aria-label={t("groups.title")}>
               {(groups.data ?? []).map((g) => (
-                <li key={g.id} className={cn("grid gap-0.5 px-4 py-3", g.id === selectedId && "bg-accent")}>
+                <DataRow key={g.id} interactive selected={g.id === selectedId} className="flex-col items-stretch">
                   <button
                     type="button"
                     aria-pressed={g.id === selectedId}
                     onClick={() => setSelectedId(g.id)}
-                    className="w-fit text-left font-medium underline-offset-4 hover:underline"
+                    className={cn("w-fit text-left font-medium", stretchedLink)}
                   >
                     {g.name}
                   </button>
@@ -107,9 +108,9 @@ function GroupsPage({ workspaceId, canEdit }: { workspaceId: string; canEdit: bo
                         : t("groups.noManager")}
                     </span>
                   </p>
-                </li>
+                </DataRow>
               ))}
-            </ul>
+            </DataList>
           )}
         </div>
 
@@ -185,7 +186,12 @@ function CreateGroupDialog({
           <DialogDescription>{t("groups.nameHint")}</DialogDescription>
         </DialogHeader>
         <form onSubmit={onCreate} noValidate>
-          <Field label={t("groups.name")} name="name" maxLength={100} error={nameMissing ? t("groups.nameRequired") : undefined} />
+          <Field
+            label={t("groups.name")}
+            name="name"
+            maxLength={100}
+            error={nameMissing ? t("groups.nameRequired") : undefined}
+          />
           <FormError message={create.error ? t(errorKey(create.error, { 409: "groups.nameTaken" })) : null} />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

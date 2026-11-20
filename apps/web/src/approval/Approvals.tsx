@@ -20,6 +20,7 @@ export function Approvals() {
       {() => (
         <Page
           title={t("approval.title")}
+          width="wide"
           actions={
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus />

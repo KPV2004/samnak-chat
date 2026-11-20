@@ -1,16 +1,14 @@
 import type { HelpdeskQueue, TicketDetail as TicketDetailData, TicketStatus } from "@samnak/core";
 import { canAssign, canClaim, canEditTicket, canWriteInternal, statusMoves, type Viewer } from "@samnak/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Paperclip, Send } from "lucide-react";
+import { Paperclip, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError } from "../components/FormError";
 import { Page } from "../components/Page";
@@ -18,6 +16,7 @@ import { RequireWorkspace } from "../components/RequireWorkspace";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
+import { BackLink as BackToList, DetailLayout, DetailLoading, Panel, Properties, Property } from "../pages/module-ui";
 import { useModuleEnabled } from "../modules";
 import { canManage, useMe, useWorkspaces } from "../state/queries";
 import { useSessionState } from "../state/session";
@@ -48,18 +47,14 @@ function TicketView() {
 
   if (ticket.isPending) {
     return (
-      <Page title={t("helpdesk.title")} actions={<BackLink />}>
-        <div role="status" className="grid gap-4">
-          <span className="sr-only">{t("loading")}</span>
-          <Skeleton className="h-40 w-full rounded-xl" />
-          <Skeleton className="h-32 w-full rounded-xl" />
-        </div>
+      <Page title={t("helpdesk.title")} width="wide" actions={<BackLink />}>
+        <DetailLoading />
       </Page>
     );
   }
   if (ticket.isError) {
     return (
-      <Page title={t("helpdesk.title")} actions={<BackLink />}>
+      <Page title={t("helpdesk.title")} width="wide" actions={<BackLink />}>
         <FormError message={t(errorKey(ticket.error, { 404: "helpdesk.notFound" }))} />
       </Page>
     );
@@ -69,14 +64,7 @@ function TicketView() {
 
 function BackLink() {
   const t = useT();
-  return (
-    <Button asChild variant="outline">
-      <Link to="/helpdesk">
-        <ArrowLeft />
-        {t("helpdesk.back")}
-      </Link>
-    </Button>
-  );
+  return <BackToList to="/helpdesk">{t("helpdesk.back")}</BackToList>;
 }
 
 function Detail({ ticket, queues }: { ticket: TicketDetailData; queues: HelpdeskQueue[] }) {
@@ -113,27 +101,22 @@ function Detail({ ticket, queues }: { ticket: TicketDetailData; queues: Helpdesk
     onSuccess: refresh,
   });
   const edit = useMutation({
-    mutationFn: (patch: { priority?: (typeof priorities)[number]; category_id?: string }) => api.editTicket(ticket.id, patch),
+    mutationFn: (patch: { priority?: (typeof priorities)[number]; category_id?: string }) =>
+      api.editTicket(ticket.id, patch),
     onSuccess: refresh,
   });
   const moves = statusMoves(ticket, viewer, new Date());
   const actionError = claim.error ?? assign.error ?? move.error ?? edit.error;
 
+  const canAct = canClaim(ticket, viewer) || canAssign(ticket, viewer) || moves.length > 0 || canEditTicket(viewer);
+
   return (
     <Page
+      width="wide"
       title={
         <span className="inline-flex flex-wrap items-baseline gap-2">
           <span className="font-mono text-base text-muted-foreground">{ticket.key}</span>
           <span>{ticket.title}</span>
-        </span>
-      }
-      description={
-        <span className="inline-flex flex-wrap items-center gap-2">
-          <Badge variant={tone.badge} className={tone.text}>
-            {t(statusKeys[ticket.status])}
-          </Badge>
-          <span>{t(priorityKeys[ticket.priority])}</span>
-          {queue && <span>· {queue.name}</span>}
         </span>
       }
       actions={
@@ -143,24 +126,119 @@ function Detail({ ticket, queues }: { ticket: TicketDetailData; queues: Helpdesk
         </>
       }
     >
-      <Card className="gap-0 py-5">
-        <CardContent className="grid gap-5">
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <Field label={t("helpdesk.requester")} value={nameOf(ticket.requester_id)} />
-            <Field label={t("helpdesk.assignee")} value={ticket.assignee_id ? nameOf(ticket.assignee_id) : t("helpdesk.unassigned")} />
-            <Field label={t("helpdesk.category")} value={categoryName(ticket.category_id)} />
-            <Field label={t("helpdesk.opened")} value={formatDateTime(ticket.created_at, locale)} />
-            <Field label={t("helpdesk.updated")} value={formatDateTime(ticket.updated_at, locale)} />
-          </dl>
-          {ticket.description && (
-            <section className="grid gap-1">
-              <h2 className="m-0 text-sm font-medium">{t("helpdesk.details")}</h2>
-              <p className="m-0 whitespace-pre-wrap text-sm">{ticket.description}</p>
-            </section>
+      <DetailLayout
+        asideLabel={t("helpdesk.properties")}
+        aside={
+          <>
+            <Panel title={t("helpdesk.properties")}>
+              <Properties>
+                <Property label={t("helpdesk.status")}>
+                  <Badge variant={tone.badge} className={tone.text}>
+                    {t(statusKeys[ticket.status])}
+                  </Badge>
+                </Property>
+                <Property label={t("helpdesk.priority")}>{t(priorityKeys[ticket.priority])}</Property>
+                {queue && <Property label={t("helpdesk.queue")}>{queue.name}</Property>}
+                <Property label={t("helpdesk.requester")}>{nameOf(ticket.requester_id)}</Property>
+                <Property label={t("helpdesk.assignee")}>
+                  {ticket.assignee_id ? nameOf(ticket.assignee_id) : t("helpdesk.unassigned")}
+                </Property>
+                <Property label={t("helpdesk.category")}>{categoryName(ticket.category_id)}</Property>
+                <Property label={t("helpdesk.opened")}>{formatDateTime(ticket.created_at, locale)}</Property>
+                <Property label={t("helpdesk.updated")}>{formatDateTime(ticket.updated_at, locale)}</Property>
+              </Properties>
+            </Panel>
+            {canAct && (
+              <Panel title={t("helpdesk.detail.moveTo")}>
+                <div className="flex flex-wrap items-end gap-2">
+                  {canClaim(ticket, viewer) && (
+                    <Button disabled={claim.isPending} onClick={() => claim.mutate()}>
+                      {t("helpdesk.detail.claim")}
+                    </Button>
+                  )}
+                  {moves.map((to) => (
+                    <Button key={to} variant="outline" disabled={move.isPending} onClick={() => move.mutate(to)}>
+                      {t(moveKeys[to])}
+                    </Button>
+                  ))}
+                </div>
+                {canAssign(ticket, viewer) && queue && (
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="font-medium">{t("helpdesk.detail.assignTo")}</span>
+                    <NativeSelect
+                      containerClassName="w-full"
+                      value={ticket.assignee_id ?? ""}
+                      onChange={(e) => e.target.value && assign.mutate(e.target.value)}
+                    >
+                      <option value="">{t("helpdesk.detail.choose")}</option>
+                      {queue.agent_ids.map((id) => (
+                        <option key={id} value={id}>
+                          {nameOf(id)}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </label>
+                )}
+                {canEditTicket(viewer) && (
+                  <>
+                    <label className="grid gap-1.5 text-sm">
+                      <span className="font-medium">{t("helpdesk.priority")}</span>
+                      <NativeSelect
+                        containerClassName="w-full"
+                        value={ticket.priority}
+                        onChange={(e) => edit.mutate({ priority: e.target.value as (typeof priorities)[number] })}
+                      >
+                        {priorities.map((p) => (
+                          <option key={p} value={p}>
+                            {t(priorityKeys[p])}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </label>
+                    <label className="grid gap-1.5 text-sm">
+                      <span className="font-medium">{t("helpdesk.category")}</span>
+                      <NativeSelect
+                        containerClassName="w-full"
+                        value={ticket.category_id}
+                        onChange={(e) =>
+                          e.target.value !== ticket.category_id && edit.mutate({ category_id: e.target.value })
+                        }
+                      >
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </label>
+                  </>
+                )}
+                <FormError
+                  message={
+                    actionError
+                      ? t(
+                          errorKey(actionError, {
+                            409: "helpdesk.error.invalidTransition",
+                            403: "helpdesk.error.notAllowed",
+                          }),
+                        )
+                      : null
+                  }
+                />
+              </Panel>
+            )}
+          </>
+        }
+      >
+        <Panel title={t("helpdesk.details")}>
+          {ticket.description ? (
+            <p className="m-0 whitespace-pre-wrap text-sm">{ticket.description}</p>
+          ) : (
+            <p className="m-0 text-sm text-muted-foreground">—</p>
           )}
           {ticket.attachments.length > 0 && (
-            <section className="grid gap-1">
-              <h2 className="m-0 text-sm font-medium">{t("helpdesk.detail.attachments")}</h2>
+            <section className="grid gap-1.5">
+              <h3 className="m-0 text-sm font-medium">{t("helpdesk.detail.attachments")}</h3>
               <ul className="m-0 grid list-none gap-1 p-0">
                 {ticket.attachments.map((a) => (
                   <li key={a.id} className="flex flex-wrap items-center gap-2 text-sm">
@@ -172,88 +250,11 @@ function Detail({ ticket, queues }: { ticket: TicketDetailData; queues: Helpdesk
               </ul>
             </section>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      {(canClaim(ticket, viewer) || canAssign(ticket, viewer) || moves.length > 0 || canEditTicket(viewer)) && (
-        <Card className="gap-3 py-5">
-          <CardHeader>
-            <h2 className="text-base font-semibold">{t("helpdesk.detail.moveTo")}</h2>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <div className="flex flex-wrap items-end gap-2">
-              {canClaim(ticket, viewer) && (
-                <Button disabled={claim.isPending} onClick={() => claim.mutate()}>
-                  {t("helpdesk.detail.claim")}
-                </Button>
-              )}
-              {moves.map((to) => (
-                <Button key={to} variant="outline" disabled={move.isPending} onClick={() => move.mutate(to)}>
-                  {t(moveKeys[to])}
-                </Button>
-              ))}
-            </div>
-            {canAssign(ticket, viewer) && queue && (
-              <label className="grid max-w-sm gap-1 text-sm">
-                <span className="font-medium">{t("helpdesk.detail.assignTo")}</span>
-                <NativeSelect
-                  containerClassName="w-full"
-                  value={ticket.assignee_id ?? ""}
-                  onChange={(e) => e.target.value && assign.mutate(e.target.value)}
-                >
-                  <option value="">{t("helpdesk.detail.choose")}</option>
-                  {queue.agent_ids.map((id) => (
-                    <option key={id} value={id}>
-                      {nameOf(id)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </label>
-            )}
-            {canEditTicket(viewer) && (
-              <div className="flex flex-wrap gap-4">
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium">{t("helpdesk.priority")}</span>
-                  <NativeSelect
-                    value={ticket.priority}
-                    onChange={(e) => edit.mutate({ priority: e.target.value as (typeof priorities)[number] })}
-                  >
-                    {priorities.map((p) => (
-                      <option key={p} value={p}>
-                        {t(priorityKeys[p])}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium">{t("helpdesk.category")}</span>
-                  <NativeSelect
-                    value={ticket.category_id}
-                    onChange={(e) => e.target.value !== ticket.category_id && edit.mutate({ category_id: e.target.value })}
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </label>
-              </div>
-            )}
-            <FormError
-              message={actionError ? t(errorKey(actionError, { 409: "helpdesk.error.invalidTransition", 403: "helpdesk.error.notAllowed" })) : null}
-            />
-          </CardContent>
-        </Card>
-      )}
+        <CommentSection ticket={ticket} viewer={viewer} />
 
-      <CommentSection ticket={ticket} viewer={viewer} />
-
-      <Card className="gap-3 py-5">
-        <CardHeader>
-          <h2 className="text-base font-semibold">{t("helpdesk.history")}</h2>
-        </CardHeader>
-        <CardContent>
+        <Panel title={t("helpdesk.history")}>
           {ticket.history.length === 0 ? (
             <p className="m-0 text-sm text-muted-foreground">{t("helpdesk.history.empty")}</p>
           ) : (
@@ -270,8 +271,8 @@ function Detail({ ticket, queues }: { ticket: TicketDetailData; queues: Helpdesk
               ))}
             </ol>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
+      </DetailLayout>
     </Page>
   );
 }
@@ -304,65 +305,51 @@ function CommentSection({ ticket, viewer }: { ticket: TicketDetailData; viewer: 
   }
 
   return (
-    <Card className="gap-3 py-5">
-      <CardHeader>
-        <h2 className="text-base font-semibold">{t("helpdesk.comments")}</h2>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        {ticket.comments.length === 0 ? (
-          <p className="m-0 text-sm text-muted-foreground">{t("helpdesk.comment.empty")}</p>
-        ) : (
-          <ul aria-label={t("helpdesk.comments")} className="m-0 grid list-none gap-3 p-0">
-            {ticket.comments.map((c) => (
-              <li key={c.id} className="grid gap-1 rounded-lg border bg-muted/30 p-3">
-                <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">{nameOf(c.author_id)}</span>
-                  <time dateTime={c.created_at}>{formatDateTime(c.created_at, locale)}</time>
-                  {c.internal && <Badge variant="outline">{t("helpdesk.comment.internalBadge")}</Badge>}
-                </p>
-                <p className="m-0 whitespace-pre-wrap text-sm">{c.body}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-        <form onSubmit={submit} noValidate className="grid gap-2">
-          <label htmlFor="comment-body" className="text-sm font-medium">
-            {t("helpdesk.comment.label")}
+    <Panel title={t("helpdesk.comments")}>
+      {ticket.comments.length === 0 ? (
+        <p className="m-0 text-sm text-muted-foreground">{t("helpdesk.comment.empty")}</p>
+      ) : (
+        <ul aria-label={t("helpdesk.comments")} className="m-0 grid list-none gap-3 p-0">
+          {ticket.comments.map((c) => (
+            <li key={c.id} className="grid gap-1 rounded-md bg-muted/50 p-3">
+              <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{nameOf(c.author_id)}</span>
+                <time dateTime={c.created_at}>{formatDateTime(c.created_at, locale)}</time>
+                {c.internal && <Badge variant="outline">{t("helpdesk.comment.internalBadge")}</Badge>}
+              </p>
+              <p className="m-0 whitespace-pre-wrap text-sm">{c.body}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={submit} noValidate className="grid gap-2">
+        <label htmlFor="comment-body" className="text-sm font-medium">
+          {t("helpdesk.comment.label")}
+        </label>
+        <Textarea
+          id="comment-body"
+          name="comment-body"
+          rows={3}
+          value={body}
+          aria-invalid={missing || undefined}
+          onChange={(e) => setBody(e.target.value)}
+        />
+        {missing && <p className="m-0 text-xs text-destructive">{t("helpdesk.comment.required")}</p>}
+        {canWriteInternal(viewer) && (
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={internal} onCheckedChange={(value) => setInternal(value === true)} />
+            {t("helpdesk.comment.internal")}
           </label>
-          <Textarea
-            id="comment-body"
-            name="comment-body"
-            rows={3}
-            value={body}
-            aria-invalid={missing || undefined}
-            onChange={(e) => setBody(e.target.value)}
-          />
-          {missing && <p className="m-0 text-xs text-destructive">{t("helpdesk.comment.required")}</p>}
-          {canWriteInternal(viewer) && (
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={internal} onCheckedChange={(value) => setInternal(value === true)} />
-              {t("helpdesk.comment.internal")}
-            </label>
-          )}
-          <FormError message={comment.error ? t(errorKey(comment.error, { 403: "helpdesk.error.notAllowed" })) : null} />
-          <div>
-            <Button type="submit" disabled={comment.isPending}>
-              <Send />
-              {t("helpdesk.comment.send")}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Field({ label, value, multiline }: { label: string; value: string; multiline?: boolean }) {
-  return (
-    <div className="grid gap-0.5">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={`m-0 text-sm ${multiline ? "whitespace-pre-wrap" : ""}`}>{value}</dd>
-    </div>
+        )}
+        <FormError message={comment.error ? t(errorKey(comment.error, { 403: "helpdesk.error.notAllowed" })) : null} />
+        <div>
+          <Button type="submit" disabled={comment.isPending}>
+            <Send />
+            {t("helpdesk.comment.send")}
+          </Button>
+        </div>
+      </form>
+    </Panel>
   );
 }
 
@@ -397,7 +384,13 @@ function FileDownload({ id, name }: { id: string; name: string }) {
  * Creates a task in the queue's channel that names the ticket (HD-19). The server posts the task's
  * card there; the button is shown only when `/meta` lists task and the queue has a channel.
  */
-function CreateTaskButton({ ticket, channelId }: { ticket: Pick<TicketDetailData, "key" | "title">; channelId: string }) {
+function CreateTaskButton({
+  ticket,
+  channelId,
+}: {
+  ticket: Pick<TicketDetailData, "key" | "title">;
+  channelId: string;
+}) {
   const t = useT();
   const tasks = useTaskApi();
   const create = useMutation({

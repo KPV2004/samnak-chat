@@ -1,24 +1,32 @@
 import type { HelpdeskQueue } from "@samnak/core";
 import { createM2Api } from "@samnak/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Plus } from "lucide-react";
+import { Archive, Inbox, Plus } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Navigate } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AccountLoadError } from "../components/AccountStates";
+import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
 import { Page } from "../components/Page";
 import { RequireWorkspace } from "../components/RequireWorkspace";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
+import { ListLoading, Panel } from "../pages/module-ui";
 import { canManage, useWorkspaces } from "../state/queries";
 import { useSession, useSessionState } from "../state/session";
 import { useHelpdeskApi } from "./api";
@@ -55,26 +63,9 @@ function SettingsView() {
   return (
     <Page title={t("helpdesk.settings")} description={t("helpdesk.settings.body")} width="wide">
       <NewQueue />
-      {queues.isPending && (
-        <div role="status" className="grid gap-2">
-          <span className="sr-only">{t("loading")}</span>
-          <Skeleton className="h-40 w-full rounded-xl" />
-          <Skeleton className="h-40 w-full rounded-xl" />
-        </div>
-      )}
-      {queues.isError && (
-        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive">
-          <p className="m-0">{t("helpdesk.loadError")}</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void queues.refetch()}>
-            {t("retry")}
-          </Button>
-        </div>
-      )}
-      {queues.isSuccess && items.length === 0 && (
-        <p className="m-0 rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-          {t("helpdesk.settings.noQueues")}
-        </p>
-      )}
+      {queues.isPending && <ListLoading rows={2} />}
+      {queues.isError && <AccountLoadError message={t("helpdesk.loadError")} onRetry={() => void queues.refetch()} />}
+      {queues.isSuccess && items.length === 0 && <EmptyState icon={Inbox} title={t("helpdesk.settings.noQueues")} />}
       {items.map((queue) => (
         <QueueCard key={queue.id} queue={queue} channels={channels.data?.items ?? []} />
       ))}
@@ -113,37 +104,32 @@ function NewQueue() {
   }
 
   return (
-    <Card className="gap-3 py-5">
-      <CardHeader>
-        <h2 className="text-base font-semibold">{t("helpdesk.settings.newQueue")}</h2>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label={t("helpdesk.field.name")}
-            error={nameMissing ? t("helpdesk.field.nameRequired") : undefined}
-            value={name}
-            maxLength={100}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Field
-            label={t("helpdesk.field.prefix")}
-            hint={t("helpdesk.field.prefixHint")}
-            error={prefixBad ? t("helpdesk.field.prefixInvalid") : undefined}
-            value={prefix}
-            maxLength={6}
-            onChange={(e) => setPrefix(e.target.value)}
-          />
-          <FormError message={conflict ? t(conflict) : null} />
-          <div className="sm:col-span-2">
-            <Button type="submit" disabled={create.isPending}>
-              <Plus />
-              {t("helpdesk.settings.createQueue")}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+    <Panel title={t("helpdesk.settings.newQueue")}>
+      <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label={t("helpdesk.field.name")}
+          error={nameMissing ? t("helpdesk.field.nameRequired") : undefined}
+          value={name}
+          maxLength={100}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Field
+          label={t("helpdesk.field.prefix")}
+          hint={t("helpdesk.field.prefixHint")}
+          error={prefixBad ? t("helpdesk.field.prefixInvalid") : undefined}
+          value={prefix}
+          maxLength={6}
+          onChange={(e) => setPrefix(e.target.value)}
+        />
+        <FormError message={conflict ? t(conflict) : null} />
+        <div className="sm:col-span-2">
+          <Button type="submit" disabled={create.isPending}>
+            <Plus />
+            {t("helpdesk.settings.createQueue")}
+          </Button>
+        </div>
+      </form>
+    </Panel>
   );
 }
 
@@ -183,93 +169,98 @@ function QueueCard({ queue, channels }: { queue: HelpdeskQueue; channels: { id: 
   }
 
   return (
-    <Card className="gap-4 py-5">
-      <CardHeader className="flex flex-wrap items-start justify-between gap-2">
-        <div className="grid gap-1">
-          <h2 className="text-base font-semibold">{queue.name}</h2>
-          <p className="m-0 flex items-center gap-2 text-xs text-muted-foreground">
-            <Badge variant="outline">{queue.prefix}</Badge>
-            {t("helpdesk.settings.categoriesHint")}
-          </p>
-        </div>
+    <Panel
+      title={queue.name}
+      bodyClassName="gap-5"
+      actions={
         <Button type="button" variant="outline" size="sm" onClick={() => setArchiving(true)}>
           <Archive />
           {t("helpdesk.settings.archive")}
         </Button>
-      </CardHeader>
-      <CardContent className="grid gap-5">
-        <form
-          className="grid gap-4 sm:grid-cols-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save.mutate();
-          }}
-        >
-          <Field label={t("helpdesk.field.name")} value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
-          <Field label={t("helpdesk.field.channel")} hint={t("helpdesk.field.channelHint")}>
-            {({ id, describedBy }) => (
-              <NativeSelect
-                id={id}
-                aria-describedby={describedBy}
-                containerClassName="w-full"
-                value={channelId}
-                onChange={(e) => setChannelId(e.target.value)}
-              >
-                <option value="">{t("helpdesk.field.channelNone")}</option>
-                {channels.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            )}
-          </Field>
-          <div className="flex items-end">
-            <Button type="submit" disabled={save.isPending}>
-              {t("helpdesk.settings.saveQueue")}
+      }
+    >
+      <p className="m-0 flex items-center gap-2 text-xs text-muted-foreground">
+        <Badge variant="outline">{queue.prefix}</Badge>
+        {t("helpdesk.settings.categoriesHint")}
+      </p>
+      <form
+        className="grid gap-4 sm:grid-cols-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <Field
+          label={t("helpdesk.field.name")}
+          value={name}
+          maxLength={100}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Field label={t("helpdesk.field.channel")} hint={t("helpdesk.field.channelHint")}>
+          {({ id, describedBy }) => (
+            <NativeSelect
+              id={id}
+              aria-describedby={describedBy}
+              containerClassName="w-full"
+              value={channelId}
+              onChange={(e) => setChannelId(e.target.value)}
+            >
+              <option value="">{t("helpdesk.field.channelNone")}</option>
+              {channels.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </NativeSelect>
+          )}
+        </Field>
+        <div className="flex items-end">
+          <Button type="submit" disabled={save.isPending}>
+            {t("helpdesk.settings.saveQueue")}
+          </Button>
+        </div>
+        <FormError message={save.error ? t(errorKey(save.error)) : null} />
+      </form>
+
+      <section className="grid gap-2">
+        <h3 className="m-0 text-sm font-semibold">{t("helpdesk.settings.agents")}</h3>
+        <p className="m-0 text-xs text-muted-foreground">{t("helpdesk.settings.agentsHint")}</p>
+        {(members.data ?? []).map((m) => (
+          <label key={m.user_id} className="flex items-center gap-2 text-sm">
+            <Checkbox checked={agents.includes(m.user_id)} onCheckedChange={() => toggleAgent(m.user_id)} />
+            {m.display_name || m.email}
+          </label>
+        ))}
+        {(members.data ?? []).length === 0 && (
+          <p className="m-0 text-sm text-muted-foreground">{t("helpdesk.noAgents")}</p>
+        )}
+        <div>
+          <Button type="button" variant="outline" disabled={saveAgents.isPending} onClick={() => saveAgents.mutate()}>
+            {t("helpdesk.settings.saveAgents")}
+          </Button>
+        </div>
+      </section>
+
+      <Categories queue={queue} onChanged={refresh} />
+
+      <Dialog open={archiving} onOpenChange={setArchiving}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("helpdesk.settings.archiveTitle", { name: queue.name })}</DialogTitle>
+            <DialogDescription>{t("helpdesk.settings.archiveHint")}</DialogDescription>
+          </DialogHeader>
+          <FormError message={archive.error ? t(errorKey(archive.error)) : null} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setArchiving(false)}>
+              {t("cancel")}
             </Button>
-          </div>
-          <FormError message={save.error ? t(errorKey(save.error)) : null} />
-        </form>
-
-        <section className="grid gap-2">
-          <h3 className="m-0 text-sm font-semibold">{t("helpdesk.settings.agents")}</h3>
-          <p className="m-0 text-xs text-muted-foreground">{t("helpdesk.settings.agentsHint")}</p>
-          {(members.data ?? []).map((m) => (
-            <label key={m.user_id} className="flex items-center gap-2 text-sm">
-              <Checkbox checked={agents.includes(m.user_id)} onCheckedChange={() => toggleAgent(m.user_id)} />
-              {m.display_name || m.email}
-            </label>
-          ))}
-          {(members.data ?? []).length === 0 && <p className="m-0 text-sm text-muted-foreground">{t("helpdesk.noAgents")}</p>}
-          <div>
-            <Button type="button" variant="outline" disabled={saveAgents.isPending} onClick={() => saveAgents.mutate()}>
-              {t("helpdesk.settings.saveAgents")}
+            <Button type="button" variant="destructive" disabled={archive.isPending} onClick={() => archive.mutate()}>
+              {t("helpdesk.settings.archiveConfirm")}
             </Button>
-          </div>
-        </section>
-
-        <Categories queue={queue} onChanged={refresh} />
-
-        <Dialog open={archiving} onOpenChange={setArchiving}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t("helpdesk.settings.archiveTitle", { name: queue.name })}</DialogTitle>
-              <DialogDescription>{t("helpdesk.settings.archiveHint")}</DialogDescription>
-            </DialogHeader>
-            <FormError message={archive.error ? t(errorKey(archive.error)) : null} />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setArchiving(false)}>
-                {t("cancel")}
-              </Button>
-              <Button type="button" variant="destructive" disabled={archive.isPending} onClick={() => archive.mutate()}>
-                {t("helpdesk.settings.archiveConfirm")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Panel>
   );
 }
 

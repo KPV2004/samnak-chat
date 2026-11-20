@@ -3,8 +3,7 @@ import { MonitorSmartphone } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AccountLoadError, AccountLoading } from "../components/AccountStates";
+import { AccountLoadError } from "../components/AccountStates";
 import { EmptyState } from "../components/EmptyState";
 import { FormError } from "../components/FormError";
 import { Page } from "../components/Page";
@@ -13,6 +12,7 @@ import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import { useMe } from "../state/queries";
 import { useSession } from "../state/session";
+import { DataList, DataRow, ListLoading } from "./module-ui";
 
 export function Devices() {
   const t = useT();
@@ -39,20 +39,7 @@ export function Devices() {
         </Button>
       }
     >
-      {devices.isPending && (
-        <AccountLoading>
-          <div className="divide-y rounded-lg border">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="grid flex-1 gap-2">
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-3 w-56" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </AccountLoading>
-      )}
+      {devices.isPending && <ListLoading />}
       {devices.isError ? (
         <AccountLoadError message={t(errorKey(devices.error))} onRetry={() => void devices.refetch()} />
       ) : (
@@ -62,9 +49,9 @@ export function Devices() {
         (devices.data.length === 0 ? (
           <EmptyState icon={MonitorSmartphone} title={t("devices.none")} />
         ) : (
-          <ul className="divide-y rounded-lg border">
+          <DataList>
             {devices.data.map((d) => (
-              <li key={d.id} className="flex items-center gap-3 px-4 py-3">
+              <DataRow key={d.id} className="flex-nowrap">
                 <MonitorSmartphone className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="grid min-w-0 flex-1 gap-0.5">
                   <p className="m-0 flex flex-wrap items-center gap-2 text-sm">
@@ -73,7 +60,9 @@ export function Devices() {
                   </p>
                   <p className="m-0 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
                     <span>{d.platform}</span>
-                    <span>{t("devices.lastSeen", { time: formatDateTime(d.last_seen_at, locale, me.data?.timezone) })}</span>
+                    <span>
+                      {t("devices.lastSeen", { time: formatDateTime(d.last_seen_at, locale, me.data?.timezone) })}
+                    </span>
                   </p>
                 </div>
                 {!d.current && (
@@ -88,9 +77,9 @@ export function Devices() {
                     {t("devices.revoke")}
                   </Button>
                 )}
-              </li>
+              </DataRow>
             ))}
-          </ul>
+          </DataList>
         ))}
     </Page>
   );
