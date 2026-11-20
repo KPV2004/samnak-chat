@@ -451,6 +451,9 @@ components:
           type: array
         id:
           type: string
+        last_message:
+          $ref: "#/components/schemas/LastMessage"
+          description: The newest message, deleted ones included; null for an empty channel
         last_read_seq:
           description: The caller's read position; 0 when not a member
           format: int64
@@ -467,6 +470,12 @@ components:
         name:
           description: Empty for direct messages
           type: string
+        pinned_at:
+          description: When the caller pinned the channel; null when not pinned
+          format: date-time
+          type:
+            - string
+            - "null"
         topic:
           type: string
         type:
@@ -490,6 +499,8 @@ components:
         - member_count
         - dm_user_ids
         - archived_at
+        - pinned_at
+        - last_message
         - created_at
       type: object
     ChannelMember:
@@ -1376,6 +1387,31 @@ components:
         - user_id
         - is_manager
       type: object
+    LastMessage:
+      additionalProperties: false
+      properties:
+        created_at:
+          format: date-time
+          type: string
+        id:
+          type: string
+        kind:
+          description: text, or a card kind such as approval.request
+          type: string
+        preview:
+          description: "Plain text cut to 120 characters: the body, a card's fallback text, or empty for files only and for a deleted message"
+          type: string
+        sender_id:
+          type: string
+      required:
+        - id
+        - sender_id
+        - kind
+        - preview
+        - created_at
+      type:
+        - object
+        - "null"
     ListAuditOutputBody:
       additionalProperties: false
       properties:
@@ -3297,6 +3333,51 @@ paths:
       security:
         - bearer: []
       summary: Send a message; repeating client_msg_id returns the original with 200
+      tags:
+        - chat
+  /chat/channels/{id}/pin:
+    delete:
+      operationId: chat-unpin-channel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Unpin a channel from the top of my list
+      tags:
+        - chat
+    put:
+      operationId: chat-pin-channel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - bearer: []
+      summary: Pin a channel I am in to the top of my list
       tags:
         - chat
   /chat/channels/{id}/read:

@@ -36,6 +36,8 @@ export class FakeChatServer {
       member_count: 2,
       dm_user_ids: [],
       archived_at: null,
+      pinned_at: null,
+      last_message: null,
       created_at: "2026-01-01T00:00:00Z",
       ...patch,
     };

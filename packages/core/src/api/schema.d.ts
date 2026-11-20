@@ -467,6 +467,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat/channels/{id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pin a channel I am in to the top of my list */
+        put: operations["chat-pin-channel"];
+        post?: never;
+        /** Unpin a channel from the top of my list */
+        delete: operations["chat-unpin-channel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/channels/{id}/read": {
         parameters: {
             query?: never;
@@ -1318,6 +1336,8 @@ export interface components {
             /** @description Members of a direct message, empty otherwise */
             dm_user_ids: string[];
             id: string;
+            /** @description The newest message, deleted ones included; null for an empty channel */
+            last_message: components["schemas"]["LastMessage"];
             /**
              * Format: int64
              * @description The caller's read position; 0 when not a member
@@ -1331,6 +1351,11 @@ export interface components {
             mention_count: number;
             /** @description Empty for direct messages */
             name: string;
+            /**
+             * Format: date-time
+             * @description When the caller pinned the channel; null when not pinned
+             */
+            pinned_at: string | null;
             topic: string;
             /** @enum {string} */
             type: "public" | "private" | "dm";
@@ -1690,6 +1715,16 @@ export interface components {
             is_manager: boolean;
             user_id: string;
         };
+        LastMessage: {
+            /** Format: date-time */
+            created_at: string;
+            id: string;
+            /** @description text, or a card kind such as approval.request */
+            kind: string;
+            /** @description Plain text cut to 120 characters: the body, a card's fallback text, or empty for files only and for a deleted message */
+            preview: string;
+            sender_id: string;
+        } | null;
         ListAuditOutputBody: {
             items: components["schemas"]["AuditEntry"][];
             /** @description Empty on the last page */
@@ -3299,6 +3334,64 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Message"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-pin-channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    "chat-unpin-channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

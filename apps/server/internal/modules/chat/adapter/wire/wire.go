@@ -52,6 +52,13 @@ func ToChannel(v usecase.ChannelView) Channel {
 	}
 }
 
+// TransformSchema marks the schema nullable: an empty channel has no last
+// message, and huma's nullable tag does not apply to object fields.
+func (LastMessage) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	s.Nullable = true
+	return s
+}
+
 func toLastMessage(m *domain.Message) *LastMessage {
 	if m == nil {
 		return nil
