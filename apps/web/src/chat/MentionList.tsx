@@ -1,6 +1,8 @@
 import { Megaphone } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initialOf } from "../components/UserAvatar";
 import type { MentionOption } from "./mentions";
+import { useAvatarOf } from "./names";
 
 interface Props {
   id: string;
@@ -10,8 +12,8 @@ interface Props {
   onPick(option: MentionOption): void;
 }
 
-/** What leads an option: a command has none, `@channel` a megaphone, a member their avatar. */
-function Lead({ option }: { option: MentionOption }) {
+/** What leads an option: a command has none, `@channel` a megaphone, a member their picture or initial. */
+function Lead({ option, avatarOf }: { option: MentionOption; avatarOf: (userId: string) => string }) {
   if (option.token.startsWith("/")) return null;
   if (option.token === "<!channel>") {
     return (
@@ -20,18 +22,23 @@ function Lead({ option }: { option: MentionOption }) {
       </span>
     );
   }
-  // The initial is drawn by CSS so the option's text stays just the name.
+  // The initial is drawn by CSS so the option's text stays just the name; the picture replaces it once it loads.
+  // A member's token is `<@user_id>`.
+  const picture = avatarOf(option.token.slice(2, -1));
   return (
-    <span
-      data-initial={initialOf(option.label)}
-      aria-hidden="true"
-      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary before:content-[attr(data-initial)]"
-    />
+    <Avatar className="size-6" aria-hidden="true">
+      {picture && <AvatarImage src={picture} alt="" />}
+      <AvatarFallback
+        data-initial={initialOf(option.label)}
+        className="bg-primary/10 text-xs font-medium text-primary before:content-[attr(data-initial)]"
+      />
+    </Avatar>
   );
 }
 
 /** The suggestions above the composer: members after @, commands after /. */
 export function MentionList({ id, label, options, active, onPick }: Props) {
+  const avatarOf = useAvatarOf();
   return (
     <ul
       id={id}
@@ -50,7 +57,7 @@ export function MentionList({ id, label, options, active, onPick }: Props) {
           onClick={() => onPick(o)}
           className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/60 active:bg-accent aria-selected:bg-accent aria-selected:text-accent-foreground"
         >
-          <Lead option={o} />
+          <Lead option={o} avatarOf={avatarOf} />
           <span className={o.token.startsWith("/") ? "font-mono text-[0.85em] font-medium" : "font-medium"}>{o.label}</span>
           {o.detail && <small className="min-w-0 text-xs text-muted-foreground">{o.detail}</small>}
         </li>

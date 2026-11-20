@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
-import { channel, chatRoutes, message, renderApp, type Routes } from "../test-utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { channel, chatRoutes, message, mali, renderApp, somchai, stubImages, type Routes } from "../test-utils";
 
 const general = channel("c1", { name: "general", last_seq: 2, last_read_seq: 0, unread_count: 2 });
 const history = [message("c1", 1, { body: "welcome to the channel" }), message("c1", 2, { body: "second message" })];
@@ -127,6 +127,26 @@ describe("channel view", () => {
     renderApp({ route: "/chat/c1", routes: routes({ "GET /api/v1/chat/channels": () => ({ items: [archived] }) }) });
     expect(await screen.findByText("This channel is archived. No new messages can be sent.")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  });
+});
+
+describe("message pictures", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows a sender's picture in the message row once it loads, and the initial until then", async () => {
+    const requested = stubImages();
+    const pictured = { ...somchai, avatar_url: "https://cdn.example.com/som.png" };
+    renderApp({
+      route: "/chat/c1",
+      routes: routes({ "GET /api/v1/workspace/members": () => ({ items: [mali, pictured], next_cursor: "" }) }),
+    });
+    const region = await log();
+    expect(await within(region).findByText("welcome to the channel")).toBeInTheDocument();
+    expect(within(region).getAllByText("S").length).toBeGreaterThan(0);
+    expect(region.querySelector("img")).toBeNull();
+
+    act(() => requested.forEach((img) => img.settle(true)));
+    expect(region.querySelector('img[src="https://cdn.example.com/som.png"]')).not.toBeNull();
   });
 });
 

@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { channel, chatRoutes, expectAlert, message, renderApp, type Routes } from "../test-utils";
+import { channel, chatRoutes, expectAlert, message, mali, renderApp, type Routes, somchai, stubImages } from "../test-utils";
 
 const general = channel("c1", { name: "general", last_seq: 1 });
 
@@ -31,6 +31,31 @@ function routes(extra: Routes = {}): Routes {
 const box = () => screen.findByRole("textbox", { name: "Message" });
 
 describe("mention picker", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows a suggested member's picture once it loads, and the initial for one without a picture", async () => {
+    const requested = stubImages();
+    const user = userEvent.setup();
+    renderApp({
+      route: "/chat/c1",
+      routes: routes({
+        "GET /api/v1/workspace/members": () => ({
+          items: [mali, { ...somchai, avatar_url: "https://cdn.example.com/som.png" }],
+          next_cursor: "",
+        }),
+      }),
+    });
+    await user.type(await box(), "@som");
+    const list = await screen.findByRole("listbox", { name: "Mention someone" });
+    expect(list.querySelector("img")).toBeNull();
+
+    act(() => requested.forEach((img) => img.settle(true)));
+    expect(list.querySelectorAll("img")).toHaveLength(1);
+    expect(list.querySelector('img[src="https://cdn.example.com/som.png"]')).not.toBeNull();
+    // Somchai's picture replaces his initial; Somsak has none, so his S is the only one left.
+    expect(list.querySelectorAll('[data-initial="S"]')).toHaveLength(1);
+  });
+
   it("offers channel members while typing @ and inserts @name, and sends <@user_id>", async () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/chat/c1", routes: routes() });
