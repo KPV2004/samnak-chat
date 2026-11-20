@@ -182,6 +182,34 @@ export const chatRoutes: Routes = {
   "GET /api/v1/workspace/members": () => ({ items: [mali, somchai], next_cursor: "" }),
 };
 
+/** A picture the test finishes loading or fails, so it can see the initial until then. */
+class FakeImage extends EventTarget {
+  complete = false;
+  naturalWidth = 0;
+  crossOrigin: string | null = null;
+  referrerPolicy = "";
+  src = "";
+
+  settle(loaded: boolean) {
+    this.complete = true;
+    this.naturalWidth = loaded ? 1 : 0;
+    this.dispatchEvent(new Event(loaded ? "load" : "error"));
+  }
+}
+
+/** Replaces the browser's Image. Returns every picture requested, in order; call `vi.unstubAllGlobals()` after. */
+export function stubImages(): FakeImage[] {
+  const made: FakeImage[] = [];
+  class Stub extends FakeImage {
+    constructor() {
+      super();
+      made.push(this);
+    }
+  }
+  vi.stubGlobal("Image", Stub);
+  return made;
+}
+
 export function renderApp({ route = "/", routes = {}, signedIn = {} }: RenderOptions = {}) {
   useLocale.setState({ locale: "en" });
   const server = mockServer({ ...baseRoutes, ...routes });

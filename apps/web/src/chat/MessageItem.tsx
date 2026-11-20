@@ -21,7 +21,7 @@ import { clockTime } from "./grouping";
 import { EditForm } from "./EditForm";
 import { IconTool } from "./IconTool";
 import { bodyClass, Markdown } from "./markdown";
-import { useNameOf } from "./names";
+import { useAvatarOf, useNameOf } from "./names";
 
 const quickReactions = ["👍", "❤️", "😂", "🎉", "🙏", "👀"];
 
@@ -43,6 +43,7 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
   const locale = useCurrentLocale();
   const chat = useChat();
   const nameOf = useNameOf();
+  const avatarOf = useAvatarOf();
   const role = useWorkspaces().current?.role;
   const [, setParams] = useSearchParams();
   const [editing, setEditing] = useState(false);
@@ -140,7 +141,7 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
               </time>
             )
           ) : (
-            <UserAvatar name={name} className="size-9" />
+            <UserAvatar name={name} src={avatarOf(m.sender_id)} className="size-9" />
           )}
         </div>
         <div className="min-w-0">
