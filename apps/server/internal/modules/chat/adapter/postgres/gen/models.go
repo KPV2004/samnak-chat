@@ -43,6 +43,7 @@ type ChatChannelMember struct {
 	LastReadSeq int64
 	Muted       bool
 	JoinedAt    time.Time
+	PinnedAt    *time.Time
 }
 
 type ChatMessage struct {

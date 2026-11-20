@@ -245,3 +245,29 @@ func TestValidateUpload(t *testing.T) {
 		t.Error("IsImage is wrong")
 	}
 }
+
+func TestMessagePreview(t *testing.T) {
+	deleted := time.Now()
+	tests := []struct {
+		name string
+		m    domain.Message
+		want string
+	}{
+		{"text on one line", domain.Message{Kind: domain.KindText, Body: "hello"}, "hello"},
+		{"line breaks and runs of spaces become one space", domain.Message{Kind: domain.KindText, Body: "a\n\n  b\tc  "}, "a b c"},
+		{"mention tokens read as words", domain.Message{Kind: domain.KindText, Body: "ping <@" + newID() + "> and <!channel>"}, "ping @user and @channel"},
+		{"cut to 120 characters", domain.Message{Kind: domain.KindText, Body: strings.Repeat("a", 200)}, strings.Repeat("a", 120)},
+		{"cut counts characters, not bytes", domain.Message{Kind: domain.KindText, Body: strings.Repeat("ห", 130)}, strings.Repeat("ห", 120)},
+		{"a card shows its fallback text", domain.Message{Kind: "demo.poll", FallbackText: "Poll: lunch?"}, "Poll: lunch?"},
+		{"a long card fallback is cut too", domain.Message{Kind: "demo.poll", FallbackText: strings.Repeat("b", 121)}, strings.Repeat("b", 120)},
+		{"attachments only have no text", domain.Message{Kind: domain.KindText, Body: ""}, ""},
+		{"blank body with attachments has no text", domain.Message{Kind: domain.KindText, Body: "  \n "}, ""},
+		{"a deleted message has no text", domain.Message{Kind: domain.KindText, Body: "secret", DeletedAt: &deleted}, ""},
+		{"a deleted card has no text", domain.Message{Kind: "demo.poll", FallbackText: "Poll: lunch?", DeletedAt: &deleted}, ""},
+	}
+	for _, tt := range tests {
+		if got := tt.m.Preview(); got != tt.want {
+			t.Errorf("%s: Preview() = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}

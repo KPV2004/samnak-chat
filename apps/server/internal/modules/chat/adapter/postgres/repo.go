@@ -229,8 +229,8 @@ func (r *Repo) ChannelViews(ctx context.Context, workspaceID, userID string, mod
 				ID: row.ID.String(), WorkspaceID: row.WorkspaceID.String(), Type: domain.ChannelType(row.Type), Name: row.Name, Topic: row.Topic,
 				DMKey: key, CreatedBy: row.CreatedBy.String(), LastSeq: row.LastSeq, ArchivedAt: utc(row.ArchivedAt), CreatedAt: row.CreatedAt.UTC(),
 			},
-			IsMember: row.IsMember, LastReadSeq: row.LastReadSeq, MemberCount: row.MemberCount,
-			UnreadCount: row.UnreadCount, MentionCount: row.MentionCount, DMUserIDs: []string{},
+			IsMember: row.IsMember, PinnedAt: utc(row.PinnedAt), LastReadSeq: row.LastReadSeq, MemberCount: row.MemberCount,
+			UnreadCount: row.UnreadCount, MentionCount: row.MentionCount, DMUserIDs: []string{}, LastMessage: lastMessage(row),
 		}
 		if row.Type == string(domain.TypeDirect) {
 			dmIDs = append(dmIDs, row.ID)
@@ -248,6 +248,19 @@ func (r *Repo) ChannelViews(ctx context.Context, workspaceID, userID string, mod
 		}
 	}
 	return out, nil
+}
+
+// lastMessage returns the newest message a channel row carries, or nil when
+// the channel is empty. The columns are all NULL together.
+func lastMessage(row gen.ChannelViewsRow) *domain.Message {
+	if row.LastMessageID == nil {
+		return nil
+	}
+	return &domain.Message{
+		ID: row.LastMessageID.String(), ChannelID: row.ID.String(), Seq: row.LastSeq, SenderID: row.LastMessageSenderID.String(),
+		Kind: *row.LastMessageKind, Body: *row.LastMessageBody, FallbackText: *row.LastMessageFallbackText,
+		DeletedAt: utc(row.LastMessageDeletedAt), CreatedAt: row.LastMessageCreatedAt.UTC(),
+	}
 }
 
 func (r *Repo) AddMembers(ctx context.Context, workspaceID, channelID string, userIDs []string, at time.Time) ([]string, error) {
@@ -409,6 +422,53 @@ func (r *Repo) AdvanceRead(ctx context.Context, workspaceID, channelID, userID s
 		return 0, false, wrap(err, "advance read")
 	}
 	return last, true, nil
+}
+
+func (r *Repo) LockPins(ctx context.Context, workspaceID, userID string) ([]string, error) {
+	q, err := r.q(ctx)
+	if err != nil {
+		return nil, err
+	}
+	wid, err := id(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	uid, err := id(userID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.LockMemberships(ctx, gen.LockMembershipsParams{WorkspaceID: wid, UserID: uid})
+	if err != nil {
+		return nil, wrap(err, "lock memberships")
+	}
+	var pinned []string
+	for _, row := range rows {
+		if row.PinnedAt != nil {
+			pinned = append(pinned, row.ChannelID.String())
+		}
+	}
+	return pinned, nil
+}
+
+func (r *Repo) SetPin(ctx context.Context, workspaceID, channelID, userID string, pinnedAt *time.Time) (bool, error) {
+	q, err := r.q(ctx)
+	if err != nil {
+		return false, err
+	}
+	p := gen.SetChannelPinParams{PinnedAt: pinnedAt}
+	for _, f := range []struct {
+		dst *uuid.UUID
+		src string
+	}{{&p.WorkspaceID, workspaceID}, {&p.ChannelID, channelID}, {&p.UserID, userID}} {
+		if *f.dst, err = id(f.src); err != nil {
+			return false, err
+		}
+	}
+	n, err := q.SetChannelPin(ctx, p)
+	if err != nil {
+		return false, wrap(err, "set pin")
+	}
+	return n > 0, nil
 }
 
 func (r *Repo) InsertMessage(ctx context.Context, m domain.Message) error {

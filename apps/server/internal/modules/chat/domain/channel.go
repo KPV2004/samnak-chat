@@ -28,6 +28,9 @@ const (
 	maxNameRunes  = 80
 	maxTopicRunes = 250
 	maxDMOthers   = 8
+	// MaxPinnedChannels is how many channels one user may pin in one
+	// workspace.
+	MaxPinnedChannels = 30
 )
 
 // Channel is a conversation space inside one workspace.
