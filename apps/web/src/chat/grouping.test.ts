@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayLabel, toRows } from "./grouping";
+import { dayLabel, newMessagesIndex, toRows } from "./grouping";
 
 const at = (sender: string, time: string) => ({ sender_id: sender, created_at: `2026-01-01T${time}:00Z` });
 
@@ -36,5 +36,23 @@ describe("dayLabel", () => {
     const label = dayLabel("2026-01-01T08:00:00Z", "en", "Today", now);
     expect(label).toContain("2026");
     expect(label).toContain("Jan");
+  });
+});
+
+describe("newMessagesIndex", () => {
+  const m = (seq: number, sender = "u2") => ({ seq, sender_id: sender });
+
+  it("points at the first message after the last one read", () => {
+    expect(newMessagesIndex([m(1), m(2), m(3), m(4)], 2, "u1")).toBe(2);
+  });
+
+  it("has no line when everything is read, or nothing above it is read", () => {
+    expect(newMessagesIndex([m(1), m(2)], 2, "u1")).toBe(-1);
+    expect(newMessagesIndex([m(1), m(2)], 0, "u1")).toBe(-1);
+    expect(newMessagesIndex([], 0, "u1")).toBe(-1);
+  });
+
+  it("has no line when the first unread message is my own", () => {
+    expect(newMessagesIndex([m(1), m(2, "u1"), m(3)], 1, "u1")).toBe(-1);
   });
 });

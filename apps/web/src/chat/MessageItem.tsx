@@ -1,9 +1,10 @@
 import type { ChatMessage, Reaction } from "@samnak/core";
-import { ListTodo, MessageSquare, MessageSquareReply, Paperclip, Pencil, SmilePlus, Ticket, Trash2 } from "lucide-react";
-import { memo, useState, type ReactNode } from "react";
+import { Ellipsis, ListTodo, MessageSquare, MessageSquareReply, Paperclip, Pencil, SmilePlus, Ticket, Trash2 } from "lucide-react";
+import { memo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -16,7 +17,9 @@ import { CreateTicketFromMessage } from "../helpdesk/CreateTicketFromMessage";
 import { useChatExtensions } from "../task/api";
 import { CreateTaskForm } from "../task/CreateTaskForm";
 import { CardBody } from "./cards";
+import { clockTime } from "./grouping";
 import { EditForm } from "./EditForm";
+import { IconTool } from "./IconTool";
 import { bodyClass, Markdown } from "./markdown";
 import { useNameOf } from "./names";
 
@@ -31,9 +34,11 @@ interface Props {
   continued?: boolean;
   /** A day divider above this message, already labelled. */
   divider?: string;
+  /** The "new messages" line goes above this message: it is the first one the reader had not seen. */
+  newLine?: boolean;
 }
 
-export const MessageItem = memo(function MessageItem({ message: m, channelId, inThread = false, continued = false, divider }: Props) {
+export const MessageItem = memo(function MessageItem({ message: m, channelId, inThread = false, continued = false, divider, newLine = false }: Props) {
   const t = useT();
   const locale = useCurrentLocale();
   const chat = useChat();
@@ -44,6 +49,9 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
   const [confirming, setConfirming] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Set when a menu item moves the focus elsewhere (a form, a dialog), so the menu does not take it back.
+  const leaving = useRef(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const [creatingTicket, setCreatingTicket] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -96,39 +104,46 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
     }
   }
 
+  const pinned = picking || menuOpen;
   return (
-    <li tabIndex={-1} className="group relative outline-none focus-within:[&>.row]:bg-muted/50">
+    <li tabIndex={-1} className="group relative outline-none">
       {divider && (
-        <div role="separator" aria-label={divider} className="my-3 flex items-center gap-3 text-xs font-medium text-muted-foreground">
+        <div role="separator" aria-label={divider} className="my-3 flex items-center px-2 md:px-3">
           <span className="h-px flex-1 bg-border" aria-hidden="true" />
-          <span>{divider}</span>
+          <span className="mx-3 rounded-full border bg-background px-3 py-0.5 text-xs font-medium text-muted-foreground">{divider}</span>
           <span className="h-px flex-1 bg-border" aria-hidden="true" />
+        </div>
+      )}
+      {newLine && (
+        <div role="separator" aria-label={t("chat.newMessages")} className="my-2 flex items-center gap-2 px-2 md:px-3">
+          <span className="h-px flex-1 bg-primary/40" aria-hidden="true" />
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{t("chat.newMessages")}</span>
         </div>
       )}
       <div
         className={cn(
-          "row flex gap-3 rounded-md px-2 py-0.5 hover:bg-muted/50 md:px-3",
-          !continued && !divider && "mt-2",
-          !continued && divider && "mt-0",
+          "row grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 rounded-md px-2 py-0.5 transition-colors hover:bg-muted/60 group-focus-within:bg-muted/60 md:px-3",
+          pinned && "bg-muted/60",
+          !continued && !divider && !newLine && "mt-2",
           m.status === "pending" && "opacity-60",
         )}
       >
-        <div className="w-12 shrink-0 pt-0.5">
+        <div className="pt-0.5">
           {continued ? (
             sent && (
               <time
                 dateTime={m.created_at}
                 title={formatDateTime(m.created_at, locale)}
-                className="invisible block text-right text-[11px] whitespace-nowrap text-muted-foreground group-focus-within:visible group-hover:visible"
+                className="invisible block text-right text-[11px] leading-6 whitespace-nowrap text-muted-foreground group-focus-within:visible group-hover:visible"
               >
-                {formatMessageTime(m.created_at, locale)}
+                {clockTime(m.created_at, locale)}
               </time>
             )
           ) : (
-            <UserAvatar name={name} className="size-8" />
+            <UserAvatar name={name} className="size-9" />
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           {continued ? (
             <span className="sr-only">{name}</span>
           ) : (
@@ -147,12 +162,12 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
           ) : editing ? (
             <EditForm message={m} onDone={() => setEditing(false)} />
           ) : m.kind !== "text" ? (
-            <div className="mt-1">
+            <div className="mt-1 max-w-xl">
               <CardBody message={m} />
             </div>
           ) : (
             m.body !== "" && (
-              <div className={cn("mt-0.5 text-sm", bodyClass)}>
+              <div className={cn("text-sm", !continued && "mt-0.5", bodyClass)}>
                 <Markdown text={m.body} nameOf={nameOf} me={me} />
               </div>
             )
@@ -162,7 +177,7 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
           {!deleted && m.attachments.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-2" aria-label={t("chat.attachments")}>
               {m.attachments.map((a) => (
-                <li key={a.id} className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-xs">
+                <li key={a.id} className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1.5 text-xs">
                   <Paperclip className="size-3.5 text-muted-foreground" aria-hidden="true" />
                   {a.file_name}
                 </li>
@@ -180,8 +195,10 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
                     aria-label={t("chat.reactionLabel", { emoji: r.emoji, n: r.count })}
                     onClick={() => void react(r.emoji)}
                     className={cn(
-                      "inline-flex h-6 items-center gap-1 rounded-full border px-2 text-xs transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
-                      r.me ? "border-primary/40 bg-primary/10 text-primary" : "bg-background",
+                      "inline-flex h-6 items-center gap-1 rounded-full border px-2 text-xs transition-[color,background-color,scale] duration-150 outline-none motion-safe:active:scale-[0.97] focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                      r.me
+                        ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 active:bg-primary/20"
+                        : "bg-card hover:bg-accent active:bg-accent/70",
                     )}
                   >
                     {t("chat.reactionToggle", { emoji: r.emoji, n: r.count })}
@@ -195,7 +212,7 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
             <button
               type="button"
               onClick={openThread}
-              className="mt-1 inline-flex items-center gap-1 rounded-md px-1 text-xs font-medium text-primary hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+              className="mt-1 -ml-1 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-primary transition-colors outline-none hover:bg-accent active:bg-accent/70 focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               <MessageSquare className="size-3.5" aria-hidden="true" />
               {m.reply_count === 1 ? t("chat.replyCount.one") : t("chat.replyCount.other", { n: m.reply_count })}
@@ -204,22 +221,6 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
 
           {m.status === "pending" && <small className="text-xs text-muted-foreground">{t("chat.sending")}</small>}
           {m.status === "failed" && mine && <FailedActions channelId={channelId} clientMsgId={m.id} />}
-
-          {picking && (
-            <ul aria-label={t("chat.reactionPicker")} className="mt-1.5 flex w-fit gap-0.5 rounded-full border bg-popover p-0.5 shadow-sm">
-              {quickReactions.map((emoji) => (
-                <li key={emoji}>
-                  <button
-                    type="button"
-                    onClick={() => void react(emoji)}
-                    className="flex size-7 items-center justify-center rounded-full text-base hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                  >
-                    {emoji}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
 
           {creatingTask && (
             <div className="mt-2 rounded-lg border bg-card p-3">
@@ -237,39 +238,99 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
         </div>
       </div>
 
+      {picking && (
+        <ul aria-label={t("chat.reactionPicker")} className="absolute top-4 right-3 z-20 flex w-fit gap-0.5 rounded-full border bg-popover p-0.5 shadow-md">
+          {quickReactions.map((emoji) => (
+            <li key={emoji}>
+              <button
+                type="button"
+                onClick={() => void react(emoji)}
+                className="flex size-7 items-center justify-center rounded-full text-base transition-colors outline-none hover:bg-accent active:bg-accent/70 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                {emoji}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {sent && !deleted && !editing && (
         <div
           role="group"
           aria-label={t("chat.messageActions")}
-          className="absolute -top-3 right-3 flex items-center gap-0.5 rounded-md border bg-popover p-0.5 shadow-sm opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+          className={cn(
+            "pointer-events-none absolute -top-3 right-3 z-10 flex items-center gap-0.5 rounded-md border bg-popover p-0.5 text-popover-foreground opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100",
+            pinned && "pointer-events-auto opacity-100",
+          )}
         >
-          <IconAction label={t("chat.react")} expanded={picking} onClick={() => setPicking((open) => !open)}>
+          <IconTool label={t("chat.react")} expanded={picking} onClick={() => setPicking((open) => !open)}>
             <SmilePlus />
-          </IconAction>
+          </IconTool>
           {!inThread && m.thread_root_id === null && (
-            <IconAction label={t("chat.reply")} onClick={openThread}>
+            <IconTool label={t("chat.reply")} onClick={openThread}>
               <MessageSquareReply />
-            </IconAction>
+            </IconTool>
           )}
           {canCreateTask && m.kind === "text" && m.body !== "" && (
-            <IconAction label={t("task.createFromMessage")} expanded={creatingTask} onClick={() => setCreatingTask((open) => !open)}>
+            <IconTool label={t("task.createFromMessage")} expanded={creatingTask} onClick={() => setCreatingTask((open) => !open)}>
               <ListTodo />
-            </IconAction>
+            </IconTool>
           )}
           {canCreateTicket && m.kind === "text" && m.body !== "" && (
-            <IconAction label={t("helpdesk.createFromMessage")} expanded={creatingTicket} onClick={() => setCreatingTicket((open) => !open)}>
+            <IconTool label={t("helpdesk.createFromMessage")} expanded={creatingTicket} onClick={() => setCreatingTicket((open) => !open)}>
               <Ticket />
-            </IconAction>
+            </IconTool>
           )}
-          {mine && (
-            <IconAction label={t("chat.edit")} onClick={() => setEditing(true)}>
-              <Pencil />
-            </IconAction>
-          )}
-          {canDelete && (
-            <IconAction label={t("chat.delete")} destructive onClick={() => setConfirming(true)}>
-              <Trash2 />
-            </IconAction>
+          {(mine || canDelete) && (
+            <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={t("chat.more")}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <Ellipsis />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>{t("chat.more")}</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent
+                align="end"
+                onCloseAutoFocus={(e) => {
+                  if (leaving.current) e.preventDefault();
+                  leaving.current = false;
+                }}
+              >
+                {mine && (
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      leaving.current = true;
+                      setEditing(true);
+                    }}
+                  >
+                    <Pencil />
+                    {t("chat.edit")}
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => {
+                      leaving.current = true;
+                      setConfirming(true);
+                    }}
+                  >
+                    <Trash2 />
+                    {t("chat.delete")}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       )}
@@ -313,40 +374,6 @@ function nextReactions(reactions: Reaction[], emoji: string, adding: boolean): R
   return reactions
     .map((r) => (r.emoji === emoji ? { ...r, count: r.count + (adding ? 1 : -1), me: adding } : r))
     .filter((r) => r.count > 0);
-}
-
-/** An icon button of the hover toolbar: the label is its name and its tooltip. */
-function IconAction({
-  label,
-  expanded,
-  destructive = false,
-  onClick,
-  children,
-}: {
-  label: string;
-  expanded?: boolean;
-  destructive?: boolean;
-  onClick(): void;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={label}
-          aria-expanded={expanded}
-          onClick={onClick}
-          className={cn(destructive && "hover:text-destructive")}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
 }
 
 function FailedActions({ channelId, clientMsgId }: { channelId: string; clientMsgId: string }) {

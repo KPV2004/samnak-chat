@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "../components/EmptyState";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { useChat, useChatState } from "../state/chat";
-import { dayLabel, toRows } from "./grouping";
+import { dayLabel, newMessagesIndex, toRows } from "./grouping";
 import { MessageItem } from "./MessageItem";
 
 /** How close to the bottom still counts as "the newest message is visible", in pixels. */
@@ -34,6 +34,9 @@ export function MessageList({ channelId }: { channelId: string }) {
   const anchor = useRef<{ height: number; top: number } | null>(null);
   const store = chat?.store;
   const me = chat?.userId;
+  // How far the reader had read when they opened the channel. The channel is marked read as soon as it is on
+  // screen, so this is taken once: the "new messages" line stays where it was drawn.
+  const [readSeq] = useState(() => state?.lastReadSeq ?? 0);
 
   // The open channel counts new messages as read while its newest one is in view.
   const reading = atBottom && visible;
@@ -47,6 +50,7 @@ export function MessageList({ channelId }: { channelId: string }) {
 
   const topLevel = useMemo(() => (state?.messages ?? []).filter((m) => m.thread_root_id === null), [state?.messages]);
   const rows = useMemo(() => toRows(topLevel), [topLevel]);
+  const newAt = useMemo(() => newMessagesIndex(topLevel, readSeq, me ?? ""), [topLevel, readSeq, me]);
   const newest = topLevel.at(-1);
   const newestKey = newest ? newest.client_msg_id || newest.id : null;
   const newestIsMine = newest?.sender_id === me;
@@ -93,7 +97,7 @@ export function MessageList({ channelId }: { channelId: string }) {
         role="log"
         aria-label={t("chat.messages")}
         onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 md:px-4"
+        className="min-h-0 flex-1 overflow-y-auto px-1 pb-3 md:px-3"
       >
         {hasMore === true && (
           <div className="flex justify-center py-3">
@@ -108,13 +112,14 @@ export function MessageList({ channelId }: { channelId: string }) {
         )}
         {hasMore === null && <MessagesSkeleton label={t("loading")} />}
         <ol>
-          {rows.map(({ message, continued, newDay }) => (
+          {rows.map(({ message, continued, newDay }, i) => (
             <MessageItem
               key={message.client_msg_id || message.id}
               message={message}
               channelId={channelId}
               continued={continued}
               divider={newDay ? dayLabel(message.created_at, locale, t("chat.today")) : undefined}
+              newLine={i === newAt}
             />
           ))}
         </ol>
@@ -124,7 +129,7 @@ export function MessageList({ channelId }: { channelId: string }) {
           type="button"
           variant="outline"
           size="sm"
-          className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-background shadow-md"
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full shadow-md"
           onClick={() => {
             const el = logRef.current;
             if (el) el.scrollTop = el.scrollHeight;

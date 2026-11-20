@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { channel, chatRoutes, message, renderApp, type Routes } from "../test-utils";
+import { channel, chatRoutes, expectAlert, message, renderApp, type Routes } from "../test-utils";
 
 const general = channel("c1", { name: "general", last_seq: 1 });
 
@@ -251,5 +251,105 @@ describe("typing indicator", () => {
     await user.clear(input);
     await user.type(input, "{Backspace}");
     expect(socket.sentOf("typing")).toHaveLength(1);
+  });
+});
+
+describe("composer tools", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("wraps the selected text in bold, and puts the caret between the marks when nothing is selected", async () => {
+    const user = userEvent.setup();
+    renderApp({ route: "/chat/c1", routes: routes() });
+    const input = (await box()) as HTMLTextAreaElement;
+    await user.type(input, "hello world");
+    input.setSelectionRange(0, 5);
+    await user.click(screen.getByRole("button", { name: "Bold" }));
+    expect(input).toHaveValue("**hello** world");
+    await user.clear(input);
+    await user.click(screen.getByRole("button", { name: "Code" }));
+    expect(input).toHaveValue("``");
+    await user.keyboard("x");
+    expect(input).toHaveValue("`x`");
+  });
+
+  it("makes a link from the selection and selects the address to type over", async () => {
+    const user = userEvent.setup();
+    renderApp({ route: "/chat/c1", routes: routes() });
+    const input = (await box()) as HTMLTextAreaElement;
+    await user.type(input, "the docs");
+    input.setSelectionRange(4, 8);
+    await user.click(screen.getByRole("button", { name: "Link" }));
+    expect(input).toHaveValue("the [docs](https://)");
+    expect(input.value.slice(input.selectionStart, input.selectionEnd)).toBe("https://");
+  });
+
+  it("inserts an emoji at the caret", async () => {
+    const user = userEvent.setup();
+    renderApp({ route: "/chat/c1", routes: routes() });
+    const input = await box();
+    await user.type(input, "well done");
+    await user.click(screen.getByRole("button", { name: "Add emoji" }));
+    await user.click(await screen.findByRole("button", { name: "🎉" }));
+    expect(input).toHaveValue("well done🎉");
+  });
+
+  it("uploads a file when it is chosen, shows it, and sends its id with the message", async () => {
+    const user = userEvent.setup();
+    const put = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", put);
+    const app = renderApp({
+      route: "/chat/c1",
+      routes: routes({
+        "POST /api/v1/chat/uploads": () => ({
+          attachment_id: "a1",
+          upload: { url: "https://files.example/put?sig=1", method: "PUT", headers: { "Content-Type": "application/pdf" }, expires_at: "2026-11-17T10:00:00Z" },
+        }),
+      }),
+    });
+    await box();
+    const file = new File(["%PDF"], "quote.pdf", { type: "application/pdf" });
+    await user.upload(screen.getByLabelText("Attach files"), file);
+    const chips = await screen.findByRole("list", { name: "Files to send" });
+    expect(await within(chips).findByText("quote.pdf")).toBeInTheDocument();
+    expect(app.called("POST /api/v1/chat/uploads")[0]!.body).toEqual({
+      channel_id: "c1",
+      file_name: "quote.pdf",
+      mime_type: "application/pdf",
+      size: 4,
+    });
+    expect(put).toHaveBeenCalledWith("https://files.example/put?sig=1", expect.objectContaining({ method: "PUT", body: file }));
+    // A file alone is enough to send.
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(app.called("POST /api/v1/chat/channels/c1/messages")).toHaveLength(1));
+    expect(app.called("POST /api/v1/chat/channels/c1/messages")[0]!.body).toMatchObject({ attachment_ids: ["a1"] });
+    await waitFor(() => expect(screen.queryByRole("list", { name: "Files to send" })).not.toBeInTheDocument());
+  });
+
+  it("removes a file before sending, and says when storage refuses one", async () => {
+    const user = userEvent.setup();
+    const put = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", put);
+    const app = renderApp({
+      route: "/chat/c1",
+      routes: routes({
+        "POST /api/v1/chat/uploads": () => ({
+          attachment_id: "a1",
+          upload: { url: "https://files.example/put", method: "PUT", headers: {}, expires_at: "2026-11-17T10:00:00Z" },
+        }),
+      }),
+    });
+    await box();
+    await user.upload(screen.getByLabelText("Attach files"), new File(["x"], "a.txt", { type: "text/plain" }));
+    await user.click(await screen.findByRole("button", { name: "Remove a.txt" }));
+    expect(screen.queryByRole("list", { name: "Files to send" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+
+    put.mockResolvedValueOnce(new Response(null, { status: 403 }));
+    await user.upload(screen.getByLabelText("Attach files"), new File(["x"], "b.txt", { type: "text/plain" }));
+    await expectAlert("That file could not be uploaded.");
+    expect(screen.queryByRole("list", { name: "Files to send" })).not.toBeInTheDocument();
+    expect(app.called("POST /api/v1/chat/channels/c1/messages")).toHaveLength(0);
   });
 });

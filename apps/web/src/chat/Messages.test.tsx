@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { channel, chatRoutes, message, renderApp, type Routes } from "../test-utils";
 
 const general = channel("c1", { name: "general", last_seq: 2, last_read_seq: 0, unread_count: 2 });
@@ -81,6 +81,37 @@ describe("channel view", () => {
     expect(items[1]!.querySelector("strong")).toBeNull();
     expect(items[2]!.querySelector("strong")).toHaveTextContent("Somchai");
     expect(within(region).getAllByRole("separator")).toHaveLength(2);
+  });
+
+  it("draws a line above the first message that was not read when the channel was opened", async () => {
+    const partlyRead = channel("c1", { name: "general", last_seq: 3, last_read_seq: 1, unread_count: 2 });
+    const grouped = [
+      message("c1", 1, { body: "already read" }),
+      message("c1", 2, { body: "first new one" }),
+      message("c1", 3, { body: "second new one" }),
+    ];
+    renderApp({
+      route: "/chat/c1",
+      routes: routes({
+        "GET /api/v1/chat/channels": () => ({ items: [partlyRead] }),
+        "GET /api/v1/chat/channels/c1": () => partlyRead,
+        "GET /api/v1/chat/channels/c1/messages": () => ({ items: grouped, has_more: false }),
+      }),
+    });
+    const region = await log();
+    await within(region).findByText("first new one");
+    const line = within(region).getByRole("separator", { name: "New messages" });
+    // The line is in the item of the first new message, and the channel is read afterwards without moving it.
+    expect(line.closest("li")).toHaveTextContent("first new one");
+    await waitFor(() => expect(screen.getByRole("navigation", { name: "Channels and messages" })).not.toHaveTextContent("unread"));
+    expect(within(region).getByRole("separator", { name: "New messages" })).toBeInTheDocument();
+  });
+
+  it("draws no new-messages line when everything was read", async () => {
+    renderApp({ route: "/chat/c1", routes: routes() });
+    const region = await log();
+    await within(region).findByText("second message");
+    expect(within(region).queryByRole("separator", { name: "New messages" })).not.toBeInTheDocument();
   });
 
   it("says the channel is empty", async () => {
@@ -245,5 +276,42 @@ describe("receiving", () => {
     await app.live();
     expect(await screen.findByText("sent while offline")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText("Connection lost. Reconnecting…")).not.toBeInTheDocument());
+  });
+});
+
+describe("channel header", () => {
+  const withTopic = channel("c1", { name: "general", topic: "Everything about the studio", member_count: 2, last_seq: 2 });
+  const headerRoutes = (): Routes =>
+    routes({
+      "GET /api/v1/chat/channels": () => ({ items: [withTopic] }),
+      "GET /api/v1/chat/channels/c1": () => withTopic,
+      "GET /api/v1/chat/channels/c1/members": () => ({
+        items: [
+          { user_id: "u1", display_name: "Mali", joined_at: "2026-01-01T00:00:00Z" },
+          { user_id: "u2", display_name: "Somchai", joined_at: "2026-01-01T00:00:00Z" },
+        ],
+      }),
+    });
+
+  it("shows the name, the topic and the member count, which opens the list of members", async () => {
+    const user = userEvent.setup();
+    renderApp({ route: "/chat/c1", routes: headerRoutes() });
+    const title = await screen.findByRole("heading", { name: "general" });
+    const header = title.closest("header")!;
+    expect(within(header).getByText("Everything about the studio")).toBeInTheDocument();
+    await user.click(within(header).getByRole("button", { name: "2 members" }));
+    const list = await screen.findByRole("dialog", { name: "Members" });
+    expect(await within(list).findByText("Somchai")).toBeInTheDocument();
+    expect(within(list).getByText("Mali")).toBeInTheDocument();
+  });
+
+  it("copies the link to the channel", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    renderApp({ route: "/chat/c1", routes: headerRoutes() });
+    await user.click(await screen.findByRole("button", { name: "Copy link" }));
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/chat/c1`);
+    expect(await screen.findByText("Link copied")).toBeInTheDocument();
   });
 });
