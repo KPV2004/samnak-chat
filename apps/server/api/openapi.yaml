@@ -506,6 +506,11 @@ components:
     ChannelMember:
       additionalProperties: false
       properties:
+        avatar_url:
+          description: Empty when the user has no avatar or the auth module is unavailable
+          examples:
+            - https://cdn.example.com/a.png
+          type: string
         display_name:
           description: Empty when the auth module is unavailable
           type: string
@@ -517,6 +522,7 @@ components:
       required:
         - user_id
         - display_name
+        - avatar_url
         - joined_at
       type: object
     CommandInfo:
@@ -1564,6 +1570,11 @@ components:
     Member:
       additionalProperties: false
       properties:
+        avatar_url:
+          description: Empty when the user has no avatar or the auth module is unavailable
+          examples:
+            - https://cdn.example.com/a.png
+          type: string
         display_name:
           description: Empty when the auth module is unavailable
           type: string
@@ -1592,6 +1603,7 @@ components:
         - user_id
         - display_name
         - email
+        - avatar_url
         - role
         - status
         - joined_at

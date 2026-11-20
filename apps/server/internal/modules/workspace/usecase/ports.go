@@ -114,6 +114,7 @@ type GroupMember struct {
 type User struct {
 	Email       string
 	DisplayName string
+	AvatarURL   string
 }
 
 // Directory looks up users by ID. A user it does not know is simply absent.

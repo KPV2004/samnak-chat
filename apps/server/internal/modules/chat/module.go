@@ -168,6 +168,14 @@ type directory struct{ s *app.Services }
 
 func (d directory) Names(ctx context.Context, ids []string) map[string]string {
 	out := map[string]string{}
+	for id, p := range d.Profiles(ctx, ids) {
+		out[id] = p.DisplayName
+	}
+	return out
+}
+
+func (d directory) Profiles(ctx context.Context, ids []string) map[string]usecase.Profile {
+	out := map[string]usecase.Profile{}
 	dir, ok := app.Lookup[auth.Directory](d.s)
 	if !ok {
 		return out
@@ -177,7 +185,7 @@ func (d directory) Names(ctx context.Context, ids []string) map[string]string {
 		return out
 	}
 	for _, u := range users {
-		out[u.ID] = u.DisplayName
+		out[u.ID] = usecase.Profile{DisplayName: u.DisplayName, AvatarURL: u.AvatarURL}
 	}
 	return out
 }

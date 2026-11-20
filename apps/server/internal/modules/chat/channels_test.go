@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/KPV2004/samnak-chat/apps/server/internal/app"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/modules/auth"
 )
 
 func ids(list []channelBody) []string {
@@ -344,6 +345,42 @@ func TestUpdateChannelAndArchive(t *testing.T) {
 	}
 	if r := e.call("POST", "/chat/channels/"+ch.ID+"/messages", alice, ws, body); r.Code != 201 {
 		t.Errorf("send after restore = %d, want 201", r.Code)
+	}
+}
+
+func TestChannelMembersCarryAvatars(t *testing.T) {
+	e := newEnv(t)
+	ws := e.newWorkspace()
+	alice, bob := e.member(ws, "alice"), e.member(ws, "bob")
+	ch := e.createChannel(alice, ws, "public", "town-hall")
+	if r := e.call("POST", "/chat/channels/"+ch.ID+"/join", bob, ws, nil); r.Code != 204 {
+		t.Fatalf("join = %d %s", r.Code, r.Body)
+	}
+	const avatar = "https://cdn.example.com/bob.png"
+	e.dir.mu.Lock()
+	e.dir.users[bob.ID] = auth.UserSummary{ID: bob.ID, DisplayName: "bob", AvatarURL: avatar}
+	e.dir.mu.Unlock()
+
+	r := e.call("GET", "/chat/channels/"+ch.ID+"/members", alice, ws, nil)
+	var members struct {
+		Items []struct {
+			UserID    string `json:"user_id"`
+			AvatarURL string `json:"avatar_url"`
+		} `json:"items"`
+	}
+	r.json(t, &members)
+	if r.Code != 200 || len(members.Items) != 2 {
+		t.Fatalf("members = %d %s", r.Code, r.Body)
+	}
+	avatars := map[string]string{}
+	for _, m := range members.Items {
+		avatars[m.UserID] = m.AvatarURL
+	}
+	if avatars[bob.ID] != avatar || avatars[alice.ID] != "" {
+		t.Errorf("avatars = %v", avatars)
+	}
+	if !strings.Contains(string(r.Body), `"avatar_url":""`) {
+		t.Errorf("no empty avatar_url in %s", r.Body)
 	}
 }
 

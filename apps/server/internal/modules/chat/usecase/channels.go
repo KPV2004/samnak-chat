@@ -304,9 +304,11 @@ func (s *Service) ListMembers(ctx context.Context, p app.Principal, channelID st
 	for i, m := range members {
 		ids[i] = m.UserID
 	}
-	names := s.dir.Names(ctx, ids)
+	profiles := s.dir.Profiles(ctx, ids)
 	for i := range members {
-		members[i].DisplayName = names[members[i].UserID]
+		p := profiles[members[i].UserID]
+		members[i].DisplayName = p.DisplayName
+		members[i].AvatarURL = p.AvatarURL
 	}
 	return members, nil
 }

@@ -43,6 +43,7 @@ type ReactionGroup struct {
 type Member struct {
 	UserID      string
 	DisplayName string // empty when the user directory is unavailable
+	AvatarURL   string // empty when the user has no picture or the directory is unavailable
 	JoinedAt    time.Time
 }
 
@@ -147,9 +148,16 @@ type Permissions interface {
 	Can(p app.Principal, action string) bool
 }
 
-// Directory looks up display names. Unknown users are absent.
+// Profile is what the use cases show about someone: a name and a picture.
+type Profile struct {
+	DisplayName string
+	AvatarURL   string
+}
+
+// Directory looks up display names and pictures. Unknown users are absent.
 type Directory interface {
 	Names(ctx context.Context, ids []string) map[string]string
+	Profiles(ctx context.Context, ids []string) map[string]Profile
 }
 
 // Events announces what happened. Methods are called after the transaction
