@@ -1,7 +1,7 @@
 // Pure helpers over one channel's state. Every function returns a new object;
 // the store replaces its snapshot with the result so `useSyncExternalStore`
 // sees a change.
-import type { Channel, Message } from "../api/m2";
+import type { Channel, LastMessage, Message } from "../api/m2";
 
 /** `sent` is confirmed by the server; the other two are local only. */
 export type SendStatus = "sent" | "pending" | "failed";
@@ -109,6 +109,34 @@ function sorted(messages: ChatMessage[]): ChatMessage[] {
   return [...messages].sort((a, b) => (key(a) === key(b) ? 0 : key(a) < key(b) ? -1 : 1));
 }
 
+const mentionUser = /<@[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}>/g;
+const maxPreview = 120;
+
+/** What a conversation list shows for a message: the server's `preview` rule (one line, 120 characters, mentions as @user). */
+export function previewOf(m: Message): string {
+  if (m.deleted_at) return "";
+  const text = (m.kind === "text" ? m.body : m.fallback_text)
+    .replace(mentionUser, "@user")
+    .replace(/<!channel>/g, "@channel")
+    .split(/\s+/)
+    .filter(Boolean)
+    .join(" ");
+  return Array.from(text).slice(0, maxPreview).join("");
+}
+
+function lastMessageOf(m: Message): LastMessage {
+  return { id: m.id, sender_id: m.sender_id, kind: m.kind, preview: previewOf(m), created_at: m.created_at };
+}
+
+/** The message that is now the newest one (`atEnd`), or an edit or delete of the one already shown, updates the channel's `last_message`. */
+function withLast(ch: ChannelState, m: Message, atEnd: boolean): ChannelState {
+  if (!atEnd && ch.channel.last_message?.id !== m.id) return ch;
+  const last = lastMessageOf(m);
+  const held = ch.channel.last_message;
+  if (held && held.id === last.id && held.preview === last.preview && held.created_at === last.created_at) return ch;
+  return { ...ch, channel: { ...ch.channel, last_message: last } };
+}
+
 /**
  * Adds a server message, or replaces the copy we hold (matched by `id`, or by
  * `client_msg_id` for our own pending one). A stale copy never overwrites a newer one.
@@ -116,12 +144,12 @@ function sorted(messages: ChatMessage[]): ChatMessage[] {
 export function upsert(ch: ChannelState, m: Message): ChannelState {
   const i = ch.messages.findIndex((x) => sameMessage(x, m));
   const confirmed: ChatMessage = { ...m, status: "sent" };
-  if (i < 0) return { ...ch, messages: sorted([...ch.messages, confirmed]) };
+  if (i < 0) return withLast({ ...ch, messages: sorted([...ch.messages, confirmed]) }, m, false);
   const existing = ch.messages[i]!;
   if (existing.status === "sent" && !fresher(existing, m)) return ch;
   const messages = [...ch.messages];
   messages[i] = { ...confirmed, payload: newerPayload(existing.payload, m.payload) };
-  return { ...ch, messages: sorted(messages) };
+  return withLast({ ...ch, messages: sorted(messages) }, m, false);
 }
 
 export function addLocal(ch: ChannelState, m: ChatMessage): ChannelState {
@@ -149,7 +177,7 @@ function mentionsMe(m: Message, me: string): boolean {
  * counters, from someone else, and the channel is not open.
  */
 export function account(ch: ChannelState, m: Message, me: string, channelOpen: boolean): ChannelState {
-  const next = { ...ch, lastSeq: Math.max(ch.lastSeq, m.seq) };
+  const next = withLast({ ...ch, lastSeq: Math.max(ch.lastSeq, m.seq) }, m, m.seq > ch.lastSeq);
   if (m.seq <= ch.countedSeq) return next;
   next.countedSeq = m.seq;
   if (m.sender_id !== me && !m.deleted_at && !channelOpen) {

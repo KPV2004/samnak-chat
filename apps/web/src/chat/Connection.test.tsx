@@ -95,6 +95,9 @@ describe("workspace switch", () => {
 
     // From now on the server answers for the other workspace.
     app.fetch.mockImplementation(async (url: string, init?: { method?: string; headers?: Record<string, string> }) => {
+      // Pages that mount for the new workspace (the app rail, the rows) read these again.
+      if (url === "/api/v1/auth/me") return new Response(JSON.stringify(me), { status: 200 });
+      if (url === "/api/v1/meta") return new Response(JSON.stringify({ name: "samnak-chat", version: "x", modules: [] }), { status: 200 });
       if (url.startsWith("/api/v1/chat/channels") && init?.headers?.["X-Workspace-ID"] === "w2") {
         return new Response(JSON.stringify({ items: [sales] }), { status: 200 });
       }

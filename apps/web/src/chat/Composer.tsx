@@ -8,9 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useT } from "../i18n/useT";
-import { errorKey } from "../lib/errors";
 import { useChat } from "../state/chat";
 import { useChatExtensions, useExtensionsApi } from "../task/api";
+import { commandErrorText } from "./commandError";
 import { MentionList } from "./MentionList";
 import { addPick, channelText, insertMention, mentionAt, toTokens, type MentionOption, type Picks } from "./mentions";
 import { insertAt, wrapSelection, type Edit, type Mark } from "./format";
@@ -214,7 +214,7 @@ export function Composer({ channelId, threadRootId, label }: Props) {
       setDraft((current) => (current.text === sent ? emptyDraft : current));
       if (result.text) setNote({ text: result.text, failed: false });
     } catch (err) {
-      setNote({ text: t(errorKey(err)), failed: true });
+      setNote({ text: commandErrorText(err, t), failed: true });
     } finally {
       setRunning(false);
     }

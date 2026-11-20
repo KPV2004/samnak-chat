@@ -35,3 +35,21 @@ export function insertAt(text: string, start: number, end: number, insert: strin
   const at = start + insert.length;
   return { text: text.slice(0, start) + insert + text.slice(end), start: at, end: at };
 }
+
+const dayMs = 24 * 60 * 60 * 1000;
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+/**
+ * The time on a row of the conversation list, as short as it can be: the clock for today, `yesterday`
+ * for the day before, the weekday for the rest of the week, then the date (with the year for another year).
+ */
+export function formatListTime(iso: string, locale: string, yesterday: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / dayMs);
+  if (days <= 0) return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
+  if (days === 1) return yesterday;
+  if (days < 7) return new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date);
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return new Intl.DateTimeFormat(locale, sameYear ? { day: "numeric", month: "short" } : { day: "numeric", month: "short", year: "numeric" }).format(date);
+}

@@ -12,8 +12,8 @@ export function jsonRes(body: unknown, status = 200): Response {
   return new Response(status === 204 ? null : JSON.stringify(body), { status });
 }
 
-export function errorRes(status: number, code: string) {
-  return jsonRes({ error: { code, message: "server text" } }, status);
+export function errorRes(status: number, code: string, message = "server text") {
+  return jsonRes({ error: { code, message } }, status);
 }
 
 type Reply = Response | object | undefined | void;
@@ -121,6 +121,8 @@ export interface Channel {
   member_count: number;
   dm_user_ids: string[];
   archived_at: string | null;
+  pinned_at: string | null;
+  last_message: { id: string; sender_id: string; kind: string; preview: string; created_at: string } | null;
   created_at: string;
 }
 
@@ -137,6 +139,8 @@ export function channel(id: string, patch: Partial<Channel> = {}): Channel {
     member_count: 2,
     dm_user_ids: [],
     archived_at: null,
+    pinned_at: null,
+    last_message: null,
     created_at: "2026-01-01T00:00:00Z",
     ...patch,
   };

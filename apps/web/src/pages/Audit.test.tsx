@@ -107,7 +107,7 @@ describe("Audit log", () => {
 
   it("is not linked from the sidebar for a member", async () => {
     renderApp({ route: "/", routes: routes("member") });
-    await screen.findByRole("link", { name: "Members" });
+    await within(await screen.findByRole("navigation", { name: "Main" })).findByRole("link", { name: "Members" });
     expect(screen.queryByRole("link", { name: "Audit log" })).not.toBeInTheDocument();
   });
 
