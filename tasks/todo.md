@@ -971,7 +971,7 @@ Found by CH-02: `Member` (`GET /workspace/members`) and `ChannelMember` (`GET /c
 
 **Files:** `apps/web/src/components/UserAvatar.tsx` (a picture source prop), `apps/web/src/chat/MessageItem.tsx` and `apps/web/src/chat/MentionList.tsx` (pass the picture only), `apps/server/internal/modules/workspace/` (members response only), `apps/server/internal/modules/chat/` (channel members response only), `apps/server/api/`, `packages/core/src/api/schema.d.ts` (generated), `apps/web/src/chat/names.ts` and its tests, `packages/core/src/chat/fake-server.ts`, `apps/web/src/test-utils.tsx`
 
-## [ ] SB-01 web: one sidebar per app (Lark-style)
+## [x] SB-01 web: one sidebar per app (Lark-style)
 **Size:** M · **Depends on:** CH-02
 
 Asked by the user 2026-11-20: clicking an app in the rail should show only that app's own sidebar, not the old full sidebar with every section. Today only Messenger has its own list; on every other page the sidebar still shows Channels, Direct messages, Apps, Workspace and Account together.
@@ -988,10 +988,10 @@ Asked by the user 2026-11-20: clicking an app in the rail should show only that 
 - Below `md`, the rail and the current app's sidebar are one sheet as today.
 
 **Acceptance criteria**
-- [ ] Each rail app shows only its own sidebar as designed; no page shows the old all-in-one sidebar; the old `SidebarSection` lists are removed or reused only inside the app they belong to
-- [ ] Sidebar views drive the existing pages' filters through the URL; the pages' own filter toolbars stay in step
-- [ ] Account menu on the rail; keyboard reachable, focus visible, hover and press feedback; Thai and English; light and dark
-- [ ] Tests for app switching, each sidebar's links by role and module, URL filters; screenshots of every app's sidebar at 1440 and 390 in light and dark
-- [ ] `docs/ui.md` updated for the rail, the per-app sidebars and the account menu; build, test and lint pass
+- [x] Each rail app shows only its own sidebar as designed; no page shows the old all-in-one sidebar; the old `SidebarSection` lists are removed or reused only inside the app they belong to
+- [x] Sidebar views drive the existing pages' filters through the URL; the pages' own filter toolbars stay in step
+- [x] Account menu on the rail; keyboard reachable, focus visible, hover and press feedback; Thai and English; light and dark
+- [x] Tests for app switching, each sidebar's links by role and module, URL filters; screenshots of every app's sidebar at 1440 and 390 in light and dark
+- [x] `docs/ui.md` updated for the rail, the per-app sidebars and the account menu; build, test and lint pass
 
 **Files:** `apps/web/src/components/` (rail, sidebar, account menu), `apps/web/src/pages/Shell.tsx`, `apps/web/src/chat/Sidebar.tsx`, `apps/web/src/App.tsx` (Home redirect only), `apps/web/src/task/`, `apps/web/src/approval/`, `apps/web/src/helpdesk/` (their nav and sidebar parts, and filter wiring to the URL), `apps/web/src/i18n/`, `docs/ui.md`, and the tests of these files
