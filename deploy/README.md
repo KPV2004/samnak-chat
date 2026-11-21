@@ -46,6 +46,29 @@ Caddy publishes port 80 and port 443. To use other host ports, set them in your 
 HTTP_PORT=8080 HTTPS_PORT=8443 PUBLIC_URL=http://localhost:8080 docker compose --env-file .env -f deploy/compose.prod.yml up -d --wait
 ```
 
+## Demo on your own machine
+
+This runs the same stack on one computer, for a demo or a trial. It is not a production setup: nothing backs it up, and it has no HTTPS and no mail server.
+
+1. Follow [Install](#install) to create `.env`. Keep `PUBLIC_URL=http://localhost`, and leave `DOMAIN=` and `SMTP_HOST=` empty.
+2. Start the stack from the repository root:
+
+   ```sh
+   docker compose --env-file .env -f deploy/compose.prod.yml up -d --wait
+   ```
+
+3. Open http://localhost (or your `PUBLIC_URL`). Sign-up is open, so sign up, then create a workspace. You become its owner.
+4. Without `SMTP_HOST`, the server writes each email to its log, so the verification link is there:
+
+   ```sh
+   docker compose --env-file .env -f deploy/compose.prod.yml logs server | grep verify-email
+   ```
+
+   Open the link to verify the account.
+5. Stop the stack with the `down` command in [Operate](#operate). The data stays, so the next `up -d --wait` starts with the same accounts.
+
+If port 80 is taken on your machine, follow [Ports](#ports).
+
 ## Operate
 
 ```sh
