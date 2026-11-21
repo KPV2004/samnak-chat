@@ -1,0 +1,42 @@
+# Load test only (make load): deploy/Caddyfile with one change. The API upstream
+# is every server instance (dynamic a, re-resolved every 2 s) with round robin.
+# With the single name `server:8080`, Caddy reuses one keep-alive connection and
+# sent about 94% of requests to one instance in a 300-request check
+# (docs/load-test.md). Mounted over /etc/caddy/Caddyfile by compose.prod.yml only
+# when LOAD_CADDYFILE points here.
+#
+# Serves the built web app and proxies the API. The WebSocket is /api/v1/ws, so
+# proxying /api/* covers it. Caddy never forwards /metrics (NFR-14): the
+# server's metrics stay on the internal network.
+#
+# The site address comes from the container's command (apps/web/Dockerfile):
+# plain HTTP on port 80 unless DOMAIN is set, for example chat.example.com, in
+# which case Caddy obtains and renews the TLS certificate itself (NFR-05).
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	handle /metrics* {
+		respond 404
+	}
+
+	handle /api/* {
+		reverse_proxy {
+			dynamic a server 8080 {
+				refresh 2s
+			}
+			lb_policy round_robin
+		}
+	}
+
+	# Presigned uploads and downloads (S3_PUBLIC_ENDPOINT is this site). Caddy
+	# keeps the browser's Host header, which is part of the signature.
+	handle /{$S3_BUCKET:samnak}/* {
+		reverse_proxy minio:9000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

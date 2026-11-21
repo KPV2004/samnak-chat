@@ -1,7 +1,7 @@
 SERVER := apps/server
 COMPOSE := docker compose -f deploy/docker-compose.yml
 
-.PHONY: up down server test lint migrate openapi web
+.PHONY: up down server test lint migrate openapi web load
 
 up:        ## start postgres, redis, minio
 	$(COMPOSE) up -d
@@ -22,3 +22,5 @@ openapi:   ## regenerate api/openapi.yaml and packages/core types
 	npm run gen:api -w packages/core
 web:
 	npm run dev:web
+load:      ## load test: k6 against compose.prod.yml, two instances (docs/load-test.md)
+	scripts/load/run.sh
