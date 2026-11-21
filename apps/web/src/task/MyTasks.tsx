@@ -1,7 +1,7 @@
 import type { Channel, Task, TaskDue, TaskStatus } from "@samnak/core";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ListChecks } from "lucide-react";
-import { useId, useState } from "react";
+import { useId } from "react";
 import { Link, Navigate } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,10 @@ import { useSessionState } from "../state/session";
 import { useTaskApi } from "./api";
 import { taskStatusTones } from "./format";
 import { useMeta } from "../modules";
+import { openStatuses, taskDues, taskStatuses, useTaskView } from "./view";
 
-const statuses: TaskStatus[] = ["todo", "doing", "done"];
-const dues: TaskDue[] = ["overdue", "today", "week"];
+const statuses = taskStatuses;
+const dues = taskDues;
 const pageSize = 20;
 
 /**
@@ -45,9 +46,8 @@ function TaskList() {
   const { channels } = useChatState();
   const { workspaceId } = useSessionState();
   const filterId = useId();
-  const [status, setStatus] = useState<TaskStatus[]>([]);
-  const [due, setDue] = useState<TaskDue | "">("");
-  const [channelId, setChannelId] = useState("");
+  // The filters live in the URL, so the sidebar's views, this toolbar, back and reload all agree.
+  const [{ status, due, channelId }, setView] = useTaskView();
 
   const tasks = useInfiniteQuery({
     // A workspace has its own tasks, so its list is never shown for another.
@@ -65,16 +65,14 @@ function TaskList() {
     getNextPageParam: (last) => last.next_cursor || undefined,
   });
 
-  const filtersActive = status.length > 0 || due !== "" || channelId !== "";
+  const filtersActive = status.join(",") !== openStatuses.join(",") || due !== "" || channelId !== "";
 
   function toggleStatus(s: TaskStatus) {
-    setStatus((current) => statuses.filter((x) => (x === s ? !current.includes(s) : current.includes(x))));
+    setView({ status: statuses.filter((x) => (x === s ? !status.includes(s) : status.includes(x))) });
   }
 
   function clearFilters() {
-    setStatus([]);
-    setDue("");
-    setChannelId("");
+    setView({ status: openStatuses, due: "", channelId: "" });
   }
 
   const items = tasks.data?.pages.flatMap((page) => page.items) ?? [];
@@ -102,7 +100,7 @@ function TaskList() {
         </fieldset>
         <ToolbarField label={t("task.filter.due")}>
           {(id) => (
-            <NativeSelect id={id} size="sm" value={due} onChange={(e) => setDue(e.target.value as TaskDue | "")}>
+            <NativeSelect id={id} size="sm" value={due} onChange={(e) => setView({ due: e.target.value as TaskDue | "" })}>
               <option value="">{t("task.filter.any")}</option>
               {dues.map((d) => (
                 <option key={d} value={d}>
@@ -114,7 +112,7 @@ function TaskList() {
         </ToolbarField>
         <ToolbarField label={t("task.filter.channel")}>
           {(id) => (
-            <NativeSelect id={id} size="sm" containerClassName="max-w-56" value={channelId} onChange={(e) => setChannelId(e.target.value)}>
+            <NativeSelect id={id} size="sm" containerClassName="max-w-56" value={channelId} onChange={(e) => setView({ channelId: e.target.value })}>
               <option value="">{t("task.filter.allChannels")}</option>
               {joined.map((c) => (
                 <option key={c.id} value={c.id}>

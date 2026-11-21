@@ -29,7 +29,7 @@ describe("Login", () => {
     await user.type(screen.getByLabelText("Password"), "correct horse");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-    expect(await screen.findByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(await screen.findByRole("navigation", { name: "Apps" })).toBeInTheDocument();
     const [login] = app.called("POST /api/v1/auth/login");
     expect(login!.body).toMatchObject({ email: "me@example.com", password: "correct horse", platform: "web" });
     expect(login!.body.device_name).toEqual(expect.any(String));

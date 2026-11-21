@@ -102,7 +102,7 @@ export function Shell() {
           </div>
         </header>
         <div className="flex min-h-0 flex-1">
-          <div className="hidden md:block">
+          <div className="hidden md:flex">
             <WorkspaceRail />
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden md:rounded-tl-xl">

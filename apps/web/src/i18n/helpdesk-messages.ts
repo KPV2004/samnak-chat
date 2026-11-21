@@ -15,6 +15,8 @@ export const helpdeskEn = {
 
   "helpdesk.tabs.mine": "My requests",
   "helpdesk.tabs.queue": "Queue",
+  "helpdesk.views": "Helpdesk views",
+  "helpdesk.allQueues": "All queues",
   "helpdesk.list.label": "Tickets",
   "helpdesk.list.empty.mine": "You have not opened any tickets yet.",
   "helpdesk.list.empty.queue": "No ticket matches these filters.",
@@ -156,6 +158,8 @@ export const helpdeskTh = {
 
   "helpdesk.tabs.mine": "คำขอของฉัน",
   "helpdesk.tabs.queue": "คิวงาน",
+  "helpdesk.views": "มุมมองศูนย์ช่วยเหลือ",
+  "helpdesk.allQueues": "ทุกคิว",
   "helpdesk.list.label": "รายการงาน",
   "helpdesk.list.empty.mine": "คุณยังไม่ได้แจ้งปัญหาใด ๆ",
   "helpdesk.list.empty.queue": "ไม่มีงานที่ตรงกับตัวกรอง",

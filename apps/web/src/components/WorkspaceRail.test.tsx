@@ -45,7 +45,7 @@ describe("app rail", () => {
     const apps = await screen.findByRole("navigation", { name: "Apps" });
     const names = async () => within(apps).getAllByRole("link").map((a) => a.textContent);
     await within(apps).findByRole("link", { name: "Helpdesk" });
-    expect(await names()).toEqual(["Messenger", "Tasks", "Approvals", "Helpdesk", "Members"]);
+    expect(await names()).toEqual(["Messenger", "Tasks", "Approvals", "Helpdesk", "Workspace"]);
     expect(within(apps).getByRole("link", { name: "Helpdesk" })).toHaveAttribute("aria-current", "page");
     expect(within(apps).getByRole("link", { name: "Messenger" })).not.toHaveAttribute("aria-current");
     expect(within(apps).getByRole("link", { name: "Approvals" })).toHaveAttribute("href", "/approvals");
@@ -58,14 +58,15 @@ describe("app rail", () => {
     expect(within(apps).queryByRole("link", { name: "Tasks" })).not.toBeInTheDocument();
     expect(within(apps).queryByRole("link", { name: "Approvals" })).not.toBeInTheDocument();
     expect(within(apps).queryByRole("link", { name: "Helpdesk" })).not.toBeInTheDocument();
-    expect(within(apps).getByRole("link", { name: "Members" })).toBeInTheDocument();
+    expect(within(apps).getByRole("link", { name: "Workspace" })).toBeInTheDocument();
   });
 
-  it("keeps Approvals marked on its groups page, and goes to Messenger on click", async () => {
+  it("marks Workspace on the groups page, and goes to Messenger on click", async () => {
     const user = userEvent.setup();
     renderApp({ route: "/groups", routes: modules(["chat", "approval"]) });
     const apps = await screen.findByRole("navigation", { name: "Apps" });
-    expect(await within(apps).findByRole("link", { name: "Approvals" })).toHaveAttribute("aria-current", "page");
+    expect(await within(apps).findByRole("link", { name: "Workspace" })).toHaveAttribute("aria-current", "page");
+    expect(within(apps).getByRole("link", { name: "Approvals" })).not.toHaveAttribute("aria-current");
     await user.click(within(apps).getByRole("link", { name: "Messenger" }));
     expect(within(apps).getByRole("link", { name: "Messenger" })).toHaveAttribute("aria-current", "page");
   });

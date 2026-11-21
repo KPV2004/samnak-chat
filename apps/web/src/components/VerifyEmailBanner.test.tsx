@@ -12,8 +12,8 @@ describe("VerifyEmailBanner", () => {
       routes: { "GET /api/v1/auth/me": () => ({ ...me, email_verified: true }) },
     });
 
-    // The sidebar shows the profile once it has loaded, so the banner has had its chance to appear.
-    expect(await screen.findByText("Mali")).toBeInTheDocument();
+    // The account menu appears once the profile has loaded, so the banner has had its chance to appear.
+    expect(await screen.findByRole("button", { name: "Account menu" })).toBeInTheDocument();
     expect(screen.queryByText(/Verify me@example\.com/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Resend email" })).not.toBeInTheDocument();
   });

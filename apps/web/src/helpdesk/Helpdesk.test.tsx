@@ -107,8 +107,11 @@ describe("Helpdesk page", () => {
   });
 
   it("links to the settings for owners and admins only", async () => {
+    // The page's own button and the sidebar's entry both lead to the settings.
     const owner = renderApp({ route: "/helpdesk", routes: routes({ role: "admin" }) });
-    expect(await screen.findByRole("link", { name: "Helpdesk settings" })).toHaveAttribute("href", "/helpdesk/settings");
+    const page = within(screen.getByRole("main"));
+    expect(await page.findByRole("link", { name: "Helpdesk settings" })).toHaveAttribute("href", "/helpdesk/settings");
+    expect(screen.getAllByRole("link", { name: "Helpdesk settings" })).toHaveLength(2);
     owner.unmount();
     renderApp({ route: "/helpdesk", routes: routes({ role: "member" }) });
     await screen.findByRole("list", { name: "Tickets" });

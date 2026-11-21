@@ -21,6 +21,9 @@ interface Props {
   /** "mine" is the tickets I opened; "queue" is the tickets my queues handle. */
   role: "mine" | "queue";
   queues: HelpdeskQueue[];
+  /** The queue the list is narrowed to, and how the toolbar changes it; both live in the URL. */
+  queueId?: string;
+  onQueueChange?: (id: string) => void;
 }
 
 /**
@@ -28,11 +31,10 @@ interface Props {
  * opened; the queue list is filtered by queue, status and assignee. The server
  * hides what the viewer may not see, so the page shows what it returns.
  */
-export function TicketList({ role, queues }: Props) {
+export function TicketList({ role, queues, queueId = "", onQueueChange }: Props) {
   const t = useT();
   const api = useHelpdeskApi();
   const { workspaceId } = useSessionState();
-  const [queueId, setQueueId] = useState("");
   const [status, setStatus] = useState<TicketStatus | "">("");
   const [assignee, setAssignee] = useState("");
 
@@ -57,7 +59,7 @@ export function TicketList({ role, queues }: Props) {
   const queueName = (id: string) => queues.find((q) => q.id === id)?.name ?? "";
 
   function clearFilters() {
-    setQueueId("");
+    onQueueChange?.("");
     setStatus("");
     setAssignee("");
   }
@@ -68,7 +70,7 @@ export function TicketList({ role, queues }: Props) {
         <Toolbar label={t("helpdesk.list.label")}>
           <ToolbarField label={t("helpdesk.queue")}>
             {(id) => (
-              <NativeSelect id={id} size="sm" containerClassName="max-w-48" value={queueId} onChange={(e) => setQueueId(e.target.value)}>
+              <NativeSelect id={id} size="sm" containerClassName="max-w-48" value={queueId} onChange={(e) => onQueueChange?.(e.target.value)}>
                 <option value="">{t("helpdesk.filter.anyQueue")}</option>
                 {queues.map((q) => (
                   <option key={q.id} value={q.id}>

@@ -101,13 +101,13 @@ describe("Audit log", () => {
   });
 
   it("is linked from the sidebar for an owner or admin", async () => {
-    renderApp({ route: "/", routes: routes() });
+    renderApp({ route: "/members", routes: routes() });
     expect(await screen.findByRole("link", { name: "Audit log" })).toHaveAttribute("href", "/audit");
   });
 
   it("is not linked from the sidebar for a member", async () => {
-    renderApp({ route: "/", routes: routes("member") });
-    await within(await screen.findByRole("navigation", { name: "Main" })).findByRole("link", { name: "Members" });
+    renderApp({ route: "/members", routes: routes("member") });
+    await within(await screen.findByRole("navigation", { name: "Workspace" })).findByRole("link", { name: "Members" });
     expect(screen.queryByRole("link", { name: "Audit log" })).not.toBeInTheDocument();
   });
 

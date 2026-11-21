@@ -1,6 +1,6 @@
 # Web UI
 
-How the web app (`apps/web`) looks and how to build a page in it. The look is Slack's: a narrow dark workspace rail, a dark sidebar with folding sections, a dark top bar with a search-style bar, and the page on a light (or, in dark mode, dark) surface. Dense and calm, one green accent. The stack is Tailwind v4 and shadcn/ui (Radix); the shadcn components are copied into `apps/web/src/components/ui` and are ours to edit.
+How the web app (`apps/web`) looks and how to build a page in it. The look is Slack's: a narrow dark workspace rail, one dark sidebar per app, a dark top bar with a search-style bar, and the page on a light (or, in dark mode, dark) surface. Dense and calm, one green accent. The stack is Tailwind v4 and shadcn/ui (Radix); the shadcn components are copied into `apps/web/src/components/ui` and are ours to edit.
 
 ## Where things are
 
@@ -8,7 +8,7 @@ How the web app (`apps/web`) looks and how to build a page in it. The look is Sl
 | --- | --- |
 | `src/index.css` | The only stylesheet: fonts, Tailwind, tokens, the `on-rail` scope and the base rules (focus ring, reduced motion, body) |
 | `src/components/ui/` | shadcn components. Import as `@/components/ui/button` |
-| `src/components/` | App components built on them: `Page`, `Field`, `FormError`, `EmptyState`, `AccountStates` (loading and load error), `RouteFallback`, `NavItem`, `UserAvatar`, `ThemeToggle`, `AppSidebar`, `WorkspaceRail`, `SidebarSection`, `QuickSwitch`, `AuthLayout` |
+| `src/components/` | App components built on them: `Page`, `Field`, `FormError`, `EmptyState`, `AccountStates` (loading and load error), `RouteFallback`, `NavItem`, `UserAvatar`, `ThemeToggle`, `AppSidebar` (and one sidebar per app), `WorkspaceRail`, `AccountMenu`, `SidebarLink`, `SidebarSection`, `QuickSwitch`, `AuthLayout` |
 | `src/pages/Shell.tsx` | The frame: top bar, workspace rail, sidebar, content. Below `md` the rail and the sidebar are one Sheet |
 | `src/state/theme.ts` | Light, dark or system, kept in `localStorage` (`samnak.theme`) |
 | `src/i18n/ui-messages.ts` | Strings of the frame and shared components |
@@ -54,11 +54,18 @@ Dark mode is the `dark` class on `<html>`. `dark:` works in classes, but tokens 
 Top to bottom, left to right (`Shell.tsx`):
 
 - **Top bar** (`bg-rail`, 44px): the product mark and name (name from `md`), the search-style bar (`QuickSwitch`: it names the workspace and opens a "jump to" list of channels, direct messages and pages, also on Ctrl or Cmd + K; it finds places, not message text), the notification bell, the language select (from `md`) and the theme toggle.
-- **Workspace rail** (`WorkspaceRail`, 56px): a tile per workspace with its initials (the current one is filled mint and marked `aria-current`), clicking one switches workspace; a dashed tile creates a new one.
-- **Sidebar** (`AppSidebar`, 256px): the workspace name, `Home` and `Chat`, then sections that fold (`SidebarSection`; open or closed is remembered in `localStorage` as `samnak.sidebar.<id>`; a folded section keeps its unread badge on the heading): Channels, Direct messages, Apps (tasks, approvals, groups, helpdesk, each only while its module is enabled), Workspace (members, invites, audit log) and Account (profile, devices, notification settings). The signed-in user and sign-out sit at the foot. An unread channel is bold with a count badge; mentions get a red `@n` badge.
-- **Below `md`:** the rail and the sidebar are one Sheet from the menu button, the language select moves to its foot, and the sheet closes after a link or a workspace is chosen.
+- **Workspace rail** (`WorkspaceRail`, 64px): a tile per workspace with its initials (the current one is filled mint and marked `aria-current`), clicking one switches workspace; a dashed tile creates a new one. Under them the apps, each an icon with its name: Messenger, Tasks, Approvals, Helpdesk (each only while its module is enabled) and Workspace. The current app is filled mint and marked `aria-current` (`appOf(pathname)` in `components/apps.ts` maps a path to its app). Messenger carries its unread count; Approvals carries the waiting count while that list is loaded (the rail reads the cache and makes no request of its own). At the foot, the signed-in user's avatar opens the **account menu** (`AccountMenu`): Profile, Devices, Notification settings (while notify is on), Theme, Language and Sign out.
+- **Sidebar** (`AppSidebar`, 256px): shows only the app the rail has picked, under a header with the app's name and the workspace. `/` opens Messenger.
+  - **Messenger** (`/chat/*`): the conversation list (CH-02), which has its own heading.
+  - **Tasks** (`/tasks`, `TaskSidebar`): views My tasks (open), Due today, Overdue and Done, then a folding "By channel" list of the channels that hold my open tasks, with counts. Each is a link whose query string sets the page's filters: `status` (comma list; empty means all; absent means open: To do and Doing), `due` and `channel`. The page's toolbar reads and writes the same parameters (`task/view.ts`).
+  - **Approvals** (`/approvals`, `ApprovalSidebar`): a "New request" button (`?new=1` opens the dialog), then Waiting for me (with its count) and My requests (`?view=mine`). The page shows one list at a time.
+  - **Helpdesk** (`/helpdesk/*`, `HelpdeskSidebar`): a "New ticket" button (`?new=1`), My requests, then for agents and admins a folding Queue section with All queues (`?view=queue`) and one entry per queue the user is an agent of (`&queue=<id>`), and Settings for owners and admins. The page's tabs and queue filter follow the URL.
+  - **Workspace** (`/members`, `/invites`, `/groups`, `/audit`, `WorkspaceSidebar`): one link each; Groups while approval is on, Audit log for owners and admins.
+  - **Account** (`/profile`, `/devices`, `/notifications/settings`, `AccountSidebar`): the three account pages. No app is current on the rail there.
+  - A row that points at a view uses `SidebarLink` (the router's `NavLink` only compares paths, so the sidebar says which view is current); a row that points at a page uses `NavItem`. Both tint on hover, dim on press and fill mint while current. `SidebarSection` folds a list inside the app it belongs to (open or closed is kept in `localStorage` as `samnak.sidebar.<id>`).
+- **Below `md`:** the rail and the current app's sidebar are one Sheet from the menu button; it closes after a link or a workspace is chosen. The language select of the top bar is hidden there; the account menu has it.
 
-The channel list is mounted on every page, so unread counts are visible everywhere. Member names (needed to title direct messages) are fetched only once the user has a direct message.
+The chat state is provided by the shell, so Messenger's unread count on the rail is visible on every page. Member names (needed to title direct messages) are fetched only once the user has a direct message.
 
 ## Type and spacing
 
@@ -92,7 +99,7 @@ The channel list is mounted on every page, so unread counts are visible everywhe
 | List of simple rows | `<ul className="divide-y rounded-lg border">` with `li` rows `px-4 py-3` |
 | An object with its own actions, or a grouped section | `Card` (`CardHeader`, `CardTitle`, `CardContent`, `CardFooter`). Do not nest cards |
 | Status, count, role | `Badge` (`secondary` neutral, `default` accent, `destructive`; success and warning as `outline` with `text-success` or `text-warning`) |
-| A section of the sidebar that folds | `SidebarSection` with `NavItem` rows |
+| A section of an app sidebar that folds | `SidebarSection` with `SidebarLink` or `NavItem` rows |
 | Person | `UserAvatar` next to the name |
 | Divider | `Separator` |
 | Long area with its own scroll | `ScrollArea` |
@@ -122,8 +129,8 @@ Bare HTML has no default look: Tailwind's reset removes paragraph margins, list 
 ## Tests and shadcn in jsdom
 
 - `test-setup.ts` stubs `ResizeObserver`, `scrollIntoView` and pointer capture, which Radix needs. Open menus and dialogs with `user.click`; options render in a portal on `document.body`.
-- The sidebar shows the user's name and email, the workspace name and the channels. A query like `findByText("Mali")` can now match twice. Scope to the page with `within(screen.getByRole("main"))`.
-- The desktop rail and sidebar are always in the DOM in tests (CSS does not run); the mobile Sheet is not until it is opened. Switch workspace by clicking its tile (`getByRole("button", { name: "Beta" })`), not with a select. Sidebar section state is in `localStorage`, so tests that fold one clear it first.
+- The sidebar shows the current app and the workspace name; the user's name and email are in the account menu (open it with `getByRole("button", { name: "Account menu" })`, then pick a `menuitem`; Sign out is there). A query like `findByText("Acme")` can match twice. Scope to the page with `within(screen.getByRole("main"))`. `/` redirects to `/chat`, so a test that needs another app's sidebar starts on that app's route.
+- The desktop rail and sidebar are always in the DOM in tests (CSS does not run); the mobile Sheet is not until it is opened. Switch workspace by clicking its tile (`getByRole("button", { name: "Beta" })`), not with a select. Sidebar section state is in `localStorage`, so tests that fold one clear it first. In jsdom, open a menu's submenu (Theme, Language) with the keyboard (focus the item, `{ArrowRight}`, then `{Enter}` on the choice); a pointer click does not reach it.
 
 ## Adding a shadcn component
 

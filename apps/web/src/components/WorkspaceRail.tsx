@@ -1,5 +1,5 @@
 import type { Workspace } from "@samnak/core";
-import { ClipboardCheck, LifeBuoy, ListChecks, MessagesSquare, Plus, Users, type LucideIcon } from "lucide-react";
+import { Building2, ClipboardCheck, LifeBuoy, ListChecks, MessagesSquare, Plus, type LucideIcon } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -7,11 +7,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { MessageKey } from "@/i18n/messages";
 import { useT } from "@/i18n/useT";
 import { cn } from "@/lib/utils";
+import { useWaitingCount } from "../approval/requests";
 import { useModuleEnabled } from "../modules";
 import { usePreferences } from "../notify/usePreferences";
 import { useChatState } from "../state/chat";
 import { useWorkspaces } from "../state/queries";
 import { useSession } from "../state/session";
+import { AccountMenu } from "./AccountMenu";
+import { appOf, type AppId } from "./apps";
 import { initialOf } from "./UserAvatar";
 
 /** The two characters a workspace tile shows: the first letters of its first two words, else its first two letters. */
@@ -29,15 +32,12 @@ const tileClass = cn(
 );
 
 interface App {
+  id: AppId;
   to: string;
-  /** Paths that mark the app current, besides `to`. */
-  also?: string[];
   icon: LucideIcon;
   label: MessageKey;
   show: boolean;
 }
-
-const onPath = (pathname: string, base: string) => pathname === base || pathname.startsWith(`${base}/`);
 
 /** Unread chats for the badge on Messenger: muted ones are left out, as they send no notification. */
 function useMessengerUnread(): { unread: number; mentions: number } {
@@ -65,19 +65,21 @@ function AppLinks({ onNavigate }: { onNavigate?: () => void }) {
   const approval = useModuleEnabled("approval");
   const helpdesk = useModuleEnabled("helpdesk");
   const { unread, mentions } = useMessengerUnread();
+  // Only reads what the Approvals list already loaded; the rail makes no request of its own.
+  const waiting = useWaitingCount(false);
   const apps: App[] = [
-    { to: "/chat", icon: MessagesSquare, label: "rail.messenger", show: true },
-    { to: "/tasks", icon: ListChecks, label: "rail.tasks", show: task },
-    { to: "/approvals", also: ["/groups"], icon: ClipboardCheck, label: "rail.approvals", show: approval },
-    { to: "/helpdesk", icon: LifeBuoy, label: "rail.helpdesk", show: helpdesk },
-    { to: "/members", icon: Users, label: "rail.members", show: true },
+    { id: "messenger", to: "/chat", icon: MessagesSquare, label: "rail.messenger", show: true },
+    { id: "tasks", to: "/tasks", icon: ListChecks, label: "rail.tasks", show: task },
+    { id: "approvals", to: "/approvals", icon: ClipboardCheck, label: "rail.approvals", show: approval },
+    { id: "helpdesk", to: "/helpdesk", icon: LifeBuoy, label: "rail.helpdesk", show: helpdesk },
+    { id: "workspace", to: "/members", icon: Building2, label: "rail.workspace", show: true },
   ];
   return (
     <nav aria-label={t("rail.apps")} className="flex w-full flex-col items-center gap-1 px-0.5">
       {apps
         .filter((a) => a.show)
         .map((a) => {
-          const current = [a.to, ...(a.also ?? [])].some((base) => onPath(pathname, base));
+          const current = appOf(pathname) === a.id;
           return (
             <Link
               key={a.to}
@@ -94,7 +96,13 @@ function AppLinks({ onNavigate }: { onNavigate?: () => void }) {
                 )}
               >
                 <a.icon aria-hidden="true" className="size-5" />
-                {a.to === "/chat" && unread > 0 && (
+                {a.id === "approvals" && waiting.n > 0 && (
+                  <Badge className="absolute -top-1 -right-1.5 h-4 min-w-4 px-1 text-[10px] ring-2 ring-rail">
+                    <span aria-hidden="true">{waiting.more ? `${waiting.n}+` : waiting.n}</span>
+                    <span className="sr-only">{t("approval.waitingCount", { n: waiting.n })}</span>
+                  </Badge>
+                )}
+                {a.id === "messenger" && unread > 0 && (
                   <Badge variant={mentions > 0 ? "destructive" : "default"} className="absolute -top-1 -right-1.5 h-4 min-w-4 px-1 text-[10px] ring-2 ring-rail">
                     <span aria-hidden="true">{unread > 99 ? "99+" : unread}</span>
                     <span className="sr-only">{t("chat.unread", { n: unread })}</span>
@@ -111,13 +119,14 @@ function AppLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 /**
  * The narrow dark column on the far left: one tile per workspace (the current one is filled), a
- * tile to make a new one, and under them the apps. Switching only changes the selected workspace,
+ * tile to make a new one, under them the apps, and at the foot the account menu. Switching only changes the selected workspace,
  * as the old select did.
  */
 export function WorkspaceRail({ onNavigate }: { onNavigate?: () => void }) {
   const t = useT();
   const session = useSession();
   const { workspaces, current } = useWorkspaces();
+  const { pathname } = useLocation();
 
   return (
     <div className="on-rail flex w-16 shrink-0 flex-col items-center gap-2 overflow-y-auto bg-rail py-2">
@@ -168,6 +177,9 @@ export function WorkspaceRail({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
       <Separator className="w-8 bg-sidebar-border" />
       <AppLinks onNavigate={onNavigate} />
+      <div className="mt-auto pt-2">
+        <AccountMenu current={appOf(pathname) === "account"} onNavigate={onNavigate} />
+      </div>
     </div>
   );
 }

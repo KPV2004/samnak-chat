@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { chatRoutes, renderApp, type Routes } from "../test-utils";
@@ -56,43 +56,62 @@ async function fillLeave(user: ReturnType<typeof userEvent.setup>, { start = "20
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Approvals page", () => {
-  it("lists my requests and the ones waiting for me, by role", async () => {
+  it("lists the requests waiting for me by default, and only those", async () => {
     renderApp({ route: "/approvals", routes: routes() });
-    const mineList = await screen.findByRole("list", { name: "My requests" });
-    expect(within(mineList).getByText("Annual leave · 2026-11-20 – 2026-11-21")).toBeInTheDocument();
-    const waitingList = screen.getByRole("list", { name: "Waiting for me" });
+    const waitingList = await screen.findByRole("list", { name: "Waiting for me" });
     expect(within(waitingList).getByText("Laptop purchase")).toBeInTheDocument();
     expect(within(waitingList).getByText("Waiting")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "My requests" })).not.toBeInTheDocument();
+  });
+
+  it("lists my own requests with ?view=mine, and only those", async () => {
+    renderApp({ route: "/approvals?view=mine", routes: routes() });
+    const mineList = await screen.findByRole("list", { name: "My requests" });
+    expect(within(mineList).getByText("Annual leave · 2026-11-20 – 2026-11-21")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Waiting for me" })).not.toBeInTheDocument();
   });
 
   it("asks for pending requests only in the waiting list", async () => {
     const urls: string[] = [];
+    const spy = routes({
+      "GET /api/v1/approval/requests": (_b, url) => {
+        urls.push(url);
+        return { items: url.includes("role=approver") ? [waiting] : [mine], next_cursor: "" };
+      },
+    });
+    renderApp({ route: "/approvals", routes: spy });
+    await screen.findByRole("list", { name: "Waiting for me" });
+    expect(urls.find((u) => u.includes("role=approver"))).toContain("status=pending");
+    expect(urls.find((u) => u.includes("role=requester"))).toBeUndefined();
+  });
+
+  it("asks for all of my requests, whatever their status, in my list", async () => {
+    const urls: string[] = [];
     renderApp({
-      route: "/approvals",
+      route: "/approvals?view=mine",
       routes: routes({
         "GET /api/v1/approval/requests": (_b, url) => {
           urls.push(url);
-          return { items: url.includes("role=approver") ? [waiting] : [mine], next_cursor: "" };
+          return { items: [mine], next_cursor: "" };
         },
       }),
     });
-    await screen.findByRole("list", { name: "Waiting for me" });
-    expect(urls.find((u) => u.includes("role=approver"))).toContain("status=pending");
+    await screen.findByRole("list", { name: "My requests" });
     expect(urls.find((u) => u.includes("role=requester"))).not.toContain("status=");
   });
 
   it("says when a list is empty", async () => {
-    renderApp({
-      route: "/approvals",
-      routes: routes({ "GET /api/v1/approval/requests": () => ({ items: [], next_cursor: "" }) }),
-    });
+    const empty = routes({ "GET /api/v1/approval/requests": () => ({ items: [], next_cursor: "" }) });
+    renderApp({ route: "/approvals?view=mine", routes: empty });
     expect(await screen.findByText("You have not sent any requests yet.")).toBeInTheDocument();
-    expect(screen.getByText("No request is waiting for you.")).toBeInTheDocument();
+    cleanup();
+    renderApp({ route: "/approvals", routes: empty });
+    expect(await screen.findByText("No request is waiting for you.")).toBeInTheDocument();
   });
 
   it("opens the new request as a dialog, and Cancel closes it without sending", async () => {
     const user = userEvent.setup();
-    const app = renderApp({ route: "/approvals", routes: routes() });
+    const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
     const dialog = await screen.findByRole("dialog", { name: "New request" });
@@ -104,7 +123,7 @@ describe("Approvals page", () => {
 
   it("sends a leave request to the default approver", async () => {
     const user = userEvent.setup();
-    const app = renderApp({ route: "/approvals", routes: routes() });
+    const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
     await fillLeave(user);
@@ -120,7 +139,7 @@ describe("Approvals page", () => {
 
   it("sends the approver the requester picked, and offers only other members", async () => {
     const user = userEvent.setup();
-    const app = renderApp({ route: "/approvals", routes: routes() });
+    const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
     const picker = screen.getByRole("combobox", { name: "Approver" });
@@ -134,7 +153,7 @@ describe("Approvals page", () => {
 
   it("asks for an end date not before the start date, and sends nothing", async () => {
     const user = userEvent.setup();
-    const app = renderApp({ route: "/approvals", routes: routes() });
+    const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
     await fillLeave(user, { start: "2026-11-20", end: "2026-11-18" });
@@ -145,7 +164,7 @@ describe("Approvals page", () => {
 
   it("allows a half day only on a single day", async () => {
     const user = userEvent.setup();
-    const app = renderApp({ route: "/approvals", routes: routes() });
+    const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
     await fillLeave(user, { start: "2026-11-20", end: "2026-11-21" });
@@ -157,7 +176,7 @@ describe("Approvals page", () => {
 
   it("sends a general request with an amount and the default currency", async () => {
     const user = userEvent.setup();
-    const app = renderApp({ route: "/approvals", routes: routes() });
+    const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
@@ -176,7 +195,7 @@ describe("Approvals page", () => {
 
   it("sends a general request without an amount and no currency, which the server would refuse", async () => {
     const user = userEvent.setup();
-    const app = renderApp({ route: "/approvals", routes: routes() });
+    const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
@@ -192,7 +211,7 @@ describe("Approvals page", () => {
 
   it("rejects an amount that is not a number", async () => {
     const user = userEvent.setup();
-    const app = renderApp({ route: "/approvals", routes: routes() });
+    const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
@@ -208,7 +227,7 @@ describe("Approvals page", () => {
     const put = vi.fn(async () => new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", put);
     const app = renderApp({
-      route: "/approvals",
+      route: "/approvals?view=mine",
       routes: routes({
         "POST /api/v1/approval/uploads": () => ({
           attachment_id: "a1",
@@ -244,7 +263,7 @@ describe("Approvals page", () => {
     const user = userEvent.setup();
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
     renderApp({
-      route: "/approvals",
+      route: "/approvals?view=mine",
       routes: routes({
         "POST /api/v1/approval/uploads": () => ({
           attachment_id: "a1",
