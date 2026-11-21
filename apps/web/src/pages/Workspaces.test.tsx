@@ -153,6 +153,6 @@ describe("Shell", () => {
 
   it("adopts the language saved on the profile", async () => {
     renderApp({ route: "/", routes: { "GET /api/v1/auth/me": () => ({ id: "u1", email: "e", display_name: "M", avatar_url: "", locale: "th", timezone: "UTC", created_at: "x" }) } });
-    expect(await screen.findByRole("link", { name: "สร้าง workspace" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "สร้างเวิร์กสเปซ" })).toBeInTheDocument();
   });
 });

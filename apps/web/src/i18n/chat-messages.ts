@@ -186,7 +186,7 @@ export const chatTh: Record<keyof typeof chatEn, string> = {
   "chat.new.nameTaken": "มีช่องชื่อนี้อยู่แล้ว",
   "chat.new.topic": "หัวข้อ (ไม่บังคับ)",
   "chat.new.visibility": "ใครค้นหาช่องนี้ได้",
-  "chat.new.public": "สาธารณะ: ทุกคนใน workspace เข้าร่วมได้",
+  "chat.new.public": "สาธารณะ: ทุกคนในเวิร์กสเปซเข้าร่วมได้",
   "chat.new.private": "ส่วนตัว: เฉพาะคนที่คุณเพิ่ม",
   "chat.new.people": "เพิ่มสมาชิก (ไม่บังคับ)",
   "chat.new.create": "สร้างช่อง",
@@ -197,7 +197,7 @@ export const chatTh: Record<keyof typeof chatEn, string> = {
   "chat.dm.start": "เริ่มสนทนา",
   "chat.dm.none": "เลือกอย่างน้อย 1 คน",
   "chat.dm.tooMany": "เลือกได้ไม่เกิน 8 คน",
-  "chat.dm.empty": "ยังไม่มีสมาชิกคนอื่นใน workspace นี้",
+  "chat.dm.empty": "ยังไม่มีสมาชิกคนอื่นในเวิร์กสเปซนี้",
 
   "chat.messages": "ข้อความ",
   "chat.today": "วันนี้",
