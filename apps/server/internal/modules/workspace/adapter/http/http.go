@@ -93,8 +93,8 @@ type workspaceOutput struct{ Body Workspace }
 
 type createInput struct {
 	Body struct {
-		Name string `json:"name" doc:"Display name, 1 to 100 characters"`
-		Slug string `json:"slug" doc:"Unique, 3 to 40 characters of a-z, 0-9 and hyphen" example:"acme-team"`
+		Name string `json:"name" maxLength:"100" doc:"Display name, 1 to 100 characters"`
+		Slug string `json:"slug" maxLength:"40" doc:"Unique, 3 to 40 characters of a-z, 0-9 and hyphen" example:"acme-team"`
 	}
 }
 
@@ -134,7 +134,7 @@ func (h *Handler) list(ctx context.Context, _ *struct{}) (*listOutput, error) {
 }
 
 type listMembersInput struct {
-	Cursor string `query:"cursor" doc:"Opaque cursor from the previous page's next_cursor"`
+	Cursor string `query:"cursor" maxLength:"90" doc:"Opaque cursor from the previous page's next_cursor"`
 	Limit  int    `query:"limit" default:"50" minimum:"1" maximum:"100"`
 }
 

@@ -95,7 +95,7 @@ func (h *Handler) listGroups(ctx context.Context, _ *struct{}) (*listGroupsOutpu
 }
 
 type groupNameBody struct {
-	Name string `json:"name" doc:"1 to 100 characters, unique in the workspace ignoring case"`
+	Name string `json:"name" maxLength:"100" doc:"1 to 100 characters, unique in the workspace ignoring case"`
 }
 
 type createGroupInput struct{ Body groupNameBody }
@@ -171,7 +171,7 @@ type setGroupMembersInput struct {
 	ID   string `path:"id"`
 	Body struct {
 		Members []struct {
-			UserID    string `json:"user_id"`
+			UserID    string `json:"user_id" maxLength:"36"`
 			IsManager bool   `json:"is_manager"`
 		} `json:"members" nullable:"false" maxItems:"1000"`
 	}

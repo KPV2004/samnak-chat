@@ -87,13 +87,13 @@ func (h *Handler) fail(ctx context.Context, err error) error {
 
 // CreateTaskRequest is the body of POST /task/items.
 type CreateTaskRequest struct {
-	ChannelID       string     `json:"channel_id" doc:"The channel the task belongs to; the caller must be able to read it"`
+	ChannelID       string     `json:"channel_id" maxLength:"36" doc:"The channel the task belongs to; the caller must be able to read it"`
 	Title           string     `json:"title" minLength:"1" maxLength:"200"`
 	Description     string     `json:"description,omitempty" maxLength:"4000"`
-	AssigneeID      string     `json:"assignee_id,omitempty" doc:"An active member who can read the channel"`
+	AssigneeID      string     `json:"assignee_id,omitempty" maxLength:"36" doc:"An active member who can read the channel"`
 	DueAt           *time.Time `json:"due_at,omitempty"`
 	Priority        string     `json:"priority,omitempty" enum:"low,normal,high" doc:"Defaults to normal"`
-	SourceMessageID string     `json:"source_message_id,omitempty" doc:"The message the task was created from"`
+	SourceMessageID string     `json:"source_message_id,omitempty" maxLength:"36" doc:"The message the task was created from"`
 }
 
 type createInput struct {
@@ -123,10 +123,10 @@ func (h *Handler) create(ctx context.Context, in *createInput) (*taskOutput, err
 type listInput struct {
 	Assignee  string `query:"assignee" enum:"me,any" doc:"me keeps tasks assigned to the caller; any (the default) does not filter"`
 	Creator   string `query:"creator" enum:"me" doc:"me keeps tasks the caller created"`
-	Status    string `query:"status" doc:"Comma-separated statuses: todo, doing, done"`
-	ChannelID string `query:"channel_id"`
+	Status    string `query:"status" maxLength:"15" doc:"Comma-separated statuses: todo, doing, done"`
+	ChannelID string `query:"channel_id" maxLength:"36"`
 	Due       string `query:"due" enum:"overdue,today,week" doc:"overdue: past due and not done. today: due this UTC day. week: due from the start of this UTC day for seven days"`
-	Cursor    string `query:"cursor" doc:"next_cursor of the previous page"`
+	Cursor    string `query:"cursor" maxLength:"36" doc:"next_cursor of the previous page"`
 	Limit     int    `query:"limit" default:"50" minimum:"1" maximum:"100" doc:"Page size"`
 }
 
@@ -208,7 +208,7 @@ func (nullable[T]) Schema(r huma.Registry) *huma.Schema {
 type UpdateTaskRequest struct {
 	Title       *string             `json:"title,omitempty" minLength:"1" maxLength:"200"`
 	Description *string             `json:"description,omitempty" maxLength:"4000"`
-	AssigneeID  nullable[string]    `json:"assignee_id,omitempty" doc:"An active member who can read the channel; null clears it"`
+	AssigneeID  nullable[string]    `json:"assignee_id,omitempty" maxLength:"36" doc:"An active member who can read the channel; null clears it"`
 	DueAt       nullable[time.Time] `json:"due_at,omitempty" doc:"null clears it; a new date is announced again"`
 	Priority    *string             `json:"priority,omitempty" enum:"low,normal,high"`
 	Status      *string             `json:"status,omitempty" enum:"todo,doing,done"`

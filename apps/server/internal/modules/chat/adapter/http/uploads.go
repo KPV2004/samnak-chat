@@ -17,7 +17,7 @@ type PresignedUpload struct {
 
 type uploadInput struct {
 	Body struct {
-		ChannelID string `json:"channel_id" doc:"A channel the caller is in"`
+		ChannelID string `json:"channel_id" maxLength:"36" doc:"A channel the caller is in"`
 		FileName  string `json:"file_name" minLength:"1" maxLength:"1024"`
 		Size      int64  `json:"size" minimum:"1" maximum:"52428800" doc:"Bytes, at most 50 MB"`
 		MimeType  string `json:"mime_type" minLength:"3" maxLength:"255" example:"image/png"`

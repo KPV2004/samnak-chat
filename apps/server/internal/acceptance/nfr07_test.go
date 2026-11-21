@@ -141,10 +141,9 @@ func presignedObject(t *testing.T, v any) map[string]string {
 // object needs maxProperties. Request bodies and query parameters are audited.
 // Path parameters are left out: they are matched against stored IDs.
 //
-// M6-09 changes no endpoint. The gaps the spec has today are listed in
-// knownLimitGaps and reported in the M6-09 report. The test fails for a gap
-// that is not listed, and for a listed gap that the spec now limits, so the
-// list stays exact.
+// The test fails for a value with no limit. knownLimitGaps may list such a
+// value, but it fails for a listed value that the spec now limits, so the list
+// stays exact.
 func TestInputLimits(t *testing.T) {
 	pool := testPool(t)
 	rdb := testRedis(t)
@@ -154,7 +153,7 @@ func TestInputLimits(t *testing.T) {
 	for _, id := range sortedKeys(got) {
 		for _, gap := range got[id] {
 			if !slices.Contains(knownLimitGaps[id], gap) {
-				t.Errorf("%s: %s has no limit; add maxLength, maximum, maxItems or maxProperties to the schema, or list it in knownLimitGaps", id, gap)
+				t.Errorf("%s: %s has no limit; add maxLength, maximum, maxItems or maxProperties to the schema", id, gap)
 			}
 		}
 	}
@@ -172,154 +171,11 @@ func TestInputLimits(t *testing.T) {
 	t.Logf("%d operations have %d values without a limit", len(got), total)
 }
 
-// knownLimitGaps is the input audit's result at M6-09: each operation with the
-// values that have no limit in the served spec. Each entry reads "<place>:
-// <problem>", the same text inputLimitGaps reports.
-var knownLimitGaps = map[string][]string{
-	"approval-create-request": {
-		"body.approver_id: string without maxLength",
-		"body.attachment_ids[]: string without maxLength",
-		"body.payload: object without maxProperties",
-	},
-	"approval-list-requests": {
-		"query.cursor: string without maxLength",
-		"query.status: string without maxLength",
-	},
-	"approval-reject-request": {
-		"body.reason: string without maxLength",
-	},
-	"auth-update-me": {
-		"body.timezone: string without maxLength",
-	},
-	"chat-add-members": {
-		"body.user_ids[]: string without maxLength",
-	},
-	"chat-create-channel": {
-		"body.member_ids[]: string without maxLength",
-		"body.name: string without maxLength",
-		"body.topic: string without maxLength",
-	},
-	"chat-edit-message": {
-		"body.body: string without maxLength",
-	},
-	"chat-list-messages": {
-		"query.after_seq: number without maximum",
-		"query.before_seq: number without maximum",
-		"query.thread_root_id: string without maxLength",
-	},
-	"chat-mark-read": {
-		"body.seq: number without maximum",
-	},
-	"chat-open-dm": {
-		"body.user_ids[]: string without maxLength",
-	},
-	"chat-request-upload": {
-		"body.channel_id: string without maxLength",
-	},
-	"chat-run-command": {
-		"body.args: string without maxLength",
-		"body.name: string without maxLength",
-		"body.thread_root_id: string without maxLength",
-	},
-	"chat-send-message": {
-		"body.attachment_ids[]: string without maxLength",
-		"body.body: string without maxLength",
-		"body.thread_root_id: string without maxLength",
-	},
-	"chat-update-channel": {
-		"body.name: string without maxLength",
-		"body.topic: string without maxLength",
-	},
-	"helpdesk-add-comment": {
-		"body.body: string without maxLength",
-	},
-	"helpdesk-assign-ticket": {
-		"body.assignee_id: string without maxLength",
-	},
-	"helpdesk-create-category": {
-		"body.name: string without maxLength",
-		"body.queue_id: string without maxLength",
-	},
-	"helpdesk-create-queue": {
-		"body.channel_id: string without maxLength",
-		"body.name: string without maxLength",
-		"body.prefix: string without maxLength",
-	},
-	"helpdesk-create-ticket": {
-		"body.attachment_ids[]: string without maxLength",
-		"body.category_id: string without maxLength",
-		"body.description: string without maxLength",
-		"body.source_message_id: string without maxLength",
-		"body.title: string without maxLength",
-	},
-	"helpdesk-edit-ticket": {
-		"body.category_id: string without maxLength",
-	},
-	"helpdesk-list-tickets": {
-		"query.assignee: string without maxLength",
-		"query.cursor: string without maxLength",
-		"query.queue_id: string without maxLength",
-		"query.status: string without maxLength",
-	},
-	"helpdesk-set-queue-agents": {
-		"body.user_ids: array without maxItems",
-		"body.user_ids[]: string without maxLength",
-	},
-	"helpdesk-update-category": {
-		"body.name: string without maxLength",
-		"body.queue_id: string without maxLength",
-	},
-	"helpdesk-update-queue": {
-		"body.channel_id: string without maxLength",
-		"body.name: string without maxLength",
-	},
-	"notify-list-notifications": {
-		"query.before: string without maxLength",
-	},
-	"notify-set-preferences": {
-		"body.disabled_kinds: array without maxItems",
-		"body.disabled_kinds[]: string without maxLength",
-		"body.dnd_end: string without maxLength",
-		"body.dnd_start: string without maxLength",
-		"body.muted_channel_ids: array without maxItems",
-		"body.muted_channel_ids[]: string without maxLength",
-	},
-	"task-create-item": {
-		"body.assignee_id: string without maxLength",
-		"body.channel_id: string without maxLength",
-		"body.source_message_id: string without maxLength",
-	},
-	"task-list-items": {
-		"query.channel_id: string without maxLength",
-		"query.cursor: string without maxLength",
-		"query.status: string without maxLength",
-	},
-	"task-update-item": {
-		"body.assignee_id: string without maxLength",
-	},
-	"workspace-create": {
-		"body.name: string without maxLength",
-		"body.slug: string without maxLength",
-	},
-	"workspace-create-group": {
-		"body.name: string without maxLength",
-	},
-	"workspace-create-invite": {
-		"body.email: string without maxLength",
-	},
-	"workspace-list-audit": {
-		"query.cursor: string without maxLength",
-	},
-	"workspace-list-members": {
-		"query.cursor: string without maxLength",
-	},
-	"workspace-rename-group": {
-		"body.name: string without maxLength",
-	},
-	"workspace-set-group-members": {
-		"body.members[].user_id: string without maxLength",
-	},
-}
+// knownLimitGaps lists the input values that have no limit in the served spec,
+// by operation, in the "<place>: <problem>" form inputLimitGaps reports. It is
+// empty since M6-12 gave every value a limit. Adding an entry silences the
+// audit, so it needs the planner's approval.
+var knownLimitGaps = map[string][]string{}
 
 func sortedKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))

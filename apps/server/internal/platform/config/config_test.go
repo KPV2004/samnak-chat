@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/netip"
 	"os"
 	"reflect"
 	"strings"
@@ -87,6 +88,7 @@ func TestLoadValuesAndDefaults(t *testing.T) {
 		S3Endpoint: "http://s3", S3Bucket: "b", S3AccessKey: "ak", S3SecretKey: "sk",
 		JWTSecret: "secret", Modules: cfg.Modules,
 		WebURL: "http://localhost:5173", SMTPPort: 587, SMTPFrom: "Samnak <no-reply@localhost>",
+		RateLimit: RateLimit{Enabled: true, PerUser: 600, PerIP: 120},
 	}
 	if !reflect.DeepEqual(cfg, want) {
 		t.Fatalf("cfg = %+v, want %+v", cfg, want)
@@ -125,6 +127,46 @@ func TestLoadSMTPPortMustBeAPort(t *testing.T) {
 			_, err := Load()
 			if err == nil || !strings.Contains(err.Error(), "SMTP_PORT") {
 				t.Fatalf("err = %v, want one naming SMTP_PORT", err)
+			}
+		})
+	}
+}
+
+func TestLoadRateLimitSettings(t *testing.T) {
+	setEnv(t, "")
+	t.Setenv("RATE_LIMIT_ENABLED", "false")
+	t.Setenv("RATE_LIMIT_PER_MINUTE", "300")
+	t.Setenv("RATE_LIMIT_IP_PER_MINUTE", "60")
+	t.Setenv("TRUSTED_PROXIES", " 10.0.0.1, 172.16.0.0/12 ")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := RateLimit{
+		Enabled: false, PerUser: 300, PerIP: 60,
+		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("10.0.0.1/32"), netip.MustParsePrefix("172.16.0.0/12")},
+	}
+	if !reflect.DeepEqual(cfg.RateLimit, want) {
+		t.Fatalf("RateLimit = %+v, want %+v", cfg.RateLimit, want)
+	}
+}
+
+func TestLoadRateLimitRejectsBadValues(t *testing.T) {
+	for _, tc := range []struct{ key, val string }{
+		{"RATE_LIMIT_ENABLED", "maybe"},
+		{"RATE_LIMIT_PER_MINUTE", "0"},
+		{"RATE_LIMIT_PER_MINUTE", "-5"},
+		{"RATE_LIMIT_PER_MINUTE", "many"},
+		{"RATE_LIMIT_IP_PER_MINUTE", "0"},
+		{"TRUSTED_PROXIES", "web"},
+		{"TRUSTED_PROXIES", "10.0.0.0/33"},
+	} {
+		t.Run(tc.key+"="+tc.val, func(t *testing.T) {
+			setEnv(t, "")
+			t.Setenv(tc.key, tc.val)
+			_, err := Load()
+			if err == nil || !strings.Contains(err.Error(), tc.key) {
+				t.Fatalf("err = %v, want one naming %s", err, tc.key)
 			}
 		})
 	}

@@ -40,7 +40,7 @@ func toAuditEntry(e domain.AuditEntry) AuditEntry {
 }
 
 type listAuditInput struct {
-	Cursor string `query:"cursor" doc:"Opaque cursor from the previous page's next_cursor"`
+	Cursor string `query:"cursor" maxLength:"90" doc:"Opaque cursor from the previous page's next_cursor"`
 	Limit  int    `query:"limit" default:"50" minimum:"1" maximum:"100"`
 }
 

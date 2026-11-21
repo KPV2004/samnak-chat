@@ -45,9 +45,9 @@ func (h *Handler) listExtensions(ctx context.Context, _ *struct{}) (*extensionsO
 type runCommandInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		Name         string `json:"name" doc:"The command, without the slash"`
-		Args         string `json:"args,omitempty" doc:"The text after the command name; at most 4,000 characters"`
-		ThreadRootID string `json:"thread_root_id,omitempty" doc:"Set when the command is typed in a thread"`
+		Name         string `json:"name" maxLength:"32" doc:"The command, without the slash"`
+		Args         string `json:"args,omitempty" maxLength:"4000" doc:"The text after the command name; at most 4,000 characters"`
+		ThreadRootID string `json:"thread_root_id,omitempty" maxLength:"36" doc:"Set when the command is typed in a thread"`
 	}
 }
 

@@ -34,6 +34,7 @@ import (
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/jobs"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/mail"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/observability"
+	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/ratelimit"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/realtime"
 	redisclient "github.com/KPV2004/samnak-chat/apps/server/internal/platform/redis"
 	"github.com/KPV2004/samnak-chat/apps/server/internal/platform/storage"
@@ -49,15 +50,22 @@ const (
 var version = "0.0.0-dev"
 
 // modules is every module this binary can run. MODULES_ENABLED picks from it.
-// Modules are added here as they land.
-var modules = []app.Module{
-	auth.New(),
-	workspace.New(),
-	chat.New(),
-	notify.New(),
-	task.New(),
-	approval.New(),
-	helpdesk.New(),
+var modules = newModules()
+
+// newModules returns a fresh instance of every module this binary can run.
+// Modules are added here as they land. A module keeps state between Init
+// calls (chat's command registry), so a test that starts a server takes new
+// instances instead of reusing modules.
+func newModules() []app.Module {
+	return []app.Module{
+		auth.New(),
+		workspace.New(),
+		chat.New(),
+		notify.New(),
+		task.New(),
+		approval.New(),
+		helpdesk.New(),
+	}
 }
 
 func main() {
@@ -169,9 +177,10 @@ func run(ctx context.Context, logger *slog.Logger, available []app.Module) error
 			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername,
 			Password: cfg.SMTPPassword, From: cfg.SMTPFrom,
 		}, logger),
-		Mount:    hub.Mount,
-		Platform: map[string]any{"db": pool, "jwt_secret": cfg.JWTSecret},
-		Checks:   []httpx.Check{{Name: "db", Fn: pool.Ping}},
+		Mount:     hub.Mount,
+		Platform:  map[string]any{"db": pool, "jwt_secret": cfg.JWTSecret},
+		Checks:    []httpx.Check{{Name: "db", Fn: pool.Ping}},
+		RateLimit: cfg.RateLimit,
 	}.withRedis(rdb))
 	if err != nil {
 		return err
@@ -229,6 +238,8 @@ type infra struct {
 	Bus      app.EventBus
 	Platform map[string]any
 	Checks   []httpx.Check
+	// RateLimit is the API-wide limit on /api/v1. The zero value is off.
+	RateLimit config.RateLimit
 }
 
 // withRedis returns in with the Redis client in Platform["redis"] and a
@@ -269,7 +280,15 @@ func newHandler(logger *slog.Logger, names []string, available []app.Module, in 
 		return nil, fmt.Errorf("enable modules: %w", err)
 	}
 
-	r := httpx.NewRouter(logger, observability.HTTPMetrics)
+	if in.Services == nil {
+		in.Services = app.NewServices()
+	}
+	// Metrics wrap the limit so a 429 is counted with its status.
+	outer := []func(http.Handler) http.Handler{observability.HTTPMetrics}
+	if in.RateLimit.Enabled {
+		outer = append(outer, apiRateLimit(logger, in))
+	}
+	r := httpx.NewRouter(logger, outer...)
 	httpx.MountReadiness(r, in.Checks...)
 	r.Get("/metrics", observability.Handler().ServeHTTP)
 	if in.Mount != nil {
@@ -294,6 +313,34 @@ func newHandler(logger *slog.Logger, names []string, available []app.Module, in 
 	subscribeDeviceRevoked(logger, deps.Bus, deps.Realtime)
 	logger.Info("modules started", "modules", started)
 	return r, nil
+}
+
+// apiRateLimit is the API-wide limit on /api/v1 (NFR-07). Counts are kept in
+// Redis when the process has a client, so every instance shares them. Without
+// one, which only tests have, they are kept in memory. A signed-in user counts
+// against the user; a token that the auth module rejects counts against the IP.
+func apiRateLimit(logger *slog.Logger, in infra) func(http.Handler) http.Handler {
+	var limiter ratelimit.Limiter = ratelimit.NewMemory()
+	if rdb, ok := in.Platform["redis"].(goredis.Cmdable); ok {
+		limiter = ratelimit.NewRedis(rdb, "ratelimit:api:")
+	}
+	services := in.Services
+	return ratelimit.Middleware(ratelimit.Options{
+		Logger:         logger,
+		Limiter:        limiter,
+		PerUser:        in.RateLimit.PerUser,
+		PerIP:          in.RateLimit.PerIP,
+		Window:         time.Minute,
+		TrustedProxies: in.RateLimit.TrustedProxies,
+		UserID: func(ctx context.Context, token string) (string, bool) {
+			auth, ok := app.Lookup[app.Authenticator](services)
+			if !ok {
+				return "", false
+			}
+			id, err := auth.Authenticate(ctx, token)
+			return id.UserID, err == nil
+		},
+	})
 }
 
 // userDisconnector is the extra method a revoke of every device needs.

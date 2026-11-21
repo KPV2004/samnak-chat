@@ -14,6 +14,7 @@ components:
       properties:
         user_ids:
           items:
+            maxLength: 36
             type: string
           maxItems: 100
           minItems: 1
@@ -100,10 +101,12 @@ components:
       properties:
         approver_id:
           description: Defaults to the first manager of one of your groups; 400 approver_required when there is none
+          maxLength: 36
           type: string
         attachment_ids:
           description: Files from POST /approval/uploads that you uploaded; each can be used once
           items:
+            maxLength: 36
             type: string
           maxItems: 10
           type:
@@ -112,6 +115,7 @@ components:
         payload:
           additionalProperties: {}
           description: "leave: {leave_type annual|sick|personal|other, start_date, end_date (YYYY-MM-DD, end not before start), half_day? morning|afternoon (one day only), reason (1-1000)}; general: {subject (1-200), details (up to 4000), amount? (decimal string like \"1200.50\"), currency? (default THB)}"
+          maxProperties: 5
           type: object
         type:
           enum:
@@ -189,6 +193,7 @@ components:
       properties:
         reason:
           description: 1 to 1000 characters
+          maxLength: 1000
           type: string
       required:
         - reason
@@ -550,6 +555,7 @@ components:
         member_ids:
           description: Workspace members to add besides the caller
           items:
+            maxLength: 36
             type: string
           maxItems: 100
           type:
@@ -557,9 +563,11 @@ components:
             - "null"
         name:
           description: 1 to 80 characters, unique in the workspace
+          maxLength: 80
           type: string
         topic:
           description: At most 250 characters
+          maxLength: 250
           type: string
         type:
           enum:
@@ -575,11 +583,13 @@ components:
       properties:
         name:
           description: Display name, 1 to 100 characters
+          maxLength: 100
           type: string
         slug:
           description: Unique, 3 to 40 characters of a-z, 0-9 and hyphen
           examples:
             - acme-team
+          maxLength: 40
           type: string
       required:
         - name
@@ -590,6 +600,7 @@ components:
       properties:
         email:
           description: Leave out for a link invite anyone can use once
+          maxLength: 254
           type: string
         role:
           enum:
@@ -605,9 +616,11 @@ components:
       properties:
         assignee_id:
           description: An active member who can read the channel
+          maxLength: 36
           type: string
         channel_id:
           description: The channel the task belongs to; the caller must be able to read it
+          maxLength: 36
           type: string
         description:
           maxLength: 4000
@@ -624,6 +637,7 @@ components:
           type: string
         source_message_id:
           description: The message the task was created from
+          maxLength: 36
           type: string
         title:
           maxLength: 200
@@ -676,6 +690,7 @@ components:
       additionalProperties: false
       properties:
         body:
+          maxLength: 4000
           minLength: 1
           type: string
       required:
@@ -758,6 +773,7 @@ components:
       properties:
         name:
           description: 1 to 100 characters, unique in the workspace ignoring case
+          maxLength: 100
           type: string
       required:
         - name
@@ -827,8 +843,10 @@ components:
           type: boolean
         name:
           description: 1 to 100 characters
+          maxLength: 100
           type: string
         queue_id:
+          maxLength: 36
           type: string
       required:
         - queue_id
@@ -843,9 +861,11 @@ components:
           type: boolean
         name:
           description: 1 to 100 characters
+          maxLength: 100
           type: string
         queue_id:
           description: Move the category to another active queue
+          maxLength: 36
           type: string
       type: object
     HelpdeskComment:
@@ -878,6 +898,7 @@ components:
       properties:
         body:
           description: 1 to 8000 characters
+          maxLength: 8000
           type: string
         internal:
           description: Only agents and admins may write internal comments
@@ -981,7 +1002,9 @@ components:
         user_ids:
           description: The new agents; an empty list removes them all
           items:
+            maxLength: 36
             type: string
+          maxItems: 100
           type: array
       required:
         - user_ids
@@ -991,12 +1014,15 @@ components:
       properties:
         channel_id:
           description: The agents' channel; new tickets of this queue get a card there
+          maxLength: 36
           type: string
         name:
           description: 1 to 100 characters
+          maxLength: 100
           type: string
         prefix:
           description: 2 to 6 letters A to Z, unique in the workspace; stored upper case
+          maxLength: 6
           type: string
       required:
         - name
@@ -1010,11 +1036,13 @@ components:
           type: boolean
         channel_id:
           description: null clears the channel
+          maxLength: 36
           type:
             - string
             - "null"
         name:
           description: 1 to 100 characters
+          maxLength: 100
           type: string
       type: object
     HelpdeskQueuesOutputBody:
@@ -1124,6 +1152,7 @@ components:
       properties:
         assignee_id:
           description: An agent of the queue; an agent may only name themselves
+          maxLength: 36
           type: string
       required:
         - assignee_id
@@ -1134,6 +1163,7 @@ components:
         attachment_ids:
           description: Files from POST /helpdesk/uploads that you uploaded; each can be used once
           items:
+            maxLength: 36
             type: string
           maxItems: 10
           type:
@@ -1141,9 +1171,11 @@ components:
             - "null"
         category_id:
           description: The category; its queue takes the ticket
+          maxLength: 36
           type: string
         description:
           description: Up to 8000 characters; with source_message_id and no description, the message body
+          maxLength: 8000
           type: string
         priority:
           description: Defaults to normal
@@ -1155,9 +1187,11 @@ components:
           type: string
         source_message_id:
           description: A chat message you can read; needs chat
+          maxLength: 36
           type: string
         title:
           description: 1 to 200 characters
+          maxLength: 200
           type: string
       required:
         - category_id
@@ -1277,6 +1311,7 @@ components:
       properties:
         category_id:
           description: A category; a category in another queue moves the ticket and keeps its number
+          maxLength: 36
           type: string
         priority:
           enum:
@@ -1388,6 +1423,7 @@ components:
         is_manager:
           type: boolean
         user_id:
+          maxLength: 36
           type: string
       required:
         - user_id
@@ -1562,6 +1598,7 @@ components:
         seq:
           description: The newest seq the user has seen; a smaller value than before is ignored
           format: int64
+          maximum: 9007199254740991
           minimum: 0
           type: integer
       required:
@@ -1784,6 +1821,7 @@ components:
         user_ids:
           description: The other people; the caller is added
           items:
+            maxLength: 36
             type: string
           maxItems: 8
           minItems: 1
@@ -1799,22 +1837,28 @@ components:
         disabled_kinds:
           description: Kinds the user does not want, e.g. chat.dm
           items:
+            maxLength: 64
             type: string
+          maxItems: 100
           type: array
         dnd_end:
           description: Do-not-disturb end, HH:MM; wraps past midnight when before dnd_start
+          maxLength: 5
           type:
             - string
             - "null"
         dnd_start:
           description: Do-not-disturb start, HH:MM; null with dnd_end null for none
+          maxLength: 5
           type:
             - string
             - "null"
         muted_channel_ids:
           description: Channels whose notices are dropped
           items:
+            maxLength: 36
             type: string
+          maxItems: 500
           type: array
       required:
         - disabled_kinds
@@ -1915,12 +1959,15 @@ components:
       properties:
         args:
           description: The text after the command name; at most 4,000 characters
+          maxLength: 4000
           type: string
         name:
           description: The command, without the slash
+          maxLength: 32
           type: string
         thread_root_id:
           description: Set when the command is typed in a thread
+          maxLength: 36
           type: string
       required:
         - name
@@ -1940,6 +1987,7 @@ components:
         attachment_ids:
           description: Files from POST /chat/uploads that you uploaded to this channel; each can be used once
           items:
+            maxLength: 36
             type: string
           maxItems: 10
           type:
@@ -1947,6 +1995,7 @@ components:
             - "null"
         body:
           description: Markdown, 1 to 4,000 characters; may be empty when attachment_ids is not. Mention people with <@user_id> and everyone with <!channel>
+          maxLength: 4000
           type: string
         client_msg_id:
           description: Generated by the client; sending it again never creates a second message
@@ -1954,6 +2003,7 @@ components:
           type: string
         thread_root_id:
           description: Reply under this top-level message
+          maxLength: 36
           type: string
       required:
         - client_msg_id
@@ -2093,8 +2143,10 @@ components:
           description: true archives the channel, false restores it
           type: boolean
         name:
+          maxLength: 80
           type: string
         topic:
+          maxLength: 250
           type: string
       type: object
     UpdateMeInputBody:
@@ -2117,6 +2169,7 @@ components:
           description: IANA name
           examples:
             - Asia/Bangkok
+          maxLength: 64
           type: string
       type: object
     UpdateMemberInputBody:
@@ -2142,6 +2195,7 @@ components:
       properties:
         assignee_id:
           description: An active member who can read the channel; null clears it
+          maxLength: 36
           type:
             - string
             - "null"
@@ -2176,6 +2230,7 @@ components:
       properties:
         channel_id:
           description: A channel the caller is in
+          maxLength: 36
           type: string
         file_name:
           maxLength: 1024
@@ -2337,6 +2392,7 @@ paths:
           name: status
           schema:
             description: "Comma-separated: pending, approved, rejected, cancelled"
+            maxLength: 35
             type: string
         - description: next_cursor of the previous page
           explode: false
@@ -2344,6 +2400,7 @@ paths:
           name: cursor
           schema:
             description: next_cursor of the previous page
+            maxLength: 36
             type: string
         - description: Page size
           explode: false
@@ -3269,6 +3326,7 @@ paths:
             default: -1
             description: "Catch-up: messages with a larger seq, ascending. -1 (the default) means not set"
             format: int64
+            maximum: 9007199254740991
             minimum: -1
             type: integer
         - description: "History: messages with a smaller seq. 0 (the default) means the newest messages"
@@ -3279,6 +3337,7 @@ paths:
             default: 0
             description: "History: messages with a smaller seq. 0 (the default) means the newest messages"
             format: int64
+            maximum: 9007199254740991
             minimum: 0
             type: integer
         - explode: false
@@ -3296,6 +3355,7 @@ paths:
           name: thread_root_id
           schema:
             description: Only the replies to this message
+            maxLength: 36
             type: string
       responses:
         "200":
@@ -3816,6 +3876,7 @@ paths:
           name: queue_id
           schema:
             description: Only tickets of this queue
+            maxLength: 36
             type: string
         - description: "Comma-separated: new, open, in_progress, waiting, resolved, closed"
           explode: false
@@ -3823,6 +3884,7 @@ paths:
           name: status
           schema:
             description: "Comma-separated: new, open, in_progress, waiting, resolved, closed"
+            maxLength: 44
             type: string
         - description: me, none, or a user ID
           explode: false
@@ -3830,6 +3892,7 @@ paths:
           name: assignee
           schema:
             description: me, none, or a user ID
+            maxLength: 36
             type: string
         - description: "me: the tickets I opened"
           explode: false
@@ -3846,6 +3909,7 @@ paths:
           name: cursor
           schema:
             description: next_cursor of the previous page
+            maxLength: 36
             type: string
         - description: Page size
           explode: false
@@ -4124,6 +4188,7 @@ paths:
           name: before
           schema:
             description: "Cursor: the ID of the last notification of the previous page"
+            maxLength: 36
             type: string
         - description: Page size
           explode: false
@@ -4291,11 +4356,13 @@ paths:
           name: status
           schema:
             description: "Comma-separated statuses: todo, doing, done"
+            maxLength: 15
             type: string
         - explode: false
           in: query
           name: channel_id
           schema:
+            maxLength: 36
             type: string
         - description: "overdue: past due and not done. today: due this UTC day. week: due from the start of this UTC day for seven days"
           explode: false
@@ -4314,6 +4381,7 @@ paths:
           name: cursor
           schema:
             description: next_cursor of the previous page
+            maxLength: 36
             type: string
         - description: Page size
           explode: false
@@ -4487,6 +4555,7 @@ paths:
           name: cursor
           schema:
             description: Opaque cursor from the previous page's next_cursor
+            maxLength: 90
             type: string
         - explode: false
           in: query
@@ -4783,6 +4852,7 @@ paths:
           name: cursor
           schema:
             description: Opaque cursor from the previous page's next_cursor
+            maxLength: 90
             type: string
         - explode: false
           in: query
