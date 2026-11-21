@@ -13,7 +13,15 @@
 	}
 
 	handle /api/* {
-		reverse_proxy server:8080
+		# Every server instance, re-resolved every 2 s, in turn: with the single
+		# name server:8080 Caddy keeps one keep-alive connection and sends almost
+		# everything to one instance (docs/load-test.md).
+		reverse_proxy {
+			dynamic a server 8080 {
+				refresh 2s
+			}
+			lb_policy round_robin
+		}
 	}
 
 	# Presigned uploads and downloads (S3_PUBLIC_ENDPOINT is this site). Caddy

@@ -855,13 +855,13 @@ Found by M6-09: `platform/ratelimit` has no callers, so only login (auth's own l
 
 **Files:** `apps/server/internal/platform/ratelimit/`, `apps/server/internal/platform/httpx/` (middleware hook only), `apps/server/internal/platform/config/`, `apps/server/cmd/server/` (mounting only), every module's `adapter/http/` (struct tags only), `apps/server/internal/acceptance/nfr07_test.go`, `apps/server/api/`, `packages/core/src/api/schema.d.ts` (generated)
 
-## [ ] M6-10 load test (wave 3)
+## [x] M6-10 load test (wave 3)
 **SRS:** NFR-01, NFR-02, NFR-03, NFR-04 · **Size:** M · **Depends on:** Checkpoint I
 
 **Acceptance criteria**
-- [ ] k6 scripts in `scripts/load/` with a seed step: REST mix (p95 < 200 ms), send-to-receive over WebSocket (p95 < 300 ms), 1,000 concurrent sockets on one instance, two instances behind Caddy where every message reaches every recipient
-- [ ] `make load` runs them against `compose.prod.yml` with a `scale` of 2; thresholds fail the run
-- [ ] `docs/load-test.md`: machine, results, `/metrics` screenshots or numbers, and anything fixed or still weak
+- [x] k6 scripts in `scripts/load/` with a seed step: REST mix (p95 < 200 ms), send-to-receive over WebSocket (p95 < 300 ms), 1,000 concurrent sockets on one instance, two instances behind Caddy where every message reaches every recipient
+- [x] `make load` runs them against `compose.prod.yml` with a `scale` of 2; thresholds fail the run
+- [x] `docs/load-test.md`: machine, results, `/metrics` screenshots or numbers, and anything fixed or still weak
 
 **Files:** `scripts/load/` (new), `Makefile`, `deploy/compose.prod.yml` (load profile only), `docs/load-test.md` (new). Report server bottlenecks; do not change server code.
 
