@@ -332,8 +332,8 @@ Same rules as M1: do not edit `cmd/server`, `cmd/migrate`, `internal/app`, anoth
 - [ ] `ChatStore` (framework-free, `subscribe`/`getState` for `useSyncExternalStore`): per channel, messages kept sorted by `seq`, deduplicated by `id` and `client_msg_id`; optimistic send with a generated UUID `client_msg_id`, marked pending, then failed or confirmed; retry resends the same `client_msg_id`
 - [ ] Gap handling: an incoming `seq` greater than `last + 1`, or a reconnect, triggers `GET messages?after_seq=` until `has_more` is false
 - [ ] Applies `message.updated`, `message.deleted`, `channel.read` and `card.updated`; unread counts per channel
-- [ ] Hand-written types for the M2 shapes in `src/api/m2.ts` until checkpoint C
-- [ ] vitest with a fake socket and fake fetch: out-of-order delivery, duplicate delivery, reconnect catch-up, optimistic send confirmed by both the POST response and the WebSocket echo (one message, not two), retry after failure keeps the same `client_msg_id`
+- [x] Hand-written types for the M2 shapes in `src/api/m2.ts` until checkpoint C
+- [x] vitest with a fake socket and fake fetch: out-of-order delivery, duplicate delivery, reconnect catch-up, optimistic send confirmed by both the POST response and the WebSocket echo (one message, not two), retry after failure keeps the same `client_msg_id`
 
 **Files:** `packages/core/`
 
@@ -359,7 +359,7 @@ Same rules as M1: do not edit `cmd/server`, `cmd/migrate`, `internal/app`, anoth
 - [x] The realtime client connects once per signed-in session, re-auths after token refresh, and `store.reset()` runs on workspace switch
 - [x] Thai and English strings for every new label; keyboard and screen-reader friendly (message list is a log region)
 - [x] Tests: component tests for sending (pending → confirmed), receiving over a fake socket, failed send and retry, thread open, mention picker; `npm run build && npm test && npm run lint` pass
-- [ ] Manual: run the server and `API_URL=... npm run dev -w apps/web -- --port 5174`, and check two browser sessions exchange messages (report what you could and could not check)
+- [x] Manual: run the server and `API_URL=... npm run dev -w apps/web -- --port 5174`, and check two browser sessions exchange messages (report what you could and could not check)
 
 **Files:** `apps/web/`, `packages/core/`, `package-lock.json`
 
@@ -877,10 +877,10 @@ Found by M6-09: `platform/ratelimit` has no callers, so only login (auth's own l
 **Files:** `README.md`, `CHANGELOG.md` (new), `CONTRIBUTING.md`, `docs/` (not `docs/ui.md` or `docs/srs.md`), `deploy/README.md` (a short "Demo on your own machine" section only). The worker does the docs; the planner does the demo.
   - 2026-11-21: running on the user's Mac at http://localhost from `samnak-chat-worktrees/demo-v0.1`. Checked in headless Chromium at 1440 and 360 px (no horizontal overflow, no console errors). Firefox and Edge are not installed on the Mac and Safari was not driven: those manual checks are still open (NFR-16).
 
-## [ ] Checkpoint M6: SRS 16.3 acceptance and v0.1.0 (planner)
+## [x] Checkpoint M6: SRS 16.3 acceptance and v0.1.0 (planner)
 - [x] NFR-01 to 03 targets met in `docs/load-test.md`
 - [x] An outsider installs from the README in under 10 minutes
-- [ ] The online demo works; tag `v0.1.0`
+- [x] The online demo works (on the user's Mac, http://localhost); tag `v0.1.0`
 
 # UI round 2: Slack-style redesign and landing page
 
