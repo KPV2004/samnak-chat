@@ -30,9 +30,10 @@ describe("realtime connection", () => {
     expect(socket.url).toBe("ws://test/api/v1/ws");
     expect(socket.sent[0]).toEqual({ type: "auth", data: { access_token: "acc" } });
     // Moving between pages does not reconnect.
-    await user.click(screen.getByRole("link", { name: "Members" }));
+    const apps = screen.getByRole("navigation", { name: "Apps" });
+    await user.click(within(apps).getByRole("link", { name: "Workspace" }));
     await screen.findByRole("heading", { name: "Members" });
-    await user.click(screen.getByRole("link", { name: "Chat" }));
+    await user.click(within(apps).getByRole("link", { name: /Messenger/ }));
     await screen.findByRole("navigation", { name: "Channels and messages" });
     expect(app.sockets).toHaveLength(1);
     expect(socket.closed).toBe(false);
@@ -76,7 +77,8 @@ describe("realtime connection", () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/chat", routes: routes({ "POST /api/v1/auth/logout": () => undefined }) });
     const socket = await app.live();
-    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await user.click(await screen.findByRole("button", { name: "Account menu" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Sign out" }));
     await waitFor(() => expect(socket.closed).toBe(true));
   });
 });

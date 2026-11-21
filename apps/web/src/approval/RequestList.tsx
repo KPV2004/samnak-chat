@@ -1,4 +1,3 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
 import { Inbox } from "lucide-react";
 import { useId } from "react";
 import { Link } from "react-router";
@@ -11,37 +10,25 @@ import { errorKey } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import { DataList, DataRow, ListLoading, LoadMore, stretchedLink } from "../pages/module-ui";
 import { useMe } from "../state/queries";
-import { useSessionState } from "../state/session";
-import { useApprovalApi } from "./api";
 import { statusKeys, statusTones, summarize } from "./format";
+import { useApprovalRequests, type RequestRole } from "./requests";
 import { useNameOf } from "./useMembers";
 
 interface Props {
-  /** requester: my requests; approver: waiting for me (APR-06). */
-  role: "requester" | "approver";
+  role: RequestRole;
   title: string;
   empty: string;
 }
 
-/** One of the two lists on the Approvals page, read a page at a time. */
+/** The list of the Approvals page for one view, read a page at a time. */
 export function RequestList({ role, title, empty }: Props) {
   const t = useT();
   const locale = useCurrentLocale();
-  const api = useApprovalApi();
   const headingId = useId();
-  const { workspaceId } = useSessionState();
   const timeZone = useMe().data?.timezone;
   const nameOf = useNameOf();
 
-  const requests = useInfiniteQuery({
-    queryKey: ["approval", workspaceId, "requests", role],
-    initialPageParam: "",
-    // "Waiting for me" holds only what still needs a decision; decided ones stay in the chat cards.
-    queryFn: ({ pageParam }) =>
-      api.listRequests({ role, status: role === "approver" ? "pending" : undefined, cursor: pageParam || undefined, limit: 20 }),
-    getNextPageParam: (page) => page.next_cursor || undefined,
-    enabled: workspaceId !== null,
-  });
+  const requests = useApprovalRequests(role);
   const items = requests.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (

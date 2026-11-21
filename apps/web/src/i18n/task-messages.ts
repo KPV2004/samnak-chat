@@ -26,6 +26,9 @@ export const taskEn = {
   "task.comments": "Comments",
 
   "task.page.title": "My tasks",
+  "task.views": "Task views",
+  "task.byChannel": "By channel",
+  "task.openCount": "{n} open",
   "task.page.empty": "No tasks match these filters.",
   "task.page.loadError": "Could not load your tasks.",
   "task.filter.any": "Any",
@@ -66,6 +69,9 @@ export const taskTh = {
   "task.comments": "ความเห็น",
 
   "task.page.title": "งานของฉัน",
+  "task.views": "มุมมองงาน",
+  "task.byChannel": "ตามช่อง",
+  "task.openCount": "ค้างอยู่ {n}",
   "task.page.empty": "ไม่มีงานที่ตรงกับตัวกรอง",
   "task.page.loadError": "โหลดงานของคุณไม่สำเร็จ",
   "task.filter.any": "ทั้งหมด",

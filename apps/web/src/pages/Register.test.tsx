@@ -18,7 +18,7 @@ describe("Register", () => {
     await user.type(screen.getByLabelText("Password"), "correct horse");
     await user.click(screen.getByRole("button", { name: "Sign up" }));
 
-    expect(await screen.findByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(await screen.findByRole("navigation", { name: "Apps" })).toBeInTheDocument();
     expect(app.called("POST /api/v1/auth/register")[0]!.body).toEqual({
       display_name: "Mali",
       email: "me@example.com",

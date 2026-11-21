@@ -138,8 +138,9 @@ describe("Notification settings", () => {
   });
 
   it("is linked from the sidebar while notify is enabled", async () => {
-    renderApp({ route: "/", routes: routes() });
-    expect(await screen.findByRole("link", { name: "Notification settings" })).toHaveAttribute(
+    renderApp({ route: "/profile", routes: routes() });
+    const sidebar = await screen.findByRole("navigation", { name: "Account" });
+    expect(await within(sidebar).findByRole("link", { name: "Notification settings" })).toHaveAttribute(
       "href",
       "/notifications/settings",
     );

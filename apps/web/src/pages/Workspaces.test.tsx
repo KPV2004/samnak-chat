@@ -31,7 +31,7 @@ describe("Workspace switcher", () => {
       signedIn: { workspaceId: "gone" },
       routes: { "GET /api/v1/workspace": () => ({ items: [beta] }) },
     });
-    expect(await screen.findByText("Beta", { selector: "strong" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Beta" })).toHaveAttribute("aria-current", "true");
     expect(app.store.load()?.workspaceId).toBe("w2");
   });
 
@@ -61,7 +61,7 @@ describe("New workspace", () => {
     expect(screen.getByLabelText("Short name (slug)")).toHaveValue("my-team-2");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
-    expect(await screen.findByText("My Team 2", { selector: "strong" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "My Team 2" })).toHaveAttribute("aria-current", "true");
     expect(await screen.findByText("Workspace created")).toBeInTheDocument();
     expect(app.called("POST /api/v1/workspace")[0]!.body).toEqual({ name: "My Team 2", slug: "my-team-2" });
     expect(app.store.load()?.workspaceId).toBe("w9");
@@ -99,7 +99,7 @@ describe("Accept invite", () => {
       },
     });
     await user.click(await screen.findByRole("button", { name: "Join" }));
-    expect(await screen.findByText("Beta", { selector: "strong" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Beta" })).toHaveAttribute("aria-current", "true");
     expect(await screen.findByText("You joined Beta")).toBeInTheDocument();
     expect(app.called("POST /api/v1/workspace/invites/accept")[0]!.body).toEqual({ token: "tok123" });
     expect(app.store.load()?.workspaceId).toBe("w2");
@@ -145,7 +145,8 @@ describe("Shell", () => {
   it("signs out from the header", async () => {
     const user = userEvent.setup();
     const app = renderApp({ route: "/", routes: { "POST /api/v1/auth/logout": () => undefined } });
-    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    await user.click(await screen.findByRole("button", { name: "Account menu" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Sign out" }));
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
     expect(app.called("POST /api/v1/auth/logout")[0]!.body).toEqual({ all_devices: false });
   });
