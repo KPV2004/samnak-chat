@@ -918,18 +918,18 @@ Decided 2026-11-19 with the user: follow Slack (workspace rail, channel and DM s
 
 **Files:** `apps/web/src/task/`, `apps/web/src/approval/`, `apps/web/src/helpdesk/`, `apps/web/src/groups/`, `apps/web/src/notify/`, `apps/web/src/pages/` (except `Shell.tsx`), and their tests and i18n files
 
-## [ ] UI-10 landing page (stage 1, independent)
+## [x] UI-10 landing page (stage 1, independent)
 **Size:** M · **Depends on:** none
 
 **Acceptance criteria**
-- [ ] A static landing page built with `/design-taste-frontend` in full, kind `software`: what Samnak Chat is (self-hosted chat for organisations with tasks, approvals and helpdesk inside the conversation), for whom, one hard fact on the first screen, the product's own UI as live HTML in one `app-frame`, modules, self-hosting with Docker Compose, open source (AGPL-3.0); main action "Install on your server" to `deploy/README.md` on GitHub, second action "Open the demo" (link set later); Thai and English pages
-- [ ] Nothing invented: no customers, quotes or numbers that are not true of the project
-- [ ] `gate.mjs` ends with `GATE: PASS` (or `OPEN` with reasons); the report lists waivers, stand-ins and what the user must supply
+- [x] A static landing page built with `/design-taste-frontend` in full, kind `software`: what Samnak Chat is (self-hosted chat for organisations with tasks, approvals and helpdesk inside the conversation), for whom, one hard fact on the first screen, the product's own UI as live HTML in one `app-frame`, modules, self-hosting with Docker Compose, open source (AGPL-3.0); main action "Install on your server" to `deploy/README.md` on GitHub, second action "Open the demo" (link set later); Thai and English pages
+- [x] Nothing invented: no customers, quotes or numbers that are not true of the project
+- [x] `gate.mjs` ends with `GATE: PASS` (or `OPEN` with reasons); the report lists waivers, stand-ins and what the user must supply
 
 **Files:** `apps/landing/` (new, static: `index.html`, `th/index.html`, `assets/`), `README.md` (one link line)
 
-## [ ] Checkpoint UI-2 (planner)
-- [ ] Merge UI-07..10; full CI green; review the screenshots with the user
+## [x] Checkpoint UI-2 (planner)
+- [x] Merge UI-07..10; full CI green; review the screenshots with the user
 
 # Lark-style Messenger: conversation list with pictures and pins
 
