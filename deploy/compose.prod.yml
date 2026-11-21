@@ -19,6 +19,9 @@ x-app: &app
     # and links in emails point there too.
     S3_PUBLIC_ENDPOINT: ${PUBLIC_URL:-http://localhost}
     WEB_URL: ${PUBLIC_URL:-http://localhost}
+    # Only Caddy reaches the server on this network, so its X-Forwarded-For is
+    # believed and the rate limit counts real client addresses (NFR-07).
+    TRUSTED_PROXIES: 172.28.0.0/24
 
 services:
   # Caddy: the built web app on /, the API on /api (including /api/v1/ws).
@@ -115,6 +118,12 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
 
 volumes:
   pgdata:

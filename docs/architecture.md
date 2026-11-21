@@ -392,7 +392,7 @@ With notify disabled, the last step does not happen. Everything else works the s
 - Permissions are checked in the use case layer with `Authorizer.Can(principal, action)`, provided by the workspace module as a service. Each module adds its own actions through `ActionRegistry` in `Init`.
 - Rules that depend on entity state, such as "only the named approver", live in the domain layer.
 - Sign-in does not wait for email verification. The `email_verified` field tells the client whether the address was confirmed.
-- A general limit on all API calls is **planned** (M6-12). Today, only the sign-in, resend and typing limits exist.
+- Every `/api/v1` call is rate limited (NFR-07): per user when signed in (`RATE_LIMIT_PER_MINUTE`, default 600), per client IP otherwise (`RATE_LIMIT_IP_PER_MINUTE`, default 120), counted in Redis. Over the limit the answer is 429 with `Retry-After`. Health checks, `/metrics` and the WebSocket upgrade are not counted. `X-Forwarded-For` is believed only from `TRUSTED_PROXIES`; the production stack sets it to its own network, where only Caddy reaches the server. Sign-in keeps its stricter limit.
 
 ## 13. Clients
 

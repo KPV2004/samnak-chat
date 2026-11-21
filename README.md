@@ -29,7 +29,7 @@ Core modules are always on. Optional modules are switched on with `MODULES_ENABL
 
 The web app is in Thai and English, has a light and a dark theme, and works on phones as well as desktops.
 
-Not in v0.1.0: push notifications, email from the notification module, a desktop app, a mobile app, a limit on all API calls, and helpdesk SLA checks. See [`docs/architecture.md`](docs/architecture.md) for what is planned.
+Not in v0.1.0: push notifications, email from the notification module, a desktop app, a mobile app and helpdesk SLA checks. See [`docs/architecture.md`](docs/architecture.md) for what is planned.
 
 ## Install on your own server
 

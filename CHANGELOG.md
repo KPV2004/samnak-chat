@@ -83,6 +83,8 @@ The first release. It covers milestones M0 to M6 of the plan in [`tasks/plan.md`
 
 - A refresh token that is used again after rotation revokes the device it belongs to.
 - Failed sign-ins are limited per email address and per IP address.
+- Every API call is rate limited, per user when signed in and per client IP otherwise, with 429 and `Retry-After` over the limit.
+- Every request field has a declared length, size or count limit, and a test fails when a new field has none.
 - A test checks that every workspace-scoped endpoint refuses a member of another workspace.
 - `/metrics` is not published through the proxy.
 - Workspace identity comes from the signed-in user's membership, never from the request body.
