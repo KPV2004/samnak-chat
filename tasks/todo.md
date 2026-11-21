@@ -843,15 +843,15 @@ Accepted deviations (M5-01): history columns are `from_value`/`to_value` in SQL;
 - [x] Merge M6-06..09; full CI green (planner added `S3_PUBLIC_ENDPOINT`, Caddy bucket route, `POSTGRES_PASSWORD`/`PUBLIC_URL` from `.env`, coverage over the whole suite with `-coverpkg`: 90.4%)
 - [ ] Fresh clone on a clean machine: follow `deploy/README.md`, working app in under 10 minutes (SRS 16.3 M6)
 
-## [ ] M6-12 API rate limits and input limits (wave 3)
+## [x] M6-12 API rate limits and input limits (wave 3)
 **SRS:** NFR-07 · **Size:** M · **Depends on:** Checkpoint I
 
 Found by M6-09: `platform/ratelimit` has no callers, so only login (auth's own limiter) is rate limited, and `knownLimitGaps` in `internal/acceptance/nfr07_test.go` lists 71 request values with no declared limit.
 
 **Acceptance criteria**
-- [ ] A per-user (and per-IP when signed out) limit on every `/api/v1` route through `platform/ratelimit` on Redis, mounted in the router; 429 with `Retry-After`; limits in config with sane defaults; login keeps its stricter limit
-- [ ] Every entry of `knownLimitGaps` gets a schema limit (`maxLength`, `maximum`, `maxItems`, `maxProperties`) that matches what the usecase allows; the list ends empty and the test stays exact
-- [ ] Tests for 429 and for one limit per module; `go test -race ./...` passes; OpenAPI regenerated
+- [x] A per-user (and per-IP when signed out) limit on every `/api/v1` route through `platform/ratelimit` on Redis, mounted in the router; 429 with `Retry-After`; limits in config with sane defaults; login keeps its stricter limit
+- [x] Every entry of `knownLimitGaps` gets a schema limit (`maxLength`, `maximum`, `maxItems`, `maxProperties`) that matches what the usecase allows; the list ends empty and the test stays exact
+- [x] Tests for 429 and for one limit per module; `go test -race ./...` passes; OpenAPI regenerated
 
 **Files:** `apps/server/internal/platform/ratelimit/`, `apps/server/internal/platform/httpx/` (middleware hook only), `apps/server/internal/platform/config/`, `apps/server/cmd/server/` (mounting only), every module's `adapter/http/` (struct tags only), `apps/server/internal/acceptance/nfr07_test.go`, `apps/server/api/`, `packages/core/src/api/schema.d.ts` (generated)
 
@@ -869,8 +869,8 @@ Found by M6-09: `platform/ratelimit` has no callers, so only login (auth's own l
 **SRS:** NFR-16, NFR-18, SRS 16.3 M6 · **Size:** S · **Depends on:** Checkpoint I, hosting chosen by the user
 
 **Acceptance criteria**
-- [ ] README: what it is, screenshots, install via `deploy/README.md`, development setup, modules; status `v0.1.0`
-- [ ] `CHANGELOG.md` for 0.1.0; `docs/architecture.md` matches the code (modules, contracts, outbox, metrics); CONTRIBUTING up to date
+- [x] README: what it is, screenshots, install via `deploy/README.md`, development setup, modules; status `v0.1.0`
+- [x] `CHANGELOG.md` for 0.1.0; `docs/architecture.md` matches the code (modules, contracts, outbox, metrics); CONTRIBUTING up to date
 - [ ] Demo: the user chose 2026-11-21 to host it on their own Mac. The planner runs `deploy/compose.prod.yml` there from a fresh clone (this is also Checkpoint I's install test), with seed data and sign-up open; reaching it from the internet (a tunnel) only with the user's explicit OK. Manual check in the latest Chrome, Firefox, Safari and Edge available on the Mac, and at 360 px width (NFR-16)
 
 **Files:** `README.md`, `CHANGELOG.md` (new), `CONTRIBUTING.md`, `docs/` (not `docs/ui.md` or `docs/srs.md`), `deploy/README.md` (a short "Demo on your own machine" section only). The worker does the docs; the planner does the demo.
