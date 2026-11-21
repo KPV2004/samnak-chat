@@ -871,9 +871,9 @@ Found by M6-09: `platform/ratelimit` has no callers, so only login (auth's own l
 **Acceptance criteria**
 - [ ] README: what it is, screenshots, install via `deploy/README.md`, development setup, modules; status `v0.1.0`
 - [ ] `CHANGELOG.md` for 0.1.0; `docs/architecture.md` matches the code (modules, contracts, outbox, metrics); CONTRIBUTING up to date
-- [ ] Demo deployed on the chosen host with seed data and a public sign-up; manual check in the latest two Chrome, Firefox, Safari and Edge, and at 360 px width (NFR-16)
+- [ ] Demo: the user chose 2026-11-21 to host it on their own Mac. The planner runs `deploy/compose.prod.yml` there from a fresh clone (this is also Checkpoint I's install test), with seed data and sign-up open; reaching it from the internet (a tunnel) only with the user's explicit OK. Manual check in the latest Chrome, Firefox, Safari and Edge available on the Mac, and at 360 px width (NFR-16)
 
-**Files:** `README.md`, `CHANGELOG.md` (new), `CONTRIBUTING.md`, `docs/`, `deploy/` (demo config only)
+**Files:** `README.md`, `CHANGELOG.md` (new), `CONTRIBUTING.md`, `docs/` (not `docs/ui.md` or `docs/srs.md`), `deploy/README.md` (a short "Demo on your own machine" section only). The worker does the docs; the planner does the demo.
 
 ## [ ] Checkpoint M6: SRS 16.3 acceptance and v0.1.0 (planner)
 - [ ] NFR-01 to 03 targets met in `docs/load-test.md`
