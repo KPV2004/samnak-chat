@@ -84,6 +84,7 @@ To check one module set, run `bash scripts/check-modules.sh <MODULES_ENABLED or 
 - [Decision records](docs/adr/)
 - [Web design system](docs/ui.md)
 - [Self-hosting](deploy/README.md)
+- [Landing page](apps/landing/) (static, English and Thai)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 - [Plan and task board](tasks/plan.md) and [`tasks/todo.md`](tasks/todo.md)

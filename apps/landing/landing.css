@@ -1,0 +1,211 @@
+/* Samnak Chat landing: page CSS, only what sits inside a visual (the app window, the cards of the
+   product, the members list) and the few section rules the kit has no class for. The look of the
+   cards follows the real app (apps/web: TaskCard, ApprovalCard, HelpdeskCard): a bordered card with a
+   coloured left bar for the state, a small label, a status badge, the title, one line of who and when. */
+
+/* ---------- the product's own UI: one set of tokens, light, on the page's teal ---------- */
+.sc {
+  --sc-bg: #ffffff; --sc-ink: #14262a; --sc-muted: #5a6b6e; --sc-line: rgb(20 38 42 / .11);
+  --sc-fill: #f3f6f5; --sc-side: #0c4a53; --sc-side-ink: #e7f0f0; --sc-side-muted: #9bbcc0;
+  --sc-on: rgb(255 255 255 / .12);
+  --sc-todo: #5a6b6e; --sc-todo-bg: #eceff0;
+  --sc-doing: #0b5c8a; --sc-doing-bg: #e3f0f8;
+  --sc-ok: #17673f; --sc-ok-bg: #e7f4ec;
+  --sc-wait: #8a5300; --sc-wait-bg: #fdf0dc;
+  --sc-accent: #06525c;
+  background: var(--sc-bg); color: var(--sc-ink); font: 400 14px/1.45 var(--font-text); text-align: left;
+}
+.sc * { box-sizing: border-box; }
+.sc b, .sc strong { font-weight: 500; }
+.sc :lang(th), .sc:lang(th) { line-height: 1.6; }
+
+.sc-av { display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 8px; font-size: 13px; font-weight: 500; color: #fff; background: #3a7f87; }
+.sc-av[data-t="2"] { background: #9a5b2e; } .sc-av[data-t="3"] { background: #4d6f3a; } .sc-av[data-t="4"] { background: #8a4560; } .sc-av[data-t="5"] { background: #46608f; }
+
+.sc-badge { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 99px; font-size: 13px; font-weight: 500; white-space: nowrap; background: var(--sc-todo-bg); color: var(--sc-todo); }
+.sc-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.sc-badge[data-s="doing"] { background: var(--sc-doing-bg); color: var(--sc-doing); }
+.sc-badge[data-s="done"], .sc-badge[data-s="approved"] { background: var(--sc-ok-bg); color: var(--sc-ok); }
+.sc-badge[data-s="waiting"] { background: var(--sc-wait-bg); color: var(--sc-wait); }
+.sc-badge--line { background: none; box-shadow: inset 0 0 0 1px var(--sc-line); color: var(--sc-muted); }
+.sc-badge--line::before { display: none; }
+
+/* the card family of the app: border, 3px bar on the left in the state's colour */
+.sc-card { display: grid; gap: 8px; max-width: 420px; padding: 12px 14px; border: 1px solid var(--sc-line); border-left: 3px solid var(--sc-todo); border-radius: 10px; background: var(--sc-bg); }
+.sc-card[data-s="doing"] { border-left-color: var(--sc-doing); }
+.sc-card[data-s="done"], .sc-card[data-s="approved"] { border-left-color: var(--sc-ok); }
+.sc-card[data-s="waiting"] { border-left-color: var(--sc-wait); }
+.sc-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.sc-card__kind { margin: 0; font-size: 13px; color: var(--sc-muted); }
+.sc-card__title { margin: 0; font-weight: 500; }
+.sc-card__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--sc-muted); }
+.sc-card__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid var(--sc-line); font-size: 13px; color: var(--sc-muted); }
+.sc-select { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--sc-line); color: var(--sc-ink); font-size: 13px; }
+.sc-select::after { content: ""; width: 6px; height: 6px; border: solid var(--sc-muted); border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
+.sc-btn { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 6px; font-size: 13px; font-weight: 500; background: var(--sc-accent); color: #fff; }
+.sc-btn--line { background: none; color: var(--sc-ink); box-shadow: inset 0 0 0 1px var(--sc-line-2, rgb(20 38 42 / .22)); }
+.sc-btn--ghost { background: none; color: var(--sc-muted); padding: 0 6px; }
+.sc-card__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* a window with the sidebar at its left */
+.sc-win { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-width: 0; }
+.sc-side { background: var(--sc-side); color: var(--sc-side-ink); padding: 14px 10px; display: grid; align-content: start; gap: 2px; font-size: 14px; }
+.sc-side__ws { display: flex; align-items: center; gap: 10px; padding: 2px 8px 12px; font-weight: 500; font-size: 15px; }
+.sc-side__ws .sc-av { width: 28px; height: 28px; background: #e7f0f0; color: var(--sc-side); }
+.sc-side__label { margin: 10px 0 2px; padding: 0 8px; font-size: 13px; color: var(--sc-side-muted); }
+.sc-side__item { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 6px; color: var(--sc-side-ink); white-space: nowrap; }
+.sc-side__item i { font-style: normal; width: 14px; text-align: center; color: var(--sc-side-muted); }
+.sc-side__item.is-on { background: var(--sc-on); font-weight: 500; }
+.sc-side__item.is-new { font-weight: 500; }
+.sc-side__item em { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #f3f6f5; color: var(--sc-side); font-style: normal; font-size: 13px; font-weight: 500; display: grid; place-items: center; }
+
+.sc-chan { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.sc-chan__head { display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 20px; border-bottom: 1px solid var(--sc-line); }
+.sc-chan__head b { font-size: 16px; }
+.sc-chan__head span { color: var(--sc-muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-msgs { display: grid; align-content: start; gap: 4px; padding: 16px 20px; overflow: hidden; min-height: 0; }
+.sc-day { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; font-size: 13px; color: var(--sc-muted); }
+.sc-day::before, .sc-day::after { content: ""; flex: 1; height: 1px; background: var(--sc-line); }
+.sc-msg { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 4px 12px; padding: 6px 0; }
+.sc-msg__who { display: flex; align-items: baseline; gap: 8px; }
+.sc-msg__who b { font-size: 14px; }
+.sc-msg__who time { font-size: 13px; color: var(--sc-muted); }
+.sc-msg p { margin: 0; }
+.sc-msg__col { display: grid; gap: 6px; min-width: 0; }
+.sc-reply { display: inline-flex; align-items: center; gap: 8px; width: fit-content; color: var(--sc-accent); font-size: 13px; font-weight: 500; }
+.sc-reply .sc-av { width: 20px; height: 20px; font-size: 13px; border-radius: 5px; }
+.sc-compose { margin: 0 20px 16px; border-radius: 10px; box-shadow: inset 0 0 0 1px rgb(20 38 42 / .22); }
+.sc-compose__row { padding: 10px 12px; color: var(--sc-muted); }
+.sc-compose__tools { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--sc-line); color: var(--sc-muted); font-size: 13px; }
+.sc-compose__tools span { padding: 2px 6px; }
+.sc-compose__tools .sc-btn { margin-left: auto; }
+
+/* ---------- the hero: the window cut by its frame, and the one small card over it ---------- */
+.hero__art { background:
+    radial-gradient(70% 60% at 18% 12%, color-mix(in oklab, var(--ground-surface) 80%, white), transparent 70%),
+    radial-gradient(60% 50% at 90% 100%, color-mix(in oklab, var(--ground-bg) 80%, var(--ground-accent)), transparent 70%),
+    var(--ground-bg); }
+.hero__art > .ly-piece--main { box-shadow: 0 0 0 1px rgb(0 0 0 / .08), 0 24px 60px -28px rgb(6 50 58 / .5); border-radius: 12px; overflow: hidden; }
+.hero__art > .ly-piece--note { left: calc(var(--s-8) + var(--s-5)); bottom: var(--s-6); width: 320px; z-index: 2; }
+.hero__proof { font-size: var(--t-small); color: var(--muted); }
+.sc-tasks { display: flex; min-height: 720px; }
+.sc-tasks__main { flex: 1 1 auto; padding: 18px 20px; display: grid; align-content: start; gap: 12px; min-width: 0; padding-right: var(--ly-cut-room, 48px); }
+.sc-tasks__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sc-tasks__head b { font-size: 16px; }
+.sc-tabs { display: flex; gap: 4px; font-size: 13px; }
+.sc-tabs span { padding: 3px 10px; border-radius: 99px; color: var(--sc-muted); }
+.sc-tabs span.is-on { background: #e9eeed; color: var(--sc-ink); font-weight: 500; }
+.sc-rows { display: grid; border-top: 1px solid var(--sc-line); }
+.sc-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--sc-line); font-size: 14px; }
+.sc-row b { display: block; font-weight: 500; }
+.sc-row small { color: var(--sc-muted); font-size: 13px; }
+.sc-row .sc-badge { justify-self: end; }
+.hero__art .sc-card { max-width: none; box-shadow: 0 0 0 1px rgb(0 0 0 / .06), 0 14px 32px -18px rgb(0 0 0 / .35); }
+.hero__art .sc-line { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #3d4a4d; }
+.hero__art .sc-line i { width: 18px; height: 18px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--sc-ok-bg); color: var(--sc-ok); font-style: normal; font-size: 13px; font-weight: 500; }
+.hero__art .sc-line i.is-wait { background: var(--sc-wait-bg); color: var(--sc-wait); }
+@media (max-width: 1023px) { .hero__art > .ly-piece--note { left: calc(var(--s-6) + var(--s-4)); bottom: var(--s-4); width: 290px; } }
+@media (max-width: 1279px) { .sc-row:nth-child(n+5) { display: none; } }
+@media (max-width: 639px) { .sc-row { grid-template-columns: minmax(0, 1fr) 90px; }   .sc-row:nth-child(n+3) { display: none; } .hero__art { margin-top: var(--s-5); } }
+
+/* ---------- the app frame: the product across the .wrap ---------- */
+.app.ui { display: grid; grid-template-columns: 240px minmax(0, 1fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); overflow: hidden; }
+.app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 56px; background: linear-gradient(transparent, var(--sc-bg)); pointer-events: none; }
+.app > .app__pane--list::after { display: none; }
+.app .sc-side { height: 100%; }
+.app .sc-chan { height: 100%; }
+.app .sc-compose { position: relative; z-index: 1; }
+@media (max-width: 1023px) {
+  .app.ui { grid-template-columns: minmax(0, 1fr); }
+  .app > .app__pane--list { display: none; }
+}
+
+/* ---------- the modules: one frame, three cards on a lit ground ---------- */
+.mo-pc__visuals .mo-pc__visual { display: grid; place-items: center; background:
+    radial-gradient(80% 70% at 20% 0%, color-mix(in oklab, var(--ground-surface) 80%, white), transparent 70%),
+    var(--ground-bg); }
+.mo-pc__visual .sc-card { font-size: 15px; width: min(100% - 48px, 480px); box-shadow: 0 0 0 1px rgb(0 0 0 / .06), 0 14px 32px -18px rgb(0 0 0 / .35); }
+.mo-pc__visual .sc-ctx { position: absolute; left: 24px; top: 20px; right: 24px; font-size: 13px; color: #3d4a4d; display: flex; align-items: center; gap: 8px; }
+.mo-pc__visual .sc-ctx b { font-weight: 500; }
+
+/* ---------- self-hosting: the commands and the stack ---------- */
+.cmd { margin: 0; padding: var(--s-5) var(--s-5); border-radius: var(--r-lg); background: var(--p-inv-bg); color: var(--p-inv-ink); font: 400 13px/1.7 var(--font-mono); }
+.cmd > span { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmd .c { color: var(--p-inv-muted); }
+.install__facts { display: grid; gap: var(--s-2); margin: var(--s-5) 0 0; padding: 0; list-style: none; }
+.install__facts li { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: var(--s-4); padding: var(--s-2) 0; border-top: 1px solid color-mix(in oklab, var(--ink) 12%, transparent); }
+.install__facts b { font-weight: 500; }
+
+/* ---------- open source: the members list ---------- */
+.sc-members { display: grid; padding: 4px 0; }
+.sc-member { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--sc-line); }
+.sc-member:first-child { border-top: 0; }
+.sc-member b { display: block; }
+.sc-member small { color: var(--sc-muted); font-size: 13px; }
+.sc-members__head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--sc-line); font-weight: 500; }
+.open__gh { margin-top: var(--s-5); display: flex; width: fit-content; align-items: center; gap: var(--s-3); }
+.open__gh .icon-mono, .open__gh img { width: 24px; height: 24px; }
+
+/* the Thai pages: Manrope has no Thai letters, so a Thai face follows it, and Thai needs more line height */
+:lang(th) { --font-display: "Manrope", "IBM Plex Sans Thai", system-ui, sans-serif; --font-text: "Manrope", "IBM Plex Sans Thai", system-ui, sans-serif; }
+
+.faq.grid { grid-auto-rows: 1fr; }
+.faq.grid > .faq__item { align-self: stretch; }
+@media (min-width: 640px) and (max-width: 1023px) { .faq.grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .faq.grid > .faq__item { grid-column: auto; } }
+.cmd + .install__facts { margin-top: var(--s-6); }
+.t-lead + .cmd { margin-top: var(--s-6); }
+
+#install .panel { --p-h: 420px; }
+#open .panel { --p-h: 336px; }
+@media (min-width: 640px) and (max-width: 1023px) { #install .panel { --p-h: 270px; } }
+
+/* a phone: the nav keeps the logo and the menu button; the main action is the hero's, and the sheet's */
+@media (max-width: 639px) {
+  .nav:not(.is-open) .nav__actions { display: none; }
+  .nav:not(.is-open) .nav__actions + .nav__toggle { margin-left: auto; }
+}
+
+@media (max-width: 639px) {
+  .sc-tabs { display: none; }
+  .sc-tasks__main { padding: 14px 16px; }
+  .app .sc-msg:last-child, .app .sc-reply, .sc-chan__head span { display: none; }
+  #install .panel { --p-h: 200px; }
+  #install .install__facts li:nth-child(n+2) { display: none; }
+  #install .cmd > span:nth-child(-n+3) { display: none; }
+  #faq .faq.grid { row-gap: var(--s-3); }
+  #faq .faq__item:nth-child(n+4) { display: none; }
+}
+
+.hero .btn-row > .btn--secondary { margin-inline-start: calc(-1 * var(--s-2)); }
+@media (max-width: 639px) { .hero .btn-row > .btn--secondary { margin-inline-start: 0; } }
+
+/* tablet: the footer's three link columns share the row; the FAQ fills its screen */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .closing__links .grid > .footer__col, .closing__links .grid > .start-7 { grid-column: span 4; }
+  .closing__links .grid > .span-6 { grid-column: 1 / -1; }
+  #faq .faq__item { padding-block: calc(var(--s-5) + 1.5svh); }
+  :lang(th) #faq .faq__item { padding-block: calc(var(--s-5) + 4svh); }
+  #open .panel { --p-h: 420px; }
+  #open .sc-member { padding-block: 18px; }
+  [data-moment="pinned-chapters"]:not(.is-live) .mo-pc__visual { min-height: 19svh; }
+}
+/* a phone: the modules section rests two whole screens tall, its three steps with taller visuals */
+@media (max-width: 639px) {
+  main > section#modules[data-moment]:not(.is-live) { min-height: 200lvh; }
+  #modules .mo-pc__visual { min-height: 320px; place-items: end center; padding-bottom: 28px; }
+  #faq .faq__item { padding-block: 28px; }
+  #modules .mo-pc__steps { gap: 48px; }
+}
+@media (max-width: 639px) { .open__gh { width: 100%; } }
+
+@media (max-width: 359px) { .btn--xl { font-size: 18px; padding-inline: var(--s-4); } }
+@media (max-width: 639px) {
+  :lang(th) #modules .mo-pc__steps { gap: 56px; }
+  :lang(th) #modules .mo-pc__visual { min-height: 330px; }
+  :lang(th) #faq .faq__item { padding-block: 40px; }
+  :lang(th) #install { --padt: 68px; }
+}
+
+:lang(th) :is(h1, h2, h3, .btn) { overflow-wrap: anywhere; }
+:lang(th) .btn--xl { white-space: normal; height: auto; min-height: var(--btn-h); padding-block: var(--s-2); }
