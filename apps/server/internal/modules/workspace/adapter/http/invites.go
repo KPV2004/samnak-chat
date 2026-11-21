@@ -59,7 +59,7 @@ func toInvite(i domain.Invite, token string) Invite {
 
 type createInviteInput struct {
 	Body struct {
-		Email string   `json:"email,omitempty" doc:"Leave out for a link invite anyone can use once"`
+		Email string   `json:"email,omitempty" maxLength:"254" doc:"Leave out for a link invite anyone can use once"`
 		Role  app.Role `json:"role" enum:"admin,member,guest"`
 	}
 }

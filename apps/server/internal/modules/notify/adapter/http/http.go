@@ -83,7 +83,7 @@ func (h *Handler) fail(ctx context.Context, err error) error {
 
 type listInput struct {
 	Unread bool   `query:"unread" default:"false" doc:"Only unread notifications"`
-	Before string `query:"before" doc:"Cursor: the ID of the last notification of the previous page"`
+	Before string `query:"before" maxLength:"36" doc:"Cursor: the ID of the last notification of the previous page"`
 	Limit  int    `query:"limit" default:"20" minimum:"1" maximum:"50" doc:"Page size"`
 }
 

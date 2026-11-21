@@ -134,9 +134,9 @@ func (h *Handler) listChannels(ctx context.Context, in *listChannelsInput) (*lis
 type createChannelInput struct {
 	Body struct {
 		Type      string   `json:"type" enum:"public,private"`
-		Name      string   `json:"name" doc:"1 to 80 characters, unique in the workspace"`
-		Topic     string   `json:"topic,omitempty" doc:"At most 250 characters"`
-		MemberIDs []string `json:"member_ids,omitempty" maxItems:"100" doc:"Workspace members to add besides the caller"`
+		Name      string   `json:"name" maxLength:"80" doc:"1 to 80 characters, unique in the workspace"`
+		Topic     string   `json:"topic,omitempty" maxLength:"250" doc:"At most 250 characters"`
+		MemberIDs []string `json:"member_ids,omitempty" maxItems:"100" maxLength:"36" doc:"Workspace members to add besides the caller"`
 	}
 }
 
@@ -156,7 +156,7 @@ func (h *Handler) createChannel(ctx context.Context, in *createChannelInput) (*c
 
 type openDMInput struct {
 	Body struct {
-		UserIDs []string `json:"user_ids" minItems:"1" maxItems:"8" doc:"The other people; the caller is added"`
+		UserIDs []string `json:"user_ids" minItems:"1" maxItems:"8" maxLength:"36" doc:"The other people; the caller is added"`
 	}
 }
 
@@ -191,8 +191,8 @@ func (h *Handler) getChannel(ctx context.Context, in *idInput) (*channelOutput, 
 type updateChannelInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		Name     *string `json:"name,omitempty"`
-		Topic    *string `json:"topic,omitempty"`
+		Name     *string `json:"name,omitempty" maxLength:"80"`
+		Topic    *string `json:"topic,omitempty" maxLength:"250"`
 		Archived *bool   `json:"archived,omitempty" doc:"true archives the channel, false restores it"`
 	}
 }
@@ -279,7 +279,7 @@ func (h *Handler) listMembers(ctx context.Context, in *idInput) (*listMembersOut
 type addMembersInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		UserIDs []string `json:"user_ids" minItems:"1" maxItems:"100"`
+		UserIDs []string `json:"user_ids" minItems:"1" maxItems:"100" maxLength:"36"`
 	}
 }
 

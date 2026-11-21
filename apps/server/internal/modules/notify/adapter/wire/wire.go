@@ -45,10 +45,10 @@ func ToNotifications(ns []domain.Notification) []Notification {
 // them and PUT replaces them. Times are "HH:MM" in the user's time zone; both
 // are null when there is no do-not-disturb window.
 type Preferences struct {
-	DisabledKinds   []string `json:"disabled_kinds" nullable:"false" doc:"Kinds the user does not want, e.g. chat.dm"`
-	MutedChannelIDs []string `json:"muted_channel_ids" nullable:"false" doc:"Channels whose notices are dropped"`
-	DNDStart        *string  `json:"dnd_start" nullable:"true" doc:"Do-not-disturb start, HH:MM; null with dnd_end null for none"`
-	DNDEnd          *string  `json:"dnd_end" nullable:"true" doc:"Do-not-disturb end, HH:MM; wraps past midnight when before dnd_start"`
+	DisabledKinds   []string `json:"disabled_kinds" nullable:"false" maxItems:"100" maxLength:"64" doc:"Kinds the user does not want, e.g. chat.dm"`
+	MutedChannelIDs []string `json:"muted_channel_ids" nullable:"false" maxItems:"500" maxLength:"36" doc:"Channels whose notices are dropped"`
+	DNDStart        *string  `json:"dnd_start" nullable:"true" maxLength:"5" doc:"Do-not-disturb start, HH:MM; null with dnd_end null for none"`
+	DNDEnd          *string  `json:"dnd_end" nullable:"true" maxLength:"5" doc:"Do-not-disturb end, HH:MM; wraps past midnight when before dnd_start"`
 }
 
 // ToPreferences converts stored settings.

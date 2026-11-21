@@ -142,9 +142,9 @@ func (h *Handler) listQueues(ctx context.Context, _ *struct{}) (*helpdeskQueuesO
 
 type helpdeskQueueCreateInput struct {
 	Body struct {
-		Name      string `json:"name" doc:"1 to 100 characters"`
-		Prefix    string `json:"prefix" doc:"2 to 6 letters A to Z, unique in the workspace; stored upper case"`
-		ChannelID string `json:"channel_id,omitempty" doc:"The agents' channel; new tickets of this queue get a card there"`
+		Name      string `json:"name" maxLength:"100" doc:"1 to 100 characters"`
+		Prefix    string `json:"prefix" maxLength:"6" doc:"2 to 6 letters A to Z, unique in the workspace; stored upper case"`
+		ChannelID string `json:"channel_id,omitempty" maxLength:"36" doc:"The agents' channel; new tickets of this queue get a card there"`
 	}
 }
 
@@ -167,8 +167,8 @@ func (h *Handler) createQueue(ctx context.Context, in *helpdeskQueueCreateInput)
 type helpdeskQueueUpdateInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		Name      *string          `json:"name,omitempty" doc:"1 to 100 characters"`
-		ChannelID nullable[string] `json:"channel_id,omitempty" doc:"null clears the channel"`
+		Name      *string          `json:"name,omitempty" maxLength:"100" doc:"1 to 100 characters"`
+		ChannelID nullable[string] `json:"channel_id,omitempty" maxLength:"36" doc:"null clears the channel"`
 		Archived  *bool            `json:"archived,omitempty" doc:"true hides the queue and its categories; false restores it"`
 	}
 }
@@ -195,7 +195,7 @@ func (h *Handler) updateQueue(ctx context.Context, in *helpdeskQueueUpdateInput)
 type helpdeskQueueAgentsInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		UserIDs []string `json:"user_ids" nullable:"false" doc:"The new agents; an empty list removes them all"`
+		UserIDs []string `json:"user_ids" nullable:"false" maxItems:"100" maxLength:"36" doc:"The new agents; an empty list removes them all"`
 	}
 }
 
@@ -212,8 +212,8 @@ func (h *Handler) setAgents(ctx context.Context, in *helpdeskQueueAgentsInput) (
 
 type helpdeskCategoryCreateInput struct {
 	Body struct {
-		QueueID   string `json:"queue_id"`
-		Name      string `json:"name" doc:"1 to 100 characters"`
+		QueueID   string `json:"queue_id" maxLength:"36"`
+		Name      string `json:"name" maxLength:"100" doc:"1 to 100 characters"`
 		IsDefault bool   `json:"is_default,omitempty" doc:"Takes the default from the category that had it"`
 	}
 }
@@ -237,8 +237,8 @@ func (h *Handler) createCategory(ctx context.Context, in *helpdeskCategoryCreate
 type helpdeskCategoryUpdateInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		Name      *string `json:"name,omitempty" doc:"1 to 100 characters"`
-		QueueID   *string `json:"queue_id,omitempty" doc:"Move the category to another active queue"`
+		Name      *string `json:"name,omitempty" maxLength:"100" doc:"1 to 100 characters"`
+		QueueID   *string `json:"queue_id,omitempty" maxLength:"36" doc:"Move the category to another active queue"`
 		IsDefault *bool   `json:"is_default,omitempty"`
 		Archived  *bool   `json:"archived,omitempty"`
 	}
@@ -261,12 +261,12 @@ func (h *Handler) updateCategory(ctx context.Context, in *helpdeskCategoryUpdate
 
 type helpdeskTicketCreateInput struct {
 	Body struct {
-		CategoryID      string   `json:"category_id" doc:"The category; its queue takes the ticket"`
-		Title           string   `json:"title" doc:"1 to 200 characters"`
-		Description     string   `json:"description,omitempty" doc:"Up to 8000 characters; with source_message_id and no description, the message body"`
+		CategoryID      string   `json:"category_id" maxLength:"36" doc:"The category; its queue takes the ticket"`
+		Title           string   `json:"title" maxLength:"200" doc:"1 to 200 characters"`
+		Description     string   `json:"description,omitempty" maxLength:"8000" doc:"Up to 8000 characters; with source_message_id and no description, the message body"`
 		Priority        string   `json:"priority,omitempty" enum:"low,normal,high,urgent" doc:"Defaults to normal"`
-		SourceMessageID string   `json:"source_message_id,omitempty" doc:"A chat message you can read; needs chat"`
-		AttachmentIDs   []string `json:"attachment_ids,omitempty" maxItems:"10" doc:"Files from POST /helpdesk/uploads that you uploaded; each can be used once"`
+		SourceMessageID string   `json:"source_message_id,omitempty" maxLength:"36" doc:"A chat message you can read; needs chat"`
+		AttachmentIDs   []string `json:"attachment_ids,omitempty" maxItems:"10" maxLength:"36" doc:"Files from POST /helpdesk/uploads that you uploaded; each can be used once"`
 	}
 }
 
@@ -291,11 +291,11 @@ func (h *Handler) createTicket(ctx context.Context, in *helpdeskTicketCreateInpu
 }
 
 type helpdeskTicketListInput struct {
-	QueueID   string `query:"queue_id" doc:"Only tickets of this queue"`
-	Status    string `query:"status" doc:"Comma-separated: new, open, in_progress, waiting, resolved, closed"`
-	Assignee  string `query:"assignee" doc:"me, none, or a user ID"`
+	QueueID   string `query:"queue_id" maxLength:"36" doc:"Only tickets of this queue"`
+	Status    string `query:"status" maxLength:"44" doc:"Comma-separated: new, open, in_progress, waiting, resolved, closed"`
+	Assignee  string `query:"assignee" maxLength:"36" doc:"me, none, or a user ID"`
 	Requester string `query:"requester" enum:"me" doc:"me: the tickets I opened"`
-	Cursor    string `query:"cursor" doc:"next_cursor of the previous page"`
+	Cursor    string `query:"cursor" maxLength:"36" doc:"next_cursor of the previous page"`
 	Limit     int    `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Page size"`
 }
 
@@ -346,7 +346,7 @@ func (h *Handler) getTicket(ctx context.Context, in *helpdeskTicketIDInput) (*he
 type helpdeskTicketAssignInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		AssigneeID string `json:"assignee_id" doc:"An agent of the queue; an agent may only name themselves"`
+		AssigneeID string `json:"assignee_id" maxLength:"36" doc:"An agent of the queue; an agent may only name themselves"`
 	}
 }
 
@@ -385,7 +385,7 @@ type helpdeskTicketEditInput struct {
 	ID   string `path:"id"`
 	Body struct {
 		Priority   *string `json:"priority,omitempty" enum:"low,normal,high,urgent"`
-		CategoryID *string `json:"category_id,omitempty" doc:"A category; a category in another queue moves the ticket and keeps its number"`
+		CategoryID *string `json:"category_id,omitempty" maxLength:"36" doc:"A category; a category in another queue moves the ticket and keeps its number"`
 	}
 }
 
@@ -409,7 +409,7 @@ func (h *Handler) editTicket(ctx context.Context, in *helpdeskTicketEditInput) (
 type helpdeskCommentInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		Body     string `json:"body" doc:"1 to 8000 characters"`
+		Body     string `json:"body" maxLength:"8000" doc:"1 to 8000 characters"`
 		Internal bool   `json:"internal,omitempty" doc:"Only agents and admins may write internal comments"`
 	}
 }

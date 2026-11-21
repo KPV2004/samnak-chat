@@ -178,7 +178,7 @@ type updateMeInput struct {
 		DisplayName *string `json:"display_name,omitempty" minLength:"1" maxLength:"100"`
 		AvatarURL   *string `json:"avatar_url,omitempty" maxLength:"2048" doc:"http or https URL; empty removes the avatar"`
 		Locale      *string `json:"locale,omitempty" enum:"th,en"`
-		Timezone    *string `json:"timezone,omitempty" doc:"IANA name" example:"Asia/Bangkok"`
+		Timezone    *string `json:"timezone,omitempty" maxLength:"64" doc:"IANA name" example:"Asia/Bangkok"`
 	}
 }
 

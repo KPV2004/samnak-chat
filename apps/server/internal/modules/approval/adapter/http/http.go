@@ -108,9 +108,9 @@ func (h *Handler) fail(ctx context.Context, err error) error {
 type approvalCreateInput struct {
 	Body struct {
 		Type          string         `json:"type" enum:"leave,general"`
-		Payload       map[string]any `json:"payload" doc:"leave: {leave_type annual|sick|personal|other, start_date, end_date (YYYY-MM-DD, end not before start), half_day? morning|afternoon (one day only), reason (1-1000)}; general: {subject (1-200), details (up to 4000), amount? (decimal string like \"1200.50\"), currency? (default THB)}"`
-		ApproverID    string         `json:"approver_id,omitempty" doc:"Defaults to the first manager of one of your groups; 400 approver_required when there is none"`
-		AttachmentIDs []string       `json:"attachment_ids,omitempty" maxItems:"10" doc:"Files from POST /approval/uploads that you uploaded; each can be used once"`
+		Payload       map[string]any `json:"payload" maxProperties:"5" doc:"leave: {leave_type annual|sick|personal|other, start_date, end_date (YYYY-MM-DD, end not before start), half_day? morning|afternoon (one day only), reason (1-1000)}; general: {subject (1-200), details (up to 4000), amount? (decimal string like \"1200.50\"), currency? (default THB)}"`
+		ApproverID    string         `json:"approver_id,omitempty" maxLength:"36" doc:"Defaults to the first manager of one of your groups; 400 approver_required when there is none"`
+		AttachmentIDs []string       `json:"attachment_ids,omitempty" maxItems:"10" maxLength:"36" doc:"Files from POST /approval/uploads that you uploaded; each can be used once"`
 	}
 }
 
@@ -138,8 +138,8 @@ func (h *Handler) create(ctx context.Context, in *approvalCreateInput) (*approva
 
 type approvalListInput struct {
 	Role   string `query:"role" enum:"requester,approver" doc:"requester: my requests; approver: waiting for me. Both when omitted"`
-	Status string `query:"status" doc:"Comma-separated: pending, approved, rejected, cancelled"`
-	Cursor string `query:"cursor" doc:"next_cursor of the previous page"`
+	Status string `query:"status" maxLength:"35" doc:"Comma-separated: pending, approved, rejected, cancelled"`
+	Cursor string `query:"cursor" maxLength:"36" doc:"next_cursor of the previous page"`
 	Limit  int    `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Page size"`
 }
 
@@ -196,7 +196,7 @@ func (h *Handler) approve(ctx context.Context, in *approvalIDInput) (*approvalDe
 type approvalRejectInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		Reason string `json:"reason" doc:"1 to 1000 characters"`
+		Reason string `json:"reason" maxLength:"1000" doc:"1 to 1000 characters"`
 	}
 }
 
