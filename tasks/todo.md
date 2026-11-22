@@ -997,3 +997,31 @@ Asked by the user 2026-11-20: clicking an app in the rail should show only that 
 - [x] `docs/ui.md` updated for the rail, the per-app sidebars and the account menu; build, test and lint pass
 
 **Files:** `apps/web/src/components/` (rail, sidebar, account menu), `apps/web/src/pages/Shell.tsx`, `apps/web/src/chat/Sidebar.tsx`, `apps/web/src/App.tsx` (Home redirect only), `apps/web/src/task/`, `apps/web/src/approval/`, `apps/web/src/helpdesk/` (their nav and sidebar parts, and filter wiring to the URL), `apps/web/src/i18n/`, `docs/ui.md`, and the tests of these files
+
+## [ ] DOCS-01 documentation site on the landing page
+**Size:** M · **Depends on:** UI-10 (landing on GitHub Pages)
+
+Asked by the user 2026-11-22: the project's landing page should have docs. The site lives at https://kpv2004.github.io/samnak-chat/docs/ (Thai at `/docs/th/`), built with VitePress and published by the existing `landing` Pages workflow.
+
+**Design (planner)**
+- `apps/docs/`: a VitePress site, `base: "/samnak-chat/docs/"`, English at the root and Thai under `/th/` (VitePress locales), built-in local search, light and dark. Theme colours and fonts follow the landing page and the app (green accent, Host Grotesk with IBM Plex Sans Thai for Thai); no violet.
+- Not an npm workspace build target: add `apps/docs` to the root workspaces but name its scripts `docs:dev` and `docs:build` (no `build`, `lint` or `test` script), so `npm run build` and CI stay as they are.
+- Pages (English and Thai, written for readers, every fact checked against the code and the existing docs):
+  - Introduction: what Samnak Chat is, modules, screenshots from `docs/images/web/`
+  - Install: self-hosting with Docker Compose (from `deploy/README.md`), ports, HTTPS with `DOMAIN`, demo on your own machine
+  - Configuration: every environment variable in `.env.example` with its default and meaning, `MODULES_ENABLED`
+  - Operate: upgrade, backup and restore, logs, `/metrics`, health checks, rate limits
+  - User guide: Messenger (channels, DMs, group chats, pins, threads, mentions, slash commands, files), Tasks, Approvals, Helpdesk (queues, categories, public and internal comments), Notifications (settings, mute, do-not-disturb), Workspace (members, roles, invites, groups, audit log), Account (profile, devices, email verification, password reset)
+  - Developers: development setup, architecture (summary with a link to `docs/architecture.md` on GitHub), module rules, API (the OpenAPI file rendered as a reference page from `apps/server/api/openapi.yaml`, generated at build time, no hand copy), contributing, ADR list
+  - Changelog (from `CHANGELOG.md`)
+- The landing page gains a "Docs" link in its nav and footer, in English and Thai, pointing at `docs/` and `docs/th/`.
+- `.github/workflows/landing.yml` builds the docs and places them under `docs/` in the Pages artifact; it also runs when `apps/docs/**`, `docs/**`, `deploy/README.md`, `.env.example`, `CHANGELOG.md` or `apps/server/api/openapi.yaml` change.
+
+**Acceptance criteria**
+- [ ] `npm run docs:build -w apps/docs` builds with no dead links (VitePress fails on dead links; keep that on)
+- [ ] Every page exists in English and Thai; Thai written natively, not word by word
+- [ ] Every statement true of v0.1.0 code; nothing invented
+- [ ] Landing nav and footer link to the docs in both languages; the landing page still passes its own checks (layout unchanged apart from the link)
+- [ ] The workflow builds and assembles both sites; a local check serves the assembled folder under `/samnak-chat/` and every page and asset loads
+
+**Files:** `apps/docs/` (new), `package.json` (workspaces only), `package-lock.json`, `apps/landing/index.html` and `apps/landing/th/index.html` (the Docs links only), `.github/workflows/landing.yml`
