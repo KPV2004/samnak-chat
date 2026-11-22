@@ -1,11 +1,23 @@
 name: landing
 
-# Publishes the static landing page in apps/landing to GitHub Pages
-# (https://kpv2004.github.io/samnak-chat/) whenever it changes on main.
+# Publishes the landing page in apps/landing to GitHub Pages
+# (https://kpv2004.github.io/samnak-chat/) whenever it changes on main. The
+# documentation site in apps/docs is built here too and placed under docs/, so
+# it is served at https://kpv2004.github.io/samnak-chat/docs/ (Thai at /docs/th/).
 on:
   push:
     branches: [main]
-    paths: ["apps/landing/**", ".github/workflows/landing.yml"]
+    paths:
+      - "apps/landing/**"
+      - "apps/docs/**"
+      - "docs/**"
+      - "deploy/README.md"
+      - ".env.example"
+      - "CHANGELOG.md"
+      - "apps/server/api/openapi.yaml"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/landing.yml"
   workflow_dispatch:
 
 permissions:
@@ -25,9 +37,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run docs:build -w apps/docs
+      - name: Assemble the Pages site
+        run: |
+          mkdir _site
+          cp -R apps/landing/. _site/
+          cp -R apps/docs/.vitepress/dist _site/docs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/landing
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

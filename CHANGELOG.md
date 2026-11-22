@@ -4,6 +4,10 @@ All notable changes to Samnak Chat are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Added
+
+- Documentation site in `apps/docs`, published with the landing page at `/docs/` (Thai at `/docs/th/`). It covers install, configuration, operations, the user guide for every module, the API reference generated from the OpenAPI file, and the developer pages. The landing page links to it in English and Thai.
+
 ## [0.1.0] - 2026-11-21
 
 The first release. It covers milestones M0 to M6 of the plan in [`tasks/plan.md`](tasks/plan.md), and the web redesign that followed.
