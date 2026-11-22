@@ -1,0 +1,16 @@
+{
+  "name": "@samnak/docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:dev": "node scripts/generate.mjs && vitepress dev",
+    "docs:build": "node scripts/generate.mjs && vitepress build"
+  },
+  "devDependencies": {
+    "@fontsource-variable/host-grotesk": "^5.3.0",
+    "@fontsource/ibm-plex-sans-thai": "^5.3.0",
+    "vitepress": "^1.6.4",
+    "yaml": "^2.9.1"
+  }
+}
