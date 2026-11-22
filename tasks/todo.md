@@ -998,7 +998,7 @@ Asked by the user 2026-11-20: clicking an app in the rail should show only that 
 
 **Files:** `apps/web/src/components/` (rail, sidebar, account menu), `apps/web/src/pages/Shell.tsx`, `apps/web/src/chat/Sidebar.tsx`, `apps/web/src/App.tsx` (Home redirect only), `apps/web/src/task/`, `apps/web/src/approval/`, `apps/web/src/helpdesk/` (their nav and sidebar parts, and filter wiring to the URL), `apps/web/src/i18n/`, `docs/ui.md`, and the tests of these files
 
-## [ ] DOCS-01 documentation site on the landing page
+## [x] DOCS-01 documentation site on the landing page
 **Size:** M · **Depends on:** UI-10 (landing on GitHub Pages)
 
 Asked by the user 2026-11-22: the project's landing page should have docs. The site lives at https://kpv2004.github.io/samnak-chat/docs/ (Thai at `/docs/th/`), built with VitePress and published by the existing `landing` Pages workflow.
@@ -1018,10 +1018,12 @@ Asked by the user 2026-11-22: the project's landing page should have docs. The s
 - `.github/workflows/landing.yml` builds the docs and places them under `docs/` in the Pages artifact; it also runs when `apps/docs/**`, `docs/**`, `deploy/README.md`, `.env.example`, `CHANGELOG.md` or `apps/server/api/openapi.yaml` change.
 
 **Acceptance criteria**
-- [ ] `npm run docs:build -w apps/docs` builds with no dead links (VitePress fails on dead links; keep that on)
-- [ ] Every page exists in English and Thai; Thai written natively, not word by word
-- [ ] Every statement true of v0.1.0 code; nothing invented
-- [ ] Landing nav and footer link to the docs in both languages; the landing page still passes its own checks (layout unchanged apart from the link)
-- [ ] The workflow builds and assembles both sites; a local check serves the assembled folder under `/samnak-chat/` and every page and asset loads
+- [x] `npm run docs:build -w apps/docs` builds with no dead links (VitePress fails on dead links; keep that on)
+- [x] Every page exists in English and Thai; Thai written natively, not word by word
+- [x] Every statement true of v0.1.0 code; nothing invented
+- [x] Landing nav and footer link to the docs in both languages; the landing page still passes its own checks (layout unchanged apart from the link)
+- [x] The workflow builds and assembles both sites; a local check serves the assembled folder under `/samnak-chat/` and every page and asset loads
+
+**Checked on merge:** the build passes with dead-link checks on. The five Thai developer pages were added by the planner (the worker stopped before them), and cross-page anchors in Thai were given ASCII ids (`{#modules}`, `{#rate-limits}`, `{#commands}`, `{#groups}`, `{#ports}`), because VitePress turns Thai `ำ` into a different character in heading ids. The assembled folder was served under `/samnak-chat/` and all 39 pages, 105 links and every asset answered 200, and every `#anchor` resolves. `npm ci` installs from the new lock; `npm run build`, `npm run lint` and `go test` are unaffected (web tests flake under full-suite parallelism on this machine, also on `main`).
 
 **Files:** `apps/docs/` (new), `package.json` (workspaces only), `package-lock.json`, `apps/landing/index.html` and `apps/landing/th/index.html` (the Docs links only), `.github/workflows/landing.yml`
