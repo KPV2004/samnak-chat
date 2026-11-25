@@ -47,7 +47,7 @@ export interface ChatStore {
   /** Loads the joined channels and their counters; keeps messages already held. */
   loadChannels(): Promise<void>;
   /** Loads the newest page the first time, then the next older one. */
-  loadHistory(channelId: string, limit?: number): Promise<void>;
+  loadHistory(channelId: string, opts?: { beforeSeq?: number; limit?: number }): Promise<void>;
   /** Loads every reply under a top-level message. They join the channel's messages. */
   loadThread(channelId: string, rootId: string): Promise<void>;
   /** Fetches `after_seq=` pages until `has_more` is false. Runs once at a time per channel. */
@@ -376,11 +376,15 @@ export function createChatStore(opts: ChatStoreOptions): ChatStore {
       behind.forEach((id) => void catchUp(id).catch(noop));
     },
 
-    async loadHistory(channelId, limit = 50) {
+    async loadHistory(channelId, opts = {}) {
+      const { beforeSeq, limit = 50 } = opts;
       const ch = state.channels[channelId];
       if (!ch || ch.hasMoreBefore === false) return;
-      // The first page has no cursor: it is the newest one, whatever we know of last_seq.
-      const before = ch.hasMoreBefore === null ? undefined : (ch.historyBefore ?? undefined);
+      // An explicit `beforeSeq` starts a fresh window (jump-to-unread): the page
+      // ends just before it, exclusive. Otherwise the first page has no cursor —
+      // it is the newest one — and later calls continue from `historyBefore`.
+      const before =
+        beforeSeq !== undefined ? beforeSeq : ch.hasMoreBefore === null ? undefined : (ch.historyBefore ?? undefined);
       const asked = epoch;
       const page = await api.listMessages(channelId, { before_seq: before, limit });
       if (asked !== epoch) return;
