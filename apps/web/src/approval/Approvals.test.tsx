@@ -142,6 +142,7 @@ describe("Approvals page", () => {
     const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
+    await user.click(await screen.findByRole("button", { name: "More options" }));
     const picker = screen.getByRole("combobox", { name: "Approver" });
     expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["Automatic: my group's manager", "Somchai"]);
     await user.selectOptions(picker, "u2");
@@ -244,6 +245,7 @@ describe("Approvals page", () => {
     await user.click(screen.getByRole("button", { name: "New request" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
     await user.type(screen.getByLabelText("Subject"), "Laptop");
+    await user.click(screen.getByRole("button", { name: "More options" }));
     const file = new File(["%PDF"], "quote.pdf", { type: "application/pdf" });
     await user.upload(screen.getByLabelText("Attachments"), file);
     expect(await screen.findByText("quote.pdf")).toBeInTheDocument();
@@ -273,6 +275,7 @@ describe("Approvals page", () => {
     });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
+    await user.click(await screen.findByRole("button", { name: "More options" }));
     await user.upload(screen.getByLabelText("Attachments"), new File(["x"], "quote.pdf", { type: "application/pdf" }));
     await user.click(await screen.findByRole("button", { name: "Remove quote.pdf" }));
     expect(screen.queryByText("quote.pdf")).not.toBeInTheDocument();
