@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "../components/Field";
+import { MoreOptions } from "../components/MoreOptions";
 import { FormError } from "../components/FormError";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
@@ -185,6 +186,7 @@ function NewTicketForm({
                 />
               )}
             </Field>
+            <MoreOptions>
             <Field
               label={t("helpdesk.field.description")}
               hint={t("helpdesk.field.descriptionHint")}
@@ -252,6 +254,7 @@ function NewTicketForm({
                 ))}
               </ul>
             )}
+            </MoreOptions>
           </>
         )}
         <FormError message={error} />

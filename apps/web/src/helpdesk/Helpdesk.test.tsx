@@ -126,6 +126,7 @@ describe("new ticket dialog", () => {
     await screen.findByRole("list", { name: "Tickets" });
     await user.click(screen.getByRole("button", { name: "New ticket" }));
     const dialog = await screen.findByRole("dialog", { name: "New ticket" });
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
     await user.type(within(dialog).getByLabelText("Title"), "Printer on fire");
     await user.selectOptions(within(dialog).getByRole("combobox", { name: "Priority" }), "high");
     await user.click(within(dialog).getByRole("button", { name: "Send ticket" }));
@@ -140,6 +141,7 @@ describe("new ticket dialog", () => {
     await screen.findByRole("list", { name: "Tickets" });
     await user.click(screen.getByRole("button", { name: "New ticket" }));
     const dialog = await screen.findByRole("dialog", { name: "New ticket" });
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
     await user.type(within(dialog).getByLabelText("Title"), "VPN drops");
     await user.selectOptions(within(dialog).getByRole("combobox", { name: "Category" }), "c2");
     await user.type(within(dialog).getByLabelText("Details"), "Every hour or so");
