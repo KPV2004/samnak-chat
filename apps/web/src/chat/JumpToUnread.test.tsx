@@ -41,6 +41,8 @@ function hideTab() {
 }
 
 afterEach(() => {
+  // `hideTab` sets the value on the document itself, so restore that before the prototype.
+  delete (document as { visibilityState?: unknown }).visibilityState;
   if (visible) Object.defineProperty(Document.prototype, "visibilityState", visible);
   delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   vi.unstubAllGlobals();
@@ -88,6 +90,41 @@ describe("jump to unread", () => {
     await waitFor(() => expect(document.activeElement).toBe(line));
     expect(scrollIntoView).toHaveBeenCalled();
     expect(screen.getByText("Jumped to 2 unread messages")).toBeInTheDocument();
+    expect(app.fetch.mock.calls.map((c) => c[0] as string).some((u) => u.includes("before_seq"))).toBe(false);
+  });
+
+  it("keeps the jump pill after opening the channel, even though opening marks it read (BT-3)", async () => {
+    vi.stubGlobal("IntersectionObserver", OutOfViewObserver);
+    const app = renderApp({ route: "/chat/c1", routes: routes() });
+
+    const region = await screen.findByRole("log", { name: "Messages" });
+    await within(region).findByText("first new one");
+
+    // The open channel is marked read at once (the tab is visible), so the live count is 0.
+    await waitFor(() => expect(app.called("POST /api/v1/chat/channels/c1/read")).toHaveLength(1));
+    // The counts taken when the channel opened still drive the pill, although the live count is 0.
+    expect(await screen.findByRole("button", { name: "2 new messages" })).toBeInTheDocument();
+  });
+
+  it("goes to the top when nothing was read yet, since the whole channel is new", async () => {
+    vi.stubGlobal("IntersectionObserver", OutOfViewObserver);
+    const neverRead = channel("c1", { name: "general", last_seq: 2, last_read_seq: 0, unread_count: 2 });
+    const app = renderApp({
+      route: "/chat/c1",
+      routes: routes({
+        "GET /api/v1/chat/channels": () => ({ items: [neverRead] }),
+        "GET /api/v1/chat/channels/c1": () => neverRead,
+        "GET /api/v1/chat/channels/c1/messages": () => ({ items: [firstNew, secondNew], has_more: false }),
+      }),
+    });
+
+    const log = await screen.findByRole("log", { name: "Messages" });
+    await within(log).findByText("second new one");
+    fireEvent.click(await screen.findByRole("button", { name: "2 new messages" }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "2 new messages" })).not.toBeInTheDocument());
+    expect((log as HTMLElement).scrollTop).toBe(0);
+    // No page is asked for: the top is already loaded and the line has no place above message 1.
     expect(app.fetch.mock.calls.map((c) => c[0] as string).some((u) => u.includes("before_seq"))).toBe(false);
   });
 });

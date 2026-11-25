@@ -39,6 +39,9 @@ export function MessageList({ channelId }: { channelId: string }) {
   // How far the reader had read when they opened the channel. The channel is marked read as soon as it is on
   // screen, so this is taken once: the "new messages" line stays where it was drawn.
   const [readSeq] = useState(() => state?.lastReadSeq ?? 0);
+  // The counts are taken at the same moment: opening the channel marks it read at once, so a live
+  // count would already be zero and the jump pill would never show (BT-3, AC-21).
+  const [opened] = useState(() => ({ unread: state?.unreadCount ?? 0, mentions: state?.mentionCount ?? 0 }));
 
   // The open channel counts new messages as read while its newest one is in view.
   const reading = atBottom && visible;
@@ -89,8 +92,9 @@ export function MessageList({ channelId }: { channelId: string }) {
     });
   }
 
-  const unread = state?.unreadCount ?? 0;
-  const mentions = state?.mentionCount ?? 0;
+  // Kept for the first render of the pill: the channel is already marked read by then.
+  const unread = opened.unread;
+  const mentions = opened.mentions;
 
   // The unread pill shows while the "new messages" divider is out of view.
   useEffect(() => {
@@ -111,7 +115,7 @@ export function MessageList({ channelId }: { channelId: string }) {
   async function jumpToUnread() {
     const find = () => logRef.current?.querySelector("[data-unread-divider]") as HTMLElement | null;
     let el = find();
-    if (!el && store) {
+    if (!el && store && readSeq > 0) {
       // beforeSeq is exclusive: readSeq + 2 ends the page on the first unread message.
       await store.loadHistory(channelId, { beforeSeq: readSeq + 2 }).catch(() => {});
       await new Promise((resolve) => setTimeout(resolve, 30));
@@ -120,6 +124,13 @@ export function MessageList({ channelId }: { channelId: string }) {
     if (el) {
       el.scrollIntoView({ block: "center" });
       el.focus();
+      setAnnounce(t("chat.jump.announce", { n: unread }));
+      setShowJump(false);
+      return;
+    }
+    if (readSeq === 0 && logRef.current) {
+      // Nothing above the first message was read, so the line belongs at the very top.
+      logRef.current.scrollTop = 0;
       setAnnounce(t("chat.jump.announce", { n: unread }));
       setShowJump(false);
     }
