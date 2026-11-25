@@ -28,6 +28,8 @@ export function MessageList({ channelId }: { channelId: string }) {
   const state = useChatState().channels[channelId];
   const logRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
+  const [showJump, setShowJump] = useState(false);
+  const [announce, setAnnounce] = useState("");
   const atBottomRef = useRef(true);
   const visible = usePageVisible();
   // Set when older messages are requested, so the view keeps its place when they arrive above.
@@ -87,6 +89,42 @@ export function MessageList({ channelId }: { channelId: string }) {
     });
   }
 
+  const unread = state?.unreadCount ?? 0;
+  const mentions = state?.mentionCount ?? 0;
+
+  // The unread pill shows while the "new messages" divider is out of view.
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const el = logRef.current?.querySelector("[data-unread-divider]");
+    if (!el) {
+      setShowJump(unread > 0);
+      return;
+    }
+    const io = new IntersectionObserver(([entry]) => setShowJump(!entry?.isIntersecting), {
+      root: logRef.current,
+      threshold: 0.2,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [unread, newAt, rows.length]);
+
+  async function jumpToUnread() {
+    const find = () => logRef.current?.querySelector("[data-unread-divider]") as HTMLElement | null;
+    let el = find();
+    if (!el && store) {
+      // beforeSeq is exclusive: readSeq + 2 ends the page on the first unread message.
+      await store.loadHistory(channelId, { beforeSeq: readSeq + 2 }).catch(() => {});
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      el = find();
+    }
+    if (el) {
+      el.scrollIntoView({ block: "center" });
+      el.focus();
+      setAnnounce(t("chat.jump.announce", { n: unread }));
+      setShowJump(false);
+    }
+  }
+
   if (!state) return null;
   const hasMore = state.hasMoreBefore;
 
@@ -124,6 +162,20 @@ export function MessageList({ channelId }: { channelId: string }) {
           ))}
         </ol>
       </div>
+      <div aria-live="polite" className="sr-only">
+        {announce}
+      </div>
+      {showJump && unread > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="absolute bottom-14 left-1/2 -translate-x-1/2 rounded-full shadow-md"
+          onClick={() => void jumpToUnread()}
+        >
+          {mentions > 0 ? t("chat.jump.mention", { n: mentions }) : t("chat.jump.unread", { n: unread })}
+        </Button>
+      )}
       {!atBottom && (
         <Button
           type="button"
