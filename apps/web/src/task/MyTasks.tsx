@@ -1,7 +1,7 @@
 import type { Channel, Task, TaskDue, TaskStatus } from "@samnak/core";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ListChecks } from "lucide-react";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { Link, Navigate } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { channelTitle, useNameOf } from "../chat/names";
 import { AccountLoadError } from "../components/AccountStates";
 import { EmptyState } from "../components/EmptyState";
+import { ListSearch, matchesQuery } from "../components/ListSearch";
 import { Page } from "../components/Page";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { DataList, DataRow, ListLoading, LoadMore, Toolbar, ToolbarField } from "../pages/module-ui";
@@ -76,6 +77,8 @@ function TaskList() {
   }
 
   const items = tasks.data?.pages.flatMap((page) => page.items) ?? [];
+  const [query, setQuery] = useState("");
+  const shown = items.filter((task) => matchesQuery(query, task.title, task.description));
   const joined = Object.values(channels).map((s) => s.channel);
 
   return (
@@ -127,6 +130,7 @@ function TaskList() {
             {t("task.page.clear")}
           </Button>
         )}
+        <ListSearch value={query} onChange={setQuery} count={items.length} />
       </Toolbar>
 
       {tasks.isPending && <ListLoading />}
@@ -144,9 +148,17 @@ function TaskList() {
           }
         />
       )}
-      {items.length > 0 && (
+      {items.length > 0 && shown.length === 0 && (
+        <p role="status" className="m-0 text-sm text-muted-foreground">
+          {t("list.search.empty", { n: items.length })}{" "}
+          <Button type="button" variant="link" size="sm" onClick={() => setQuery("")}>
+            {t("list.search.clear")}
+          </Button>
+        </p>
+      )}
+      {shown.length > 0 && (
         <DataList>
-          {items.map((task) => (
+          {shown.map((task) => (
             <TaskRow key={task.id} task={task} channel={channels[task.channel_id]?.channel} />
           ))}
         </DataList>

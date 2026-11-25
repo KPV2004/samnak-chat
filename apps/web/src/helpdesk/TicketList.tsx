@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { AccountLoadError } from "../components/AccountStates";
 import { EmptyState } from "../components/EmptyState";
+import { ListSearch, matchesQuery } from "../components/ListSearch";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { formatDateTime } from "../lib/format";
 import { DataList, DataRow, ListLoading, LoadMore, Toolbar, ToolbarField, stretchedLink } from "../pages/module-ui";
@@ -57,6 +58,8 @@ export function TicketList({ role, queues, queueId = "", onQueueChange }: Props)
   const filtersActive = queueId !== "" || status !== "" || assignee !== "";
   const items = tickets.data?.pages.flatMap((page) => page.items) ?? [];
   const queueName = (id: string) => queues.find((q) => q.id === id)?.name ?? "";
+  const [query, setQuery] = useState("");
+  const shown = items.filter((ticket) => matchesQuery(query, ticket.key, ticket.title, queueName(ticket.queue_id)));
 
   function clearFilters() {
     onQueueChange?.("");
@@ -109,6 +112,7 @@ export function TicketList({ role, queues, queueId = "", onQueueChange }: Props)
         </Toolbar>
       )}
 
+      {items.length > 0 && <ListSearch value={query} onChange={setQuery} count={items.length} />}
       {tickets.isPending && <ListLoading />}
       {tickets.isError && <AccountLoadError message={t("helpdesk.list.loadError")} onRetry={() => void tickets.refetch()} />}
       {tickets.isSuccess && items.length === 0 && (
@@ -124,9 +128,17 @@ export function TicketList({ role, queues, queueId = "", onQueueChange }: Props)
           }
         />
       )}
-      {items.length > 0 && (
+      {items.length > 0 && shown.length === 0 && (
+        <p role="status" className="m-0 text-sm text-muted-foreground">
+          {t("list.search.empty", { n: items.length })}{" "}
+          <Button type="button" variant="link" size="sm" onClick={() => setQuery("")}>
+            {t("list.search.clear")}
+          </Button>
+        </p>
+      )}
+      {shown.length > 0 && (
         <DataList aria-label={t("helpdesk.list.label")}>
-          {items.map((ticket) => (
+          {shown.map((ticket) => (
             <TicketRow key={ticket.id} ticket={ticket} queue={queueName(ticket.queue_id)} />
           ))}
         </DataList>
