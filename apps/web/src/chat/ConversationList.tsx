@@ -13,6 +13,7 @@ import { useT, type T } from "../i18n/useT";
 import { useLocale } from "../state/locale";
 import { MuteMenuItem } from "../notify/ChannelMuteMenu";
 import { useChannelMute } from "../notify/usePreferences";
+import { statusKeys as approvalStatusKeys } from "../approval/format";
 import { useChat, useChatState } from "../state/chat";
 import { ConversationAvatar } from "./ConversationAvatar";
 import { formatListTime } from "./format";
@@ -203,11 +204,26 @@ function MenuEntries({ channel, mute, Item }: { channel: Channel; mute: ReturnTy
   );
 }
 
+/** A card's preview is written by the server in English; the web says the same in the reader's language (BT-5). */
+function previewText(kind: string, preview: string, t: T): string {
+  if (kind === "approval.request") {
+    const matched = /^Approval request: (.*) \((pending|approved|rejected|cancelled)\)$/.exec(preview);
+    if (matched) {
+      const status = matched[2] as keyof typeof approvalStatusKeys;
+      return t("chat.preview.approval", { summary: matched[1]!, status: t(approvalStatusKeys[status]) });
+    }
+  }
+  if (kind === "task.item" && preview.startsWith("Task: ")) {
+    return t("chat.preview.task", { title: preview.slice("Task: ".length) });
+  }
+  return preview || t("chat.preview.empty");
+}
+
 /** The line under a title: `who: text`, or only the text in a 1:1 message, where the title already says who. */
 function previewLine(channel: Channel, me: string, nameOf: (id: string) => string, t: T): string {
   const last = channel.last_message;
   if (!last) return t("chat.preview.none");
-  const text = last.preview || t("chat.preview.empty");
+  const text = previewText(last.kind, last.preview, t);
   if (last.sender_id === me) return t("chat.preview.from", { name: t("chat.preview.you"), text });
   return isDirect(channel, me) ? text : t("chat.preview.from", { name: nameOf(last.sender_id), text });
 }

@@ -41,6 +41,7 @@ function routes(extra: Routes = {}): Routes {
       items: url.includes("role=approver") ? [waiting] : [mine],
       next_cursor: "",
     }),
+    "POST /api/v1/approval/requests/r2/reject": () => ({}),
     [create]: () => request({ id: "r9" }),
     ...extra,
   };
@@ -279,5 +280,22 @@ describe("Approvals page", () => {
     await user.upload(screen.getByLabelText("Attachments"), new File(["x"], "quote.pdf", { type: "application/pdf" }));
     await user.click(await screen.findByRole("button", { name: "Remove quote.pdf" }));
     expect(screen.queryByText("quote.pdf")).not.toBeInTheDocument();
+  });
+
+  it("opens the reject dialog from a list row and sends the reason (BT-2, AC-40)", async () => {
+    const app = renderApp({ route: "/approvals", routes: routes() });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reject Laptop purchase" }));
+
+    expect(await screen.findByRole("dialog", { name: "Reject this request" })).toBeInTheDocument();
+    // The row no longer sends the reader to the detail page.
+    expect(app.called("GET /api/v1/approval/requests/r2")).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "Not this quarter" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rejection" }));
+
+    await waitFor(() =>
+      expect(app.called("POST /api/v1/approval/requests/r2/reject")[0]!.body).toEqual({ reason: "Not this quarter" }),
+    );
   });
 });

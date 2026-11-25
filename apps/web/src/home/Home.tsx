@@ -1,19 +1,22 @@
-import { createM3Api, type Task, type TaskStatus, type Ticket } from "@samnak/core";
+import { createM3Api, type ApprovalRequest, type Task, type TaskStatus, type Ticket } from "@samnak/core";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Check, ClipboardCheck, LifeBuoy, ListChecks, MessagesSquare, X } from "lucide-react";
-import { Link, useNavigate } from "react-router";
+import { useState } from "react";
+import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Page } from "@/components/Page";
 import { useT } from "@/i18n/useT";
 import { useModuleEnabled } from "@/modules";
 import { summarize } from "../approval/format";
 import { statusKeys as ticketStatusKeys } from "../helpdesk/format";
+import { RejectRequestDialog } from "../approval/RejectRequestDialog";
 import { useApprovalRequests } from "../approval/requests";
 import { useQuickApprove } from "../approval/useQuickApprove";
 import { channelTitle, useNameOf } from "../chat/names";
 import { useChat, useChatState } from "../state/chat";
 import { useSession, useSessionState } from "../state/session";
 import { useHelpdeskApi } from "../helpdesk/api";
+import { notificationTitle } from "../notify/notificationText";
 import { useTaskApi } from "../task/api";
 import { SummaryCard, SummaryRow } from "./SummaryCard";
 
@@ -72,7 +75,7 @@ export function Home() {
   const overdue = useDueTasks("overdue", taskOn);
   const tickets = useMyTickets(helpdeskOn);
   const quickApprove = useQuickApprove();
-  const navigate = useNavigate();
+  const [rejecting, setRejecting] = useState<ApprovalRequest | null>(null);
   const { channels } = useChatState();
   const me = useChat()?.userId ?? "";
   const nameOf = useNameOf();
@@ -87,9 +90,10 @@ export function Home() {
   const chatCount = unread.reduce((n, c) => n + (channels[c.id]?.unreadCount ?? 0), 0);
 
   const session = useSession();
+  const { workspaceId } = useSessionState();
   const activity = useQuery({
-    queryKey: ["home", "activity"],
-    enabled: notifyOn,
+    queryKey: ["home", "activity", workspaceId],
+    enabled: notifyOn && workspaceId !== null,
     queryFn: () => createM3Api(session.client).listNotifications({ limit: 10 }),
   });
 
@@ -128,7 +132,7 @@ export function Home() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigate(`/approvals/${r.id}`)}
+                      onClick={() => setRejecting(r)}
                       aria-label={`${t("approval.reject")} ${summarize(r.type, r.payload, t)}`}
                     >
                       <X aria-hidden="true" />
@@ -205,7 +209,7 @@ export function Home() {
               <li key={n.id}>
                 <Link to={n.link} className="flex items-start gap-3 p-3 text-sm hover:bg-accent/60">
                   <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{n.title}</span>
+                    <span className="block font-medium">{notificationTitle(n, t, nameOf)}</span>
                     <span className="block truncate text-xs text-muted-foreground">{n.body}</span>
                   </span>
                   {!n.read_at && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />}
@@ -213,10 +217,14 @@ export function Home() {
                 </Link>
               </li>
             ))}
-            {activity.data && activity.data.items.length === 0 && <li className="p-3 text-sm text-muted-foreground">{t("home.empty")}</li>}
+            {activity.data && activity.data.items.length === 0 && (
+              <li className="p-3 text-sm text-muted-foreground">{t("home.recent.empty")}</li>
+            )}
           </ul>
         </section>
       )}
+
+      <RejectRequestDialog requestId={rejecting?.id ?? null} onClose={() => setRejecting(null)} />
     </Page>
   );
 }

@@ -148,6 +148,8 @@ export const chatEn = {
   "chat.preview.from": "{name}: {text}",
   "chat.preview.none": "No messages yet",
   "chat.preview.empty": "(no text)",
+  "chat.preview.approval": "Approval request: {summary} ({status})",
+  "chat.preview.task": "Task: {title}",
   "chat.time.yesterday": "Yesterday",
   "chat.group.more": "{n} more people",
 
@@ -303,6 +305,8 @@ export const chatTh: Record<keyof typeof chatEn, string> = {
   "chat.preview.from": "{name}: {text}",
   "chat.preview.none": "ยังไม่มีข้อความ",
   "chat.preview.empty": "(ไม่มีข้อความ)",
+  "chat.preview.approval": "คำขออนุมัติ: {summary} ({status})",
+  "chat.preview.task": "งาน: {title}",
   "chat.time.yesterday": "เมื่อวาน",
   "chat.group.more": "อีก {n} คน",
 

@@ -16,6 +16,17 @@ const knownKinds: Record<string, MessageKey> = {
   "chat.thread_reply": "notify.kind.threadReply",
 };
 
+/**
+ * Approval notices have no `sender_name` in `data`, only ids, so the web says what happened
+ * without a name instead of showing the server's English sentence (BT-5). The summary stays in `body`.
+ */
+const approvalTitles: Record<string, MessageKey> = {
+  "approval.requested": "notify.approval.requested",
+  "approval.approved": "notify.approval.approved",
+  "approval.rejected": "notify.approval.rejected",
+  "approval.cancelled": "notify.approval.cancelled",
+};
+
 /** A localised label for a kind the web knows; null for a kind it does not. */
 export function notificationLabel(kind: string, t: T): string | null {
   const key = knownKinds[kind];
@@ -29,8 +40,18 @@ export function notificationLink(notification: NotificationItem): string {
   return typeof channel === "string" && channel ? `/chat/${channel}` : "";
 }
 
-/** Who and where in the reader's language for chat kinds; else the server's `title`. */
-export function notificationTitle(notification: NotificationItem, t: T): string {
+/**
+ * Who and where in the reader's language for chat kinds; else the server's `title`. Approval kinds
+ * carry only `requester_id`, so a caller that can name people passes `nameOf` to say who asked.
+ */
+export function notificationTitle(notification: NotificationItem, t: T, nameOf?: (id: string) => string): string {
+  const approvalKey = approvalTitles[notification.kind];
+  if (approvalKey) {
+    const requester = notification.data?.requester_id;
+    const name = typeof requester === "string" && requester ? nameOf?.(requester) : undefined;
+    if (notification.kind === "approval.requested" && name) return t("notify.approval.requestedBy", { name });
+    return t(approvalKey);
+  }
   const sender = notification.data?.sender_name;
   if (!knownKinds[notification.kind] || typeof sender !== "string" || !sender) return notification.title;
   const channel = notification.data?.channel_name;

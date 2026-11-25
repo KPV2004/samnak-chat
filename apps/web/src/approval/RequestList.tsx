@@ -1,6 +1,7 @@
+import type { ApprovalRequest } from "@samnak/core";
 import { Inbox } from "lucide-react";
 import { useId, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ import { formatDateTime } from "../lib/format";
 import { DataList, DataRow, ListLoading, LoadMore, stretchedLink } from "../pages/module-ui";
 import { useMe } from "../state/queries";
 import { statusKeys, statusTones, summarize } from "./format";
+import { RejectRequestDialog } from "./RejectRequestDialog";
 import { useApprovalRequests, type RequestRole } from "./requests";
 import { useQuickApprove } from "./useQuickApprove";
 import { useNameOf } from "./useMembers";
@@ -34,7 +36,7 @@ export function RequestList({ role, title, empty }: Props) {
   const requests = useApprovalRequests(role);
   const [query, setQuery] = useState("");
   const quickApprove = useQuickApprove();
-  const navigate = useNavigate();
+  const [rejecting, setRejecting] = useState<ApprovalRequest | null>(null);
   const items = requests.data?.pages.flatMap((p) => p.items) ?? [];
   const shown = items.filter((r) =>
     matchesQuery(query, summarize(r.type, r.payload, t), r.type, role === "requester" ? nameOf(r.approver_id) : nameOf(r.requester_id)),
@@ -89,7 +91,7 @@ export function RequestList({ role, title, empty }: Props) {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigate(`/approvals/${r.id}`)}
+                      onClick={() => setRejecting(r)}
                       aria-label={`${t("approval.reject")} ${summarize(r.type, r.payload, t)}`}
                     >
                       {t("approval.reject")}
@@ -105,6 +107,7 @@ export function RequestList({ role, title, empty }: Props) {
         </DataList>
       )}
       {requests.hasNextPage && <LoadMore loading={requests.isFetchingNextPage} onClick={() => void requests.fetchNextPage()} />}
+      <RejectRequestDialog requestId={rejecting?.id ?? null} onClose={() => setRejecting(null)} />
     </section>
   );
 }

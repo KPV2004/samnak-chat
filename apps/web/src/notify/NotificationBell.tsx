@@ -11,6 +11,7 @@ import { EmptyState } from "../components/EmptyState";
 import { useCurrentLocale, useT } from "../i18n/useT";
 import { formatMessageTime } from "../lib/format";
 import { useSession } from "../state/session";
+import { useNameOf } from "../approval/useMembers";
 import { notificationLabel, notificationLink, notificationTitle } from "./notificationText";
 import { useNotificationToasts } from "./useNotificationToasts";
 import { useNotificationStore } from "./useNotificationStore";
@@ -127,6 +128,7 @@ function NotificationRow({
 }) {
   const t = useT();
   const locale = useCurrentLocale();
+  const nameOf = useNameOf();
   const label = notificationLabel(notification.kind, t);
   const read = Boolean(notification.read_at);
   return (
@@ -143,7 +145,7 @@ function NotificationRow({
             {formatMessageTime(notification.created_at, locale)}
           </time>
         </span>
-        <span className={cn("text-sm", read ? "text-muted-foreground" : "font-medium")}>{notificationTitle(notification, t)}</span>
+        <span className={cn("text-sm", read ? "text-muted-foreground" : "font-medium")}>{notificationTitle(notification, t, nameOf)}</span>
         {notification.body && <span className="text-sm text-muted-foreground">{notification.body}</span>}
         {!read && <span className="sr-only"> ({t("notify.unread")})</span>}
       </button>

@@ -62,14 +62,13 @@ export function SummaryRow({
   className?: string;
 }) {
   const body = (
-    <>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{title}</span>
-        {subtitle && <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>}
-      </span>
-      {trailing}
-    </>
+    <span className="min-w-0 flex-1">
+      <span className="block truncate text-sm font-medium">{title}</span>
+      {subtitle && <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>}
+    </span>
   );
+  // The trailing slot stays outside the link: a button inside an anchor would both follow the link
+  // on click and give the link a name that includes the button's label (BT-1).
   return (
     <li className={cn("flex items-center gap-2 py-2", className)}>
       {to ? (
@@ -79,6 +78,7 @@ export function SummaryRow({
       ) : (
         <span className="flex min-w-0 flex-1 items-center gap-3">{body}</span>
       )}
+      {trailing}
     </li>
   );
 }
