@@ -75,7 +75,7 @@ describe("task sidebar", () => {
 
   it("is not on the page, and asks for no tasks, when /meta lacks task", async () => {
     renderApp({ route: "/tasks", routes: routes(["chat"]) });
-    expect(await screen.findByRole("searchbox", { name: "Search conversations" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Home" }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Task views" })).not.toBeInTheDocument();
   });
 });

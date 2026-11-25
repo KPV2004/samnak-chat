@@ -26,7 +26,7 @@ beforeEach(() => {
 
 describe("one sidebar per app", () => {
   it("opens Messenger from the home page, with only the conversation list in the sidebar", async () => {
-    renderApp({ route: "/", routes: routes() });
+    renderApp({ route: "/chat", routes: routes() });
     expect(await screen.findByRole("navigation", { name: "Channels and messages" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Members" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Profile" })).not.toBeInTheDocument();

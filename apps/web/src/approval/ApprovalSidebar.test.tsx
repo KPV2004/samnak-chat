@@ -63,7 +63,7 @@ describe("approval sidebar", () => {
 
   it("leaves the Approvals app off the rail, and the page to Messenger, when /meta does not list approval", async () => {
     renderApp({ route: "/approvals", routes: routes(["chat"]) });
-    expect(await screen.findByRole("searchbox", { name: "Search conversations" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Home" }, { timeout: 5000 })).toBeInTheDocument();
     const apps = screen.getByRole("navigation", { name: "Apps" });
     expect(within(apps).queryByRole("link", { name: "Approvals" })).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Approval views" })).not.toBeInTheDocument();
@@ -71,7 +71,7 @@ describe("approval sidebar", () => {
 
   it("leads to Messenger when /groups is opened without the module", async () => {
     renderApp({ route: "/groups", routes: routes([]) });
-    expect(await screen.findByRole("searchbox", { name: "Search conversations" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Home" }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Groups" })).not.toBeInTheDocument();
   });
 });

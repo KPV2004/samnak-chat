@@ -72,7 +72,7 @@ describe("helpdesk sidebar", () => {
 
   it("is not an app on the rail, and leads to Messenger, when /meta does not list helpdesk", async () => {
     renderApp({ route: "/helpdesk", routes: routes(["chat"]) });
-    expect(await screen.findByRole("searchbox", { name: "Search conversations" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Home" }, { timeout: 5000 })).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Apps" })).queryByRole("link", { name: "Helpdesk" })).not.toBeInTheDocument();
   });
 });

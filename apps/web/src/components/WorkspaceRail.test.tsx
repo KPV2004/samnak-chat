@@ -41,7 +41,7 @@ describe("app rail", () => {
     const apps = await screen.findByRole("navigation", { name: "Apps" });
     const names = async () => within(apps).getAllByRole("link").map((a) => a.textContent);
     await within(apps).findByRole("link", { name: "Helpdesk" });
-    expect(await names()).toEqual(["Messenger", "Tasks", "Approvals", "Helpdesk", "Workspace"]);
+    expect(await names()).toEqual(["Home", "Messenger", "Tasks", "Approvals", "Helpdesk", "Workspace"]);
     expect(within(apps).getByRole("link", { name: "Helpdesk" })).toHaveAttribute("aria-current", "page");
     expect(within(apps).getByRole("link", { name: "Messenger" })).not.toHaveAttribute("aria-current");
     expect(within(apps).getByRole("link", { name: "Approvals" })).toHaveAttribute("href", "/approvals");

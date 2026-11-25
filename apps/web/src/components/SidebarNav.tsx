@@ -1,4 +1,4 @@
-import { ClipboardCheck, LifeBuoy, ListChecks, MessagesSquare, Building2, type LucideIcon } from "lucide-react";
+import { ClipboardCheck, House, LifeBuoy, ListChecks, MessagesSquare, Building2, type LucideIcon } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import type { MessageKey } from "@/i18n/messages";
@@ -48,6 +48,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   // Only reads what the Approvals list already loaded; the nav makes no request of its own.
   const waiting = useWaitingCount(false);
   const apps: App[] = [
+    { id: "home", to: "/", icon: House, label: "nav.home", show: true },
     { id: "messenger", to: "/chat", icon: MessagesSquare, label: "rail.messenger", show: true },
     { id: "tasks", to: "/tasks", icon: ListChecks, label: "rail.tasks", show: task },
     { id: "approvals", to: "/approvals", icon: ClipboardCheck, label: "rail.approvals", show: approval },
