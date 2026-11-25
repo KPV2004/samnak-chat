@@ -58,13 +58,14 @@ export function ChannelPage() {
     <div data-page data-channel className="flex h-full min-w-0">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <ChannelHeader channel={channel} />
-        <MessageList key={channelId} channelId={channelId} />
+        {/* The keys must differ from the composer's: both are children of this one array (BT-4). */}
+        <MessageList key={`messages-${channelId}`} channelId={channelId} />
         <TypingIndicator channelId={channelId} />
         {channel.archived_at ? (
           <p className="mx-4 mb-4 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">{t("chat.archived")}</p>
         ) : (
           // Keyed by channel: opening another channel starts a new draft, with no picked names.
-          <Composer key={channelId} channelId={channelId} />
+          <Composer key={`composer-${channelId}`} channelId={channelId} />
         )}
       </div>
       {rootId && (
