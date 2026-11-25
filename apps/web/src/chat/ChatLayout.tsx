@@ -3,6 +3,8 @@ import { Outlet } from "react-router";
 import { RouteFallback } from "../components/RouteFallback";
 import { useT } from "../i18n/useT";
 import { useRealtimeStatus } from "../state/chat";
+import { ConversationList } from "./ConversationList";
+import { useWide } from "./useWide";
 
 /** The chat area. The channel list is in the app sidebar; this holds the reconnect banner and the open page. */
 export function ChatLayout() {
@@ -27,5 +29,14 @@ export function ChatLayout() {
 
 export function ChatHome() {
   const t = useT();
+  const wide = useWide();
+  // Below lg the left column only shows icons, so the list lives here, as on a phone.
+  if (!wide) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <ConversationList />
+      </div>
+    );
+  }
   return <p className="p-4 text-muted-foreground">{t("chat.empty")}</p>;
 }

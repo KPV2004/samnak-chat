@@ -105,7 +105,8 @@ describe("workspace switch", () => {
       }
       return new Response(JSON.stringify({ items: [] }), { status: 200 });
     });
-    await user.click(await screen.findByRole("button", { name: "Globex" }));
+    await user.click(await screen.findByRole("button", { name: "Workspace Acme" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Globex" }));
 
     expect(await within(nav).findByRole("link", { name: /sales-floor/ })).toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: /general/ })).not.toBeInTheDocument();

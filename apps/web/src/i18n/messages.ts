@@ -84,7 +84,7 @@ export const messages = {
     "register.passwordHint": "8 ถึง 128 ตัวอักษร",
     "register.emailTaken": "อีเมลนี้มีบัญชีอยู่แล้ว",
 
-    "workspace.switch": "เวิร์กสเปซ",
+    "workspace.switch": "เวิร์กสเปซ {name}",
     "workspace.new": "สร้างเวิร์กสเปซ",
     "workspace.none": "คุณยังไม่ได้อยู่ในเวิร์กสเปซใด",
     "workspace.current": "เวิร์กสเปซปัจจุบัน:",
@@ -256,7 +256,7 @@ export const messages = {
     "register.passwordHint": "8 to 128 characters",
     "register.emailTaken": "An account with this email already exists",
 
-    "workspace.switch": "Workspace",
+    "workspace.switch": "Workspace {name}",
     "workspace.new": "New workspace",
     "workspace.none": "You are not in any workspace yet.",
     "workspace.current": "Current workspace:",

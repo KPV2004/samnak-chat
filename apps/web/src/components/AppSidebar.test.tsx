@@ -58,7 +58,7 @@ describe("one sidebar per app", () => {
 
   it("names the app in the sidebar header, beside the workspace", async () => {
     renderApp({ route: "/tasks", routes: routes() });
-    const sidebar = (await screen.findByRole("navigation", { name: "Task views" })).closest("div.on-rail")!;
+    const sidebar = (await screen.findByRole("navigation", { name: "Task views" })).closest("[data-sidebar]")!;
     expect(within(sidebar as HTMLElement).getByText("Tasks")).toBeInTheDocument();
     expect(await within(sidebar as HTMLElement).findByText("Acme")).toBeInTheDocument();
   });
