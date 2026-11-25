@@ -1,4 +1,4 @@
-import { ClipboardCheck, House, LifeBuoy, ListChecks, MessagesSquare, Building2, type LucideIcon } from "lucide-react";
+import { ClipboardCheck, FolderKanban, House, LifeBuoy, ListChecks, MessagesSquare, Building2, type LucideIcon } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import type { MessageKey } from "@/i18n/messages";
@@ -44,6 +44,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const task = useModuleEnabled("task");
   const approval = useModuleEnabled("approval");
   const helpdesk = useModuleEnabled("helpdesk");
+  const project = useModuleEnabled("project");
   const { unread, mentions } = useMessengerUnread();
   // Only reads what the Approvals list already loaded; the nav makes no request of its own.
   const waiting = useWaitingCount(false);
@@ -51,6 +52,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
     { id: "home", to: "/", icon: House, label: "nav.home", show: true },
     { id: "messenger", to: "/chat", icon: MessagesSquare, label: "rail.messenger", show: true },
     { id: "tasks", to: "/tasks", icon: ListChecks, label: "rail.tasks", show: task },
+    { id: "projects", to: "/projects", icon: FolderKanban, label: "rail.projects", show: project },
     { id: "approvals", to: "/approvals", icon: ClipboardCheck, label: "rail.approvals", show: approval },
     { id: "helpdesk", to: "/helpdesk", icon: LifeBuoy, label: "rail.helpdesk", show: helpdesk },
     { id: "workspace", to: "/members", icon: Building2, label: "rail.workspace", show: true },
