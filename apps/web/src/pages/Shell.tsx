@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { AppSidebar } from "../components/AppSidebar";
+import { NoWorkspace } from "../components/NoWorkspace";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { QuickSwitch } from "../components/QuickSwitch";
 import { RouteFallback } from "../components/RouteFallback";
@@ -24,7 +25,7 @@ export function Shell() {
   const queryClient = useQueryClient();
   const setLocale = useLocale((s) => s.setLocale);
   const me = useMe();
-  const { current } = useWorkspaces();
+  const { query: workspacesQuery, workspaces, current } = useWorkspaces();
   const localeAppliedFor = useRef<string | null>(null);
 
   useSyncWorkspace();
@@ -47,10 +48,15 @@ export function Shell() {
 
   if (!signedIn) return <Navigate to="/login" replace state={{ from: location }} />;
 
+  // A user without a workspace gets one honest next step instead of pages that can only fail (BT-7).
+  // The two workspace-free pages stay reachable: create one, or accept an invite into one.
+  const workspaceFree = location.pathname.startsWith("/workspaces/new") || location.pathname.startsWith("/invite/");
+  const noWorkspace = workspacesQuery.isSuccess && (workspaces?.length ?? 0) === 0 && !workspaceFree;
+
   const isChat = location.pathname.startsWith("/chat");
 
   return (
-    <ChatProvider>
+    <ChatProvider enabled={!noWorkspace}>
       <a
         href="#main"
         className="sr-only z-50 rounded-md bg-background px-3 py-2 text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
@@ -87,9 +93,13 @@ export function Shell() {
               )}
             >
               <VerifyEmailBanner />
-              <Suspense fallback={<RouteFallback />}>
-                <Outlet />
-              </Suspense>
+              {noWorkspace ? (
+                <NoWorkspace />
+              ) : (
+                <Suspense fallback={<RouteFallback />}>
+                  <Outlet />
+                </Suspense>
+              )}
             </main>
           </div>
           <TabBar />

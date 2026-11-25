@@ -76,7 +76,7 @@ interface Loaded {
  * socket per session, re-authenticated when the access token is refreshed, and
  * the store is emptied and reloaded when the workspace changes.
  */
-export function ChatProvider({ children }: { children: ReactNode }) {
+export function ChatProvider({ children, enabled = true }: { children: ReactNode; enabled?: boolean }) {
   const session = useSession();
   const { signedIn, workspaceId } = useSessionState();
   const userId = useMe().data?.id;
@@ -84,9 +84,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [attempt, setAttempt] = useState(0);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
 
-  // Creating the client and the store connects nothing; the effect below does.
+  // Creating the client and the store connects nothing; the effect below does. A user without a
+  // workspace has no channel, notification or socket to ask for, so the shell turns this off (BT-7).
   const core = useMemo<Core | null>(() => {
-    if (!signedIn || !userId) return null;
+    if (!signedIn || !userId || !enabled) return null;
     const env = environment ?? browserEnvironment();
     const api = createM2Api(session.client);
     const realtime = createRealtimeClient({
@@ -102,7 +103,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       getWorkspaceId: () => session.getState().workspaceId,
     });
     return { api, realtime, store, userId };
-  }, [session, environment, signedIn, userId]);
+  }, [session, environment, signedIn, userId, enabled]);
 
   useEffect(() => {
     if (!core) return;
