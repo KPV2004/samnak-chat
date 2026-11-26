@@ -18,12 +18,16 @@ import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
  * `lg` the names and the app content show too. Below `md` it is not rendered; the bottom tab bar
  * replaces it.
  */
-export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
+export function AppSidebar({ onNavigate, noWorkspace = false }: { onNavigate?: () => void; noWorkspace?: boolean }) {
   const t = useT();
   const app = appOf(useLocation().pathname);
 
   let body: ReactNode = null;
-  if (app === "messenger") {
+  // Without a workspace the app pages are replaced by one empty state, so the app's own list must
+  // not sit there on a loading skeleton that can never finish (BT-7).
+  if (noWorkspace) {
+    body = null;
+  } else if (app === "messenger") {
     body = (
       <div className="flex min-h-0 flex-1 flex-col pt-2">
         <ConversationList />

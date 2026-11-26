@@ -16,6 +16,8 @@ describe("a user without a workspace", () => {
     expect(await screen.findByText("You are not in any workspace yet.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New workspace" })).toHaveAttribute("href", "/workspaces/new");
     expect(screen.queryByText("Loading")).not.toBeInTheDocument();
+    // The app sidebar has no list to load, so no skeleton stays behind the empty state.
+    expect(document.querySelectorAll("[data-slot=skeleton]")).toHaveLength(0);
     const asked = app.fetch.mock.calls.map((call) => call[0] as string);
     expect(asked.some((url) => url.includes("/notify/"))).toBe(false);
     expect(asked.some((url) => url.includes("/chat/channels"))).toBe(false);

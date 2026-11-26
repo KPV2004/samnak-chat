@@ -66,7 +66,7 @@ export function Shell() {
       <div className="flex h-dvh bg-background">
         {/* One left column: 64px of icons at md, the full column from lg. Phones use the tab bar. */}
         <aside className="hidden w-16 shrink-0 border-r bg-sidebar md:flex lg:w-60">
-          <AppSidebar />
+          <AppSidebar noWorkspace={noWorkspace} />
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-12 shrink-0 items-center gap-3 border-b bg-card px-3 md:px-4">
