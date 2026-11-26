@@ -298,4 +298,18 @@ describe("Approvals page", () => {
       expect(app.called("POST /api/v1/approval/requests/r2/reject")[0]!.body).toEqual({ reason: "Not this quarter" }),
     );
   });
+
+  it("offers both views as tabs, so My requests is reachable without the sidebar (mobile)", async () => {
+    const user = userEvent.setup();
+    const app = renderApp({ route: "/approvals", routes: routes() });
+
+    const tabs = await screen.findByRole("tablist");
+    expect(within(tabs).getByRole("tab", { name: "Waiting for me" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(within(tabs).getByRole("tab", { name: "My requests" }));
+
+    expect(await screen.findByRole("list", { name: "My requests" })).toBeInTheDocument();
+    const urls = app.fetch.mock.calls.map((c) => c[0] as string);
+    expect(urls.some((url) => url.includes("/approval/requests") && url.includes("role=requester"))).toBe(true);
+  });
 });
