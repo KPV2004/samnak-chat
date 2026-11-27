@@ -126,8 +126,8 @@ describe("My tasks", () => {
 
   it("leads back home, and asks for no tasks, when /meta lacks task", async () => {
     const app = renderApp({ route: "/tasks", routes: routes({}, ["chat"]) });
-    // The page leads to the home page, which opens Messenger.
-    expect(await screen.findByRole("searchbox", { name: "Search conversations" }, { timeout: 5000 })).toBeInTheDocument();
+    // The module is off, so the route leads home.
+    expect(await screen.findByRole("heading", { name: "Home" }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "My tasks" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "My tasks" })).not.toBeInTheDocument();
     expect(taskUrls(app)).toHaveLength(0);

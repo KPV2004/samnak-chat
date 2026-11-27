@@ -47,7 +47,7 @@ export function AccountMenu({ current, onNavigate }: { current: boolean; onNavig
               aria-label={t("account.menu")}
               className={cn(
                 "grid size-9 place-items-center rounded-full outline-none transition-[box-shadow,scale] duration-150",
-                "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-rail",
+                "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
                 "hover:ring-2 hover:ring-sidebar-foreground/30 motion-safe:active:scale-95",
                 current && "ring-2 ring-sidebar-primary",
               )}

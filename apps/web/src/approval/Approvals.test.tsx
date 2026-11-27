@@ -41,6 +41,7 @@ function routes(extra: Routes = {}): Routes {
       items: url.includes("role=approver") ? [waiting] : [mine],
       next_cursor: "",
     }),
+    "POST /api/v1/approval/requests/r2/reject": () => ({}),
     [create]: () => request({ id: "r9" }),
     ...extra,
   };
@@ -142,6 +143,7 @@ describe("Approvals page", () => {
     const app = renderApp({ route: "/approvals?view=mine", routes: routes() });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
+    await user.click(await screen.findByRole("button", { name: "More options" }));
     const picker = screen.getByRole("combobox", { name: "Approver" });
     expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["Automatic: my group's manager", "Somchai"]);
     await user.selectOptions(picker, "u2");
@@ -244,6 +246,7 @@ describe("Approvals page", () => {
     await user.click(screen.getByRole("button", { name: "New request" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "general");
     await user.type(screen.getByLabelText("Subject"), "Laptop");
+    await user.click(screen.getByRole("button", { name: "More options" }));
     const file = new File(["%PDF"], "quote.pdf", { type: "application/pdf" });
     await user.upload(screen.getByLabelText("Attachments"), file);
     expect(await screen.findByText("quote.pdf")).toBeInTheDocument();
@@ -273,8 +276,40 @@ describe("Approvals page", () => {
     });
     await screen.findByRole("list", { name: "My requests" });
     await user.click(screen.getByRole("button", { name: "New request" }));
+    await user.click(await screen.findByRole("button", { name: "More options" }));
     await user.upload(screen.getByLabelText("Attachments"), new File(["x"], "quote.pdf", { type: "application/pdf" }));
     await user.click(await screen.findByRole("button", { name: "Remove quote.pdf" }));
     expect(screen.queryByText("quote.pdf")).not.toBeInTheDocument();
+  });
+
+  it("opens the reject dialog from a list row and sends the reason (BT-2, AC-40)", async () => {
+    const app = renderApp({ route: "/approvals", routes: routes() });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reject Laptop purchase" }));
+
+    expect(await screen.findByRole("dialog", { name: "Reject this request" })).toBeInTheDocument();
+    // The row no longer sends the reader to the detail page.
+    expect(app.called("GET /api/v1/approval/requests/r2")).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "Not this quarter" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rejection" }));
+
+    await waitFor(() =>
+      expect(app.called("POST /api/v1/approval/requests/r2/reject")[0]!.body).toEqual({ reason: "Not this quarter" }),
+    );
+  });
+
+  it("offers both views as tabs, so My requests is reachable without the sidebar (mobile)", async () => {
+    const user = userEvent.setup();
+    const app = renderApp({ route: "/approvals", routes: routes() });
+
+    const tabs = await screen.findByRole("tablist");
+    expect(within(tabs).getByRole("tab", { name: "Waiting for me" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(within(tabs).getByRole("tab", { name: "My requests" }));
+
+    expect(await screen.findByRole("list", { name: "My requests" })).toBeInTheDocument();
+    const urls = app.fetch.mock.calls.map((c) => c[0] as string);
+    expect(urls.some((url) => url.includes("/approval/requests") && url.includes("role=requester"))).toBe(true);
   });
 });

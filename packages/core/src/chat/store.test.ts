@@ -222,6 +222,33 @@ describe("history", () => {
     ]);
   });
 
+  it("starts at an explicit beforeSeq and continues older from there", async () => {
+    for (let i = 1; i <= 6; i++) t.server.add("c1", "bob", String(i));
+    t.server.pageSize = 2;
+    await t.store.loadChannels();
+    // before_seq is exclusive: the page ends just before seq 4.
+    await t.store.loadHistory("c1", { beforeSeq: 4 });
+    expect(seqs(t.store)).toEqual([2, 3]);
+    expect(t.store.getState().channels.c1!.hasMoreBefore).toBe(true);
+    // The next plain call continues the same window, not the newest page.
+    await t.store.loadHistory("c1");
+    expect(seqs(t.store)).toEqual([1, 2, 3]);
+    expect(t.store.getState().channels.c1!.hasMoreBefore).toBe(false);
+    expect(t.server.requests.filter((r) => r.includes("/messages"))).toEqual([
+      "GET /channels/c1/messages?before_seq=4&limit=50",
+      "GET /channels/c1/messages?before_seq=2&limit=50",
+    ]);
+  });
+
+  it("treats a beforeSeq beyond the newest seq as the newest page", async () => {
+    for (let i = 1; i <= 5; i++) t.server.add("c1", "bob", String(i));
+    t.server.pageSize = 2;
+    await t.store.loadChannels();
+    await t.store.loadHistory("c1", { beforeSeq: 99 });
+    expect(seqs(t.store)).toEqual([4, 5]);
+    expect(t.store.getState().channels.c1!.historyBefore).toBe(4);
+  });
+
   it("keeps the page order ascending whatever the page size", async () => {
     for (let i = 1; i <= 7; i++) t.server.add("c1", "bob", String(i));
     t.server.pageSize = 3;

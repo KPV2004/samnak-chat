@@ -84,9 +84,10 @@ export const messages = {
     "register.passwordHint": "8 ถึง 128 ตัวอักษร",
     "register.emailTaken": "อีเมลนี้มีบัญชีอยู่แล้ว",
 
-    "workspace.switch": "เวิร์กสเปซ",
+    "workspace.switch": "เวิร์กสเปซ {name}",
     "workspace.new": "สร้างเวิร์กสเปซ",
     "workspace.none": "คุณยังไม่ได้อยู่ในเวิร์กสเปซใด",
+    "workspace.noneBody": "สร้างเวิร์กสเปซใหม่เพื่อเริ่มใช้แชท งาน และคำขออนุมัติ หรือเปิดลิงก์เชิญที่ได้รับ",
     "workspace.current": "เวิร์กสเปซปัจจุบัน:",
     "workspace.createTitle": "สร้างเวิร์กสเปซ",
     "workspace.name": "ชื่อเวิร์กสเปซ",
@@ -256,9 +257,10 @@ export const messages = {
     "register.passwordHint": "8 to 128 characters",
     "register.emailTaken": "An account with this email already exists",
 
-    "workspace.switch": "Workspace",
+    "workspace.switch": "Workspace {name}",
     "workspace.new": "New workspace",
     "workspace.none": "You are not in any workspace yet.",
+    "workspace.noneBody": "Create a workspace to start using chat, tasks and approvals, or open an invite link you were sent.",
     "workspace.current": "Current workspace:",
     "workspace.createTitle": "Create a workspace",
     "workspace.name": "Workspace name",

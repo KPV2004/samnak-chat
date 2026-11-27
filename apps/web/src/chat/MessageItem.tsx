@@ -116,7 +116,13 @@ export const MessageItem = memo(function MessageItem({ message: m, channelId, in
         </div>
       )}
       {newLine && (
-        <div role="separator" aria-label={t("chat.newMessages")} className="my-2 flex items-center gap-2 px-2 md:px-3">
+        <div
+          role="separator"
+          aria-label={t("chat.newMessages")}
+          tabIndex={-1}
+          data-unread-divider=""
+          className="my-2 flex items-center gap-2 px-2 outline-none md:px-3"
+        >
           <span className="h-px flex-1 bg-primary/40" aria-hidden="true" />
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{t("chat.newMessages")}</span>
         </div>

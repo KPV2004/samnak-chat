@@ -1,6 +1,7 @@
 import type { Channel } from "@samnak/core";
 import { useQuery } from "@tanstack/react-query";
-import { Link2, Users } from "lucide-react";
+import { ArrowLeft, Link2, Users } from "lucide-react";
+import { Link } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -31,6 +32,14 @@ export function ChannelHeader({ channel }: { channel: Channel }) {
 
   return (
     <header className="flex min-h-14 shrink-0 items-center gap-3 border-b px-4 py-2">
+      {/* On a phone the channel fills the screen, so its own header carries the way back to the list. */}
+      <Link
+        to="/chat"
+        aria-label={t("chat.back")}
+        className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors duration-150 hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+      >
+        <ArrowLeft aria-hidden="true" className="size-5" />
+      </Link>
       <ConversationAvatar channel={channel} title={title} tone="page" className="size-9" />
       <div className="grid min-w-0 flex-1">
         <h1 className="text-base leading-snug font-semibold">{title}</h1>

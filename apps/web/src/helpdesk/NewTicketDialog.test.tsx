@@ -33,7 +33,9 @@ function routes(extra: Routes = {}): Routes {
 
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("button", { name: "New ticket" }));
-  return screen.findByRole("dialog", { name: "New ticket" });
+  const dialog = await screen.findByRole("dialog", { name: "New ticket" });
+  await user.click(within(dialog).getByRole("button", { name: "More options" }));
+  return dialog;
 }
 
 describe("attachments in the new-ticket dialog", () => {

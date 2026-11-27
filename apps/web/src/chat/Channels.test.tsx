@@ -111,6 +111,7 @@ describe("create a channel", () => {
       }),
     });
     await user.type(await screen.findByLabelText("Channel name"), "ops");
+    await user.click(screen.getByRole("button", { name: "More options" }));
     await user.type(screen.getByLabelText("Topic (optional)"), "On call");
     await user.click(await screen.findByRole("checkbox", { name: "Somchai" }));
     await user.click(screen.getByRole("button", { name: "Create channel" }));

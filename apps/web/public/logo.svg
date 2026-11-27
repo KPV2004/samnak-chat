@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64" role="img" aria-label="Samnak Chat">
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="#08717d"/>
+  <path d="M18 24h28a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H30l-8 7v-7h-4a4 4 0 0 1-4-4V28a4 4 0 0 1 4-4z" fill="#ffffff"/>
+  <circle cx="26" cy="34" r="2.6" fill="#08717d"/>
+  <circle cx="34" cy="34" r="2.6" fill="#08717d"/>
+  <circle cx="42" cy="34" r="2.6" fill="#08717d"/>
+  <text x="78" y="41" font-family="'Host Grotesk','IBM Plex Sans Thai',system-ui,sans-serif" font-size="24" font-weight="600" fill="#283233">Samnak Chat</text>
+</svg>

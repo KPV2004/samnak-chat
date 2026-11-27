@@ -18,6 +18,8 @@ function page<K extends string>(load: () => Promise<Record<K, ComponentType>>, n
   return lazy(() => load().then((m) => ({ default: m[name] })));
 }
 
+const Home = page(() => import("./home/Home"), "Home");
+const Projects = page(() => import("./project/Projects"), "Projects");
 const ChatLayout = page(() => import("./chat/ChatLayout"), "ChatLayout");
 const ChatHome = page(() => import("./chat/ChatLayout"), "ChatHome");
 const BrowseChannels = page(() => import("./chat/BrowseChannels"), "BrowseChannels");
@@ -49,8 +51,7 @@ export function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<Shell />}>
-        {/* The home page is Messenger; the rail picks the app from there. */}
-        <Route index element={<Navigate to="/chat" replace />} />
+        <Route index element={<Home />} />
         <Route path="chat" element={<ChatLayout />}>
           <Route index element={<ChatHome />} />
           <Route path="browse" element={<BrowseChannels />} />
@@ -59,6 +60,7 @@ export function App() {
           <Route path=":channelId" element={<ChannelPage />} />
         </Route>
         <Route path="tasks" element={<MyTasks />} />
+        <Route path="projects" element={<RequireModule name="project"><Projects /></RequireModule>} />
         <Route path="helpdesk" element={<RequireModule name="helpdesk"><Helpdesk /></RequireModule>} />
         <Route path="helpdesk/settings" element={<RequireModule name="helpdesk"><HelpdeskSettings /></RequireModule>} />
         <Route path="helpdesk/:ticketId" element={<RequireModule name="helpdesk"><HelpdeskTicket /></RequireModule>} />

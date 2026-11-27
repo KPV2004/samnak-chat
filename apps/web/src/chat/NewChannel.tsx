@@ -9,6 +9,7 @@ import { Page } from "../components/Page";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
 import { useChat } from "../state/chat";
+import { MoreOptions } from "../components/MoreOptions";
 import { MemberChoice } from "./MemberChoice";
 
 export function NewChannel() {
@@ -61,13 +62,6 @@ export function NewChannel() {
           hint={t("chat.new.nameHint")}
           error={nameError ? t("chat.new.nameRequired") : undefined}
         />
-        <Field
-          label={t("chat.new.topic")}
-          name="topic"
-          value={topic}
-          maxLength={250}
-          onChange={(e) => setTopic(e.target.value)}
-        />
         <fieldset className="grid gap-2">
           <legend className="text-sm font-medium">{t("chat.new.visibility")}</legend>
           {(["public", "private"] as const).map((option) => (
@@ -86,7 +80,16 @@ export function NewChannel() {
             </label>
           ))}
         </fieldset>
-        <MemberChoice legend={t("chat.new.people")} selected={people} onChange={setPeople} empty={t("chat.dm.empty")} />
+        <MoreOptions>
+          <Field
+            label={t("chat.new.topic")}
+            name="topic"
+            value={topic}
+            maxLength={250}
+            onChange={(e) => setTopic(e.target.value)}
+          />
+          <MemberChoice legend={t("chat.new.people")} selected={people} onChange={setPeople} empty={t("chat.dm.empty")} />
+        </MoreOptions>
         <FormError message={create.isError ? t(errorKey(create.error, { 409: "chat.new.nameTaken" })) : null} />
         <div>
           <Button type="submit" disabled={create.isPending || !chat}>

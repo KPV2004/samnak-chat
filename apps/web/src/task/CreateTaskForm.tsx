@@ -5,7 +5,9 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormError } from "../components/FormError";
+import { MoreOptions } from "../components/MoreOptions";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 import { toReadable } from "../chat/mentions";
 import { useNameOf } from "../chat/names";
 import { Field } from "../components/Field";
@@ -40,6 +42,7 @@ export function CreateTaskForm({ message, channelId, onDone }: Props) {
   const [assigneeId, setAssigneeId] = useState("");
   const [due, setDue] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("normal");
+  const [description, setDescription] = useState("");
   const [titleError, setTitleError] = useState<MessageKey | null>(null);
   const [failed, setFailed] = useState<MessageKey | null>(null);
   const [saving, setSaving] = useState(false);
@@ -67,6 +70,7 @@ export function CreateTaskForm({ message, channelId, onDone }: Props) {
         title: clean,
         source_message_id: message.id,
         priority,
+        ...(description.trim() ? { description: description.trim() } : {}),
         ...(assigneeId ? { assignee_id: assigneeId } : {}),
         // The end of the chosen day, in the sender's time zone.
         ...(due ? { due_at: new Date(`${due}T23:59:59`).toISOString() } : {}),
@@ -126,6 +130,24 @@ export function CreateTaskForm({ message, channelId, onDone }: Props) {
               </NativeSelect>
             )}
           </Field>
+          <MoreOptions>
+            <Field label={t("task.description")}>
+              {({ id, describedBy }) => (
+                <Textarea
+                  id={id}
+                  aria-describedby={describedBy}
+                  rows={3}
+                  maxLength={4000}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              )}
+            </Field>
+            <div className="grid gap-1">
+              <p className="m-0 text-sm font-medium">{t("task.files")}</p>
+              <p className="m-0 text-sm text-muted-foreground">{t("task.files.disabled")}</p>
+            </div>
+          </MoreOptions>
           <FormError message={failed ? t(failed) : null} />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onDone}>

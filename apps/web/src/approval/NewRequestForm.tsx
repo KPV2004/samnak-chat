@@ -7,6 +7,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "../components/Field";
 import { FormError } from "../components/FormError";
+import { MoreOptions } from "../components/MoreOptions";
 import type { MessageKey } from "../i18n/messages";
 import { useT } from "../i18n/useT";
 import { errorKey } from "../lib/errors";
@@ -173,19 +174,6 @@ export function NewRequestForm({ onDone }: Props) {
           </NativeSelect>
         )}
       </Field>
-      <Field label={t("approval.approver")}>
-        {({ id, describedBy }) => (
-          <NativeSelect id={id} name="approver_id" defaultValue="" aria-describedby={describedBy} containerClassName="w-full">
-            <option value="">{t("approval.approverDefault")}</option>
-            {approvers.map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {m.display_name || m.email}
-              </option>
-            ))}
-          </NativeSelect>
-        )}
-      </Field>
-
       {type === "leave" ? (
         <>
           <Field label={t("approval.leaveType")}>
@@ -241,6 +229,19 @@ export function NewRequestForm({ onDone }: Props) {
         </>
       )}
 
+      <MoreOptions>
+      <Field label={t("approval.approver")}>
+        {({ id, describedBy }) => (
+          <NativeSelect id={id} name="approver_id" defaultValue="" aria-describedby={describedBy} containerClassName="w-full">
+            <option value="">{t("approval.approverDefault")}</option>
+            {approvers.map((m) => (
+              <option key={m.user_id} value={m.user_id}>
+                {m.display_name || m.email}
+              </option>
+            ))}
+          </NativeSelect>
+        )}
+      </Field>
       <Field
         label={t("approval.attachments")}
         type="file"
@@ -275,6 +276,8 @@ export function NewRequestForm({ onDone }: Props) {
           ))}
         </ul>
       )}
+      </MoreOptions>
+
 
       <FormError message={error} />
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

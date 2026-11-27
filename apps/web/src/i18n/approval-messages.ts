@@ -85,6 +85,9 @@ export const approvalEn = {
   "approval.toast.rejected": "Request rejected",
   "approval.toast.cancelled": "Request cancelled",
   "approval.toast.sent": "Request sent",
+  "approval.quick.undo": "Undo",
+  "approval.quick.sent": "Approved · Undo within {n} seconds",
+  "approval.quick.failed": "That did not work. Try again.",
 };
 
 export const approvalTh = {
@@ -171,4 +174,7 @@ export const approvalTh = {
   "approval.toast.rejected": "ไม่อนุมัติคำขอแล้ว",
   "approval.toast.cancelled": "ยกเลิกคำขอแล้ว",
   "approval.toast.sent": "ส่งคำขอแล้ว",
+  "approval.quick.undo": "ยกเลิก",
+  "approval.quick.sent": "อนุมัติแล้ว · ยกเลิกได้ {n} วินาที",
+  "approval.quick.failed": "ส่งคำขอไม่สำเร็จ ลองอีกครั้ง",
 };

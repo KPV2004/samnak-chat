@@ -12,123 +12,116 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Tokens. Colours are oklch. The palette is the one dealt by the design skill for a software
- * product ("mint-pink-accounts": off-white ground, near-black ink, green accent #1f6b3a), turned
- * into tokens. Surfaces and text are neutral; every dark surface (the workspace rail, the sidebar
- * and the top bar) carries a faint green tint (hue 151) so the chrome and the accent belong together.
- * The only saturated colour is the green --primary: the one main action per view, links, focus
- * rings and the current item. Status colours (destructive, success, warning) are for state only.
+ * Tokens, exported from design.md §2.8 (Samnak Teal). The hex values are the design source of
+ * truth; every UI colour reads one of these semantic names, so nothing hard-codes a brand value.
+ * Surfaces are neutral, --primary is the single main action per view, and the status colours are
+ * only for state. There is one light left column; the former dark rail is gone.
  */
 :root {
   --radius: 0.5rem;
 
-  --background: oklch(0.979 0 0);
-  --foreground: oklch(0.17 0.004 151);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.17 0.004 151);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.17 0.004 151);
+  --background: #f9fafb;
+  --foreground: #283233;
+  --card: #ffffff;
+  --card-foreground: #283233;
+  --popover: #ffffff;
+  --popover-foreground: #283233;
 
-  --primary: oklch(0.469 0.108 151);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.945 0.003 151);
-  --secondary-foreground: oklch(0.22 0.004 151);
+  --primary: #08717d;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f6f6;
+  --secondary-foreground: #283233;
 
   /* `bg-muted` and `bg-accent` read these two. */
-  --muted-surface: oklch(0.953 0.002 151);
-  --muted-foreground: oklch(0.5 0.006 151);
-  --accent-surface: oklch(0.93 0.006 151);
-  --accent-foreground: oklch(0.17 0.004 151);
+  --muted-surface: #f3f6f6;
+  --muted-foreground: #4f5d5f;
+  --accent-surface: #e5eaeb;
+  --accent-foreground: #283233;
 
-  --destructive: oklch(0.55 0.21 27);
-  --success: oklch(0.5 0.13 155);
-  --warning: oklch(0.55 0.13 70);
+  --destructive: #dc2626;
+  --success: #15803d;
+  --warning: #b45309;
+  --info: #1d4ed8;
 
-  --border: oklch(0.91 0.003 151);
-  --input: oklch(0.8 0.004 151);
-  --ring: oklch(0.469 0.108 151);
+  --border: #e5eaeb;
+  --input: #647578;
+  --ring: #08717d;
 
-  /* The dark chrome: workspace rail and top bar, then the sidebar, a step lighter. */
-  --rail: oklch(0.2 0.028 151);
-  --sidebar: oklch(0.25 0.03 151);
-  --sidebar-foreground: oklch(0.97 0.006 151);
-  --sidebar-primary: oklch(0.91 0.06 151);
-  --sidebar-primary-foreground: oklch(0.2 0.04 151);
-  --sidebar-accent: oklch(1 0 0 / 9%);
-  --sidebar-accent-foreground: oklch(0.99 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.86 0.1 151);
+  /* One light left column: the same surface as the page, separated by its border. */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #283233;
+  --sidebar-primary: #d8f5f8;
+  --sidebar-primary-foreground: #055c66;
+  --sidebar-accent: #f3f6f6;
+  --sidebar-accent-foreground: #283233;
+  --sidebar-border: #e5eaeb;
+  --sidebar-ring: #08717d;
 
-  --chart-1: oklch(0.469 0.108 151);
-  --chart-2: oklch(0.6 0.12 200);
-  --chart-3: oklch(0.65 0.15 120);
-  --chart-4: oklch(0.7 0.15 80);
-  --chart-5: oklch(0.6 0.2 25);
+
+  --chart-1: #08717d;
+  --chart-2: #159dac;
+  --chart-3: #65a30d;
+  --chart-4: #d97706;
+  --chart-5: #dc2626;
+
+  /* Motion and layers (design.md §4.1, §4.3). Tailwind v4 has no namespace: use duration-(--duration-base). */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --z-base: 0;
+  --z-sticky: 100;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-dropdown: 500;
+  --z-toast: 600;
+  --z-tooltip: 700;
 }
 
 .dark {
-  --background: oklch(0.215 0.005 151);
-  --foreground: oklch(0.95 0.004 151);
-  --card: oklch(0.245 0.006 151);
-  --card-foreground: oklch(0.95 0.004 151);
-  --popover: oklch(0.265 0.007 151);
-  --popover-foreground: oklch(0.95 0.004 151);
+  --background: #0c1213;
+  --foreground: #f3f6f6;
+  --card: #151e20;
+  --card-foreground: #f3f6f6;
+  --popover: #151e20;
+  --popover-foreground: #f3f6f6;
 
-  --primary: oklch(0.76 0.14 151);
-  --primary-foreground: oklch(0.17 0.03 151);
-  --secondary: oklch(0.29 0.008 151);
-  --secondary-foreground: oklch(0.95 0.004 151);
+  --primary: #34c5d5;
+  --primary-foreground: #151e20;
+  --secondary: #243032;
+  --secondary-foreground: #f3f6f6;
 
-  --muted-surface: oklch(0.28 0.007 151);
-  --muted-foreground: oklch(0.73 0.01 151);
-  --accent-surface: oklch(0.32 0.01 151);
-  --accent-foreground: oklch(0.95 0.004 151);
+  --muted-surface: #243032;
+  --muted-foreground: #9eacae;
+  --accent-surface: #2f3c3e;
+  --accent-foreground: #f3f6f6;
 
-  --destructive: oklch(0.68 0.19 25);
-  --success: oklch(0.74 0.15 155);
-  --warning: oklch(0.8 0.14 80);
+  --destructive: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #93c5fd;
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 18%);
-  --ring: oklch(0.76 0.14 151);
+  --border: #3c4849;
+  --input: #647578;
+  --ring: #34c5d5;
 
-  --rail: oklch(0.14 0.02 151);
-  --sidebar: oklch(0.175 0.022 151);
-  --sidebar-foreground: oklch(0.95 0.006 151);
-  --sidebar-primary: oklch(0.88 0.07 151);
-  --sidebar-primary-foreground: oklch(0.18 0.04 151);
-  --sidebar-accent: oklch(1 0 0 / 8%);
-  --sidebar-accent-foreground: oklch(0.99 0 0);
-  --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.84 0.1 151);
+  --sidebar: #151e20;
+  --sidebar-foreground: #f3f6f6;
+  --sidebar-primary: #054a51;
+  --sidebar-primary-foreground: #d8f5f8;
+  --sidebar-accent: #243032;
+  --sidebar-accent-foreground: #f3f6f6;
+  --sidebar-border: #3c4849;
+  --sidebar-ring: #34c5d5;
 
-  --chart-1: oklch(0.76 0.14 151);
-  --chart-2: oklch(0.72 0.12 200);
-  --chart-3: oklch(0.78 0.14 120);
-  --chart-4: oklch(0.8 0.14 80);
-  --chart-5: oklch(0.7 0.18 25);
-}
 
-/*
- * The dark chrome. Put `on-rail` on the workspace rail, the top bar, the sidebar and the mobile
- * sheet: everything inside re-reads the neutral tokens as light-on-dark, so a ghost button, a
- * badge or a muted label needs no `dark:` class of its own. Portalled content (menus, tooltips,
- * dialogs) sits outside it and keeps the page's tokens. It looks the same in light and dark mode.
- */
-.on-rail {
-  color: var(--sidebar-foreground);
-  --foreground: var(--sidebar-foreground);
-  --muted-foreground: oklch(0.8 0.02 151);
-  --accent-surface: var(--sidebar-accent);
-  --accent-foreground: var(--sidebar-accent-foreground);
-  --secondary: oklch(1 0 0 / 15%);
-  --secondary-foreground: oklch(0.99 0 0);
-  --border: var(--sidebar-border);
-  --input: oklch(1 0 0 / 24%);
-  --ring: var(--sidebar-ring);
-  --primary: var(--sidebar-primary);
-  --primary-foreground: var(--sidebar-primary-foreground);
-  --destructive: oklch(0.7 0.18 25);
+  --chart-1: #34c5d5;
+  --chart-2: #79d7e2;
+  --chart-3: #a3e635;
+  --chart-4: #fbbf24;
+  --chart-5: #f87171;
 }
 
 @theme inline {
@@ -152,6 +145,7 @@
   --color-destructive: var(--destructive);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-info: var(--info);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -160,7 +154,6 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --color-rail: var(--rail);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -197,7 +190,7 @@
     line-height: 1.6;
   }
 
-  /* Native menus draw their own white or dark list, so options keep the page's colours even inside .on-rail. */
+  /* Native menus draw their own white or dark list, so options keep the page's colours. */
   option {
     background-color: var(--popover);
     color: var(--popover-foreground);

@@ -57,6 +57,7 @@ describe("create ticket from a message", () => {
     const item = (await screen.findByText("The printer on floor 3 is jammed")).closest("li")!;
     await user.click(await within(item).findByRole("button", { name: "Create ticket" }));
     const dialog = await screen.findByRole("dialog", { name: "New ticket" });
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
     expect(within(dialog).getByRole("textbox", { name: "Details" })).toHaveValue("The printer on floor 3 is jammed");
   });
 
@@ -70,6 +71,7 @@ describe("create ticket from a message", () => {
     const item = (await screen.findByText("@Somchai")).closest("li")!;
     await user.click(await within(item).findByRole("button", { name: "Create ticket" }));
     const dialog = await screen.findByRole("dialog", { name: "New ticket" });
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
     expect(within(dialog).getByRole("textbox", { name: "Details" })).toHaveValue("@Somchai the printer is jammed");
   });
 
